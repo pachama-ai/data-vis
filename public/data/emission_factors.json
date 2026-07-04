@@ -1,0 +1,14 @@
+{
+  "biomasse": 230,
+  "wasserkraft": 0,
+  "windOnshore": 0,
+  "windOffshore": 0,
+  "solar": 0,
+  "sonstigeErneuerbare": 100,
+  "kernenergie": 0,
+  "braunkohle": 1075,
+  "steinkohle": 835,
+  "erdgas": 411,
+  "sonstigeKonventionelle": 750,
+  "pumpspeicher": 0
+}

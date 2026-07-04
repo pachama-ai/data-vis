@@ -1,0 +1,24 @@
+{
+  "name": "data-vis",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "pipeline:hourly": "bun run scripts/build_hourly.mjs",
+    "pipeline:yearly": "bun run scripts/build_yearly.mjs",
+    "pipeline": "bun run scripts/build_hourly.mjs; bun run scripts/build_yearly.mjs",
+    "download:prices": "bun run scripts/download-prices.js",
+    "download:smard": "bun run scripts/download-smard.js",
+    "validate": "bun run scripts/validate-data.mjs"
+  },
+  "dependencies": {
+    "d3": "^7.9.0",
+    "nuxt": "3"
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3"
+  }
+}

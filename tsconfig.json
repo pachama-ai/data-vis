@@ -1,0 +1,9 @@
+{
+  // tsconfig.json — Erweitert das von Nuxt generierte TSConfig aus .nuxt/.
+  // Nuxt generiert automatisch Pfad-Aliase (~/ und @/) und Module-Auflösung.
+  "extends": "./.nuxt/tsconfig.json",
+  "exclude": [
+    "dist",
+    "node_modules"
+  ]
+}

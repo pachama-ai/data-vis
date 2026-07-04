@@ -1,0 +1,202 @@
+[
+  {
+    "year": 2015,
+    "sources": {
+      "lignite": 132238616.6,
+      "nuclear": 83143818.99,
+      "wind_offshore": 8092552.55,
+      "hydro": 13918477.48,
+      "other_fossil": 10298174.89,
+      "other_renewables": 1786529.39,
+      "biomass": 39184557.25,
+      "wind_onshore": 69220047.69,
+      "pv": 34578299.47,
+      "hardcoal": 80652994.39,
+      "pumped_storage": 8101767.71,
+      "gas": 15081397.56
+    },
+    "avg_co2": 472.7,
+    "avg_ee_share": 33.1,
+    "neg_stunden": 109
+  },
+  {
+    "year": 2016,
+    "sources": {
+      "lignite": 129701045.65,
+      "nuclear": 79839936.26,
+      "wind_offshore": 12038670.62,
+      "hydro": 17928264.45,
+      "other_fossil": 13673660.75,
+      "other_renewables": 1820560.6,
+      "biomass": 40848466.25,
+      "wind_onshore": 66056937.24,
+      "pv": 34797238.95,
+      "hardcoal": 80494180.87,
+      "pumped_storage": 8066742.04,
+      "gas": 22769965.59
+    },
+    "avg_co2": 467.9,
+    "avg_ee_share": 33.7,
+    "neg_stunden": 97
+  },
+  {
+    "year": 2017,
+    "sources": {
+      "lignite": 128510749.66,
+      "nuclear": 71780815.62,
+      "wind_offshore": 17301289.4,
+      "hydro": 15510755.55,
+      "other_fossil": 15687276.64,
+      "other_renewables": 1713648.7,
+      "biomass": 40326824.7,
+      "wind_onshore": 85486978.12,
+      "pv": 35550920.11,
+      "hardcoal": 65579104.89,
+      "pumped_storage": 8562534.02,
+      "gas": 25419127.25
+    },
+    "avg_co2": 445.3,
+    "avg_ee_share": 37.5,
+    "neg_stunden": 147
+  },
+  {
+    "year": 2018,
+    "sources": {
+      "lignite": 97449119.94,
+      "nuclear": 52768108.4,
+      "wind_offshore": 12610799.13,
+      "hydro": 12346696.35,
+      "other_fossil": 11036328.75,
+      "other_renewables": 1148666.85,
+      "biomass": 29173876.67,
+      "wind_onshore": 60327575.92,
+      "pv": 36703698.08,
+      "hardcoal": 51102059.74,
+      "pumped_storage": 6460203.96,
+      "gas": 29298954.25
+    },
+    "avg_co2": 442.1,
+    "avg_ee_share": 37.3,
+    "neg_stunden": 106
+  },
+  {
+    "year": 2019,
+    "sources": {
+      "lignite": 102301748.5,
+      "nuclear": 70748001.5,
+      "wind_offshore": 24277871,
+      "hydro": 16403090.25,
+      "other_fossil": 13170584.25,
+      "other_renewables": 1551324.5,
+      "biomass": 39318125,
+      "wind_onshore": 99394240,
+      "pv": 41532861,
+      "hardcoal": 47634434.5,
+      "pumped_storage": 8582794.5,
+      "gas": 54404758.75
+    },
+    "avg_co2": 372,
+    "avg_ee_share": 42.2,
+    "neg_stunden": 211
+  },
+  {
+    "year": 2020,
+    "sources": {
+      "lignite": 82975842.75,
+      "nuclear": 60616922.25,
+      "wind_offshore": 26741283.75,
+      "hydro": 15867609.25,
+      "other_fossil": 12686743.75,
+      "other_renewables": 1593605,
+      "biomass": 39761478.75,
+      "wind_onshore": 102570331.75,
+      "pv": 45615320.25,
+      "hardcoal": 34688517.5,
+      "pumped_storage": 10756747,
+      "gas": 67284132.5
+    },
+    "avg_co2": 332.4,
+    "avg_ee_share": 45.4,
+    "neg_stunden": 297
+  },
+  {
+    "year": 2021,
+    "sources": {
+      "lignite": 97845735.75,
+      "nuclear": 65161827.25,
+      "wind_offshore": 23935533.75,
+      "hydro": 14830399.5,
+      "other_fossil": 13050004,
+      "other_renewables": 1426518.5,
+      "biomass": 38093540.5,
+      "wind_onshore": 89293739,
+      "pv": 46096569.5,
+      "hardcoal": 51645797,
+      "pumped_storage": 8229465.75,
+      "gas": 59895453
+    },
+    "avg_co2": 382.5,
+    "avg_ee_share": 40.9,
+    "neg_stunden": 139
+  },
+  {
+    "year": 2022,
+    "sources": {
+      "lignite": 103160787.25,
+      "nuclear": 32703063.75,
+      "wind_offshore": 24644691.5,
+      "hydro": 12761084.75,
+      "other_fossil": 11474679.25,
+      "other_renewables": 1285665.5,
+      "biomass": 37599616.75,
+      "wind_onshore": 100544003.5,
+      "pv": 55544477.5,
+      "hardcoal": 62672599.25,
+      "pumped_storage": 10124033.5,
+      "gas": 45619012.25
+    },
+    "avg_co2": 413.7,
+    "avg_ee_share": 45.1,
+    "neg_stunden": 70
+  },
+  {
+    "year": 2023,
+    "sources": {
+      "lignite": 77553356.5,
+      "nuclear": 6707270.25,
+      "wind_offshore": 23452938,
+      "hydro": 14963626,
+      "other_fossil": 16297101,
+      "other_renewables": 1200582.25,
+      "biomass": 37154573.25,
+      "wind_onshore": 118577242.5,
+      "pv": 55399580.75,
+      "hardcoal": 39588232.25,
+      "pumped_storage": 10126376.5,
+      "gas": 50898636.5
+    },
+    "avg_co2": 360.2,
+    "avg_ee_share": 54.5,
+    "neg_stunden": 294
+  },
+  {
+    "year": 2024,
+    "sources": {
+      "lignite": 70725323,
+      "nuclear": 0,
+      "wind_offshore": 25465426,
+      "hydro": 17457138.25,
+      "other_fossil": 15748532,
+      "other_renewables": 1052530.25,
+      "biomass": 35988647.75,
+      "wind_onshore": 111483426,
+      "pv": 62702454.75,
+      "hardcoal": 27228930.5,
+      "pumped_storage": 10361205.5,
+      "gas": 56679680.5
+    },
+    "avg_co2": 342.5,
+    "avg_ee_share": 56.7,
+    "neg_stunden": 448
+  }
+]
