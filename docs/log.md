@@ -625,12 +625,195 @@ residuallast (GW) = (load_mwh - (wind_onshore + wind_offshore + pv + biomass + h
 
 ---
 
-## 18. Naechste Schritte / Ausstehende Aufgaben
+## 18. ScatterAnalysis-Komponente (components/viz/ScatterAnalysis.vue)
+
+### Konzept
+
+Die Zusammenhaenge zwischen verschiedenen Metriken werden in einem Scatterplot dargestellt. Der Nutzer kann X-Achse, Y-Achse und Farbkodierung aus sechs Metriken frei waehlen. Eine OLS-Regressionslinie mit Pearson-Korrelation und R² zeigt den linearen Zusammenhang.
+
+### Achsen-Optionen
+
+| Metrik | Einheit | Verwendung |
+|---|---|---|
+| EE-Anteil | % | X, Y, Farbe |
+| CO2-Intensitaet | g/kWh | X, Y, Farbe |
+| Day-Ahead-Preis | EUR/MWh | X, Y, Farbe |
+| Fossiler Anteil | % | X, Y, Farbe |
+| Last | GW | X, Y, Farbe |
+| Stunde des Tages | (0-23) | X, Y |
+
+### Rendering-Strategie (Performance)
+
+**Canvas statt SVG** fuer die Punktwolke, weil bis zu 84.987 Punkte noetig sind. Ein SVG mit fast 85k Kreisen wuerde den DOM-Baum aufblahen und das Reflowing verlangsamen. Canvas zeichnet die Punkte direkt auf eine Bitmap und beansprucht den Haupt-Thread nur beim Zeichnen, nicht danach.
+
+**SVG-Overlay** fuer Achsen, Regressionslinie und Labels, weil D3-Achsen und Text in Canvas deutlich aufwaendiger zu implementieren waeren und hier kaum Performance-Last erzeugen (weniger als 50 DOM-Elemente).
+
+**Alpha-Skalierung:** Bei < 5.000 Punkten alpha=0.35, bei > 20.000 alpha=0.15. Das verhindert, dass dichte Regionen komplett schwarz erscheinen, und erhaelt die Farbinformation auch bei hoher Punktdichte.
+
+**Ausreisser:** Punkte, deren X- oder Y-Wert mehr als zwei Standardabweichungen vom Mittelwert entfernt liegen, werden mit einem schwarzen Rand markiert. Nicht-Ausreisser werden blasser dargestellt, um den Kontrast zu erhoehen.
+
+### Statistik
+
+- **Pearson-Korrelation r:** Misst den linearen Zusammenhang zwischen X und Y. Werte von -1 bis 1. -0.76 bei EE vs CO2 bedeutet einen starken negativen linearen Zusammenhang.
+- **R²:** Gibt an, wieviel der Varianz in Y durch X erklaert wird (0-1).
+- **OLS-Regression:** `y = a*x + b`. Einfachste lineare Regression, minimiert die quadrierten Abstaende.
+
+**Warum Pearson, nicht Spearman?** Die Achsen sind frei waehlbar, aber die typischen Zusammenhaenge (EE-Anteil vs CO2, CO2 vs Preis) sind erwartungsgemaess linear oder zumindest monoton. Pearson ist der Standard fuer lineare Zusammenhaenge und ermoeglicht die Interpretation von R² (erklaerte Varianz). Spearman waere besser bei rein monotonen, nicht-linearen Zusammenhaengen, aber dafuer gibt es hier keine Anwendungsfaelle.
+
+**Kein d3-hexbin:** Der Benutzer hatte hexbin fuer > 20.000 Punkte vorgeschlagen. Das Canvas-Rendering mit reduziertem Alpha (0.15) erzeugt bei 85k Punkten bereits eine visuelle Dichtekarte ohne zusaetzliche Abhaengigkeit. Ein Hexbin-Overlay koennte spaeter als Verstaerkung hinzugefuegt werden, indem `d3-hexbin` installiert wird (`bun add d3-hexbin`).
+
+---
+
+## 19. Dashboard: KPI-Karten + Seiten-Komposition
+
+### KpiCard (components/dashboard/KpiCard.vue)
+
+Wiederverwendbare Karte fuer eine Kennzahl. Props:
+- `title` – Bezeichnung
+- `value` – formatierter Wert (z.B. "53,3")
+- `unit` – Einheit (z.B. "%")
+- `sparklineData` – Array von Zahlen fuer den Mini-Liniendiagramm (10 Jahre)
+- `deltaLabel` – Vergleichstext (z.B. "+27,8 PP vs. 2015")
+- `deltaPositive` – true = Anstieg ist positiv (gruen), false = Abfall ist positiv (gruen)
+
+Der Sparkline-Chart wird mit D3 gerendert: Linie in Akzent-gruen, leichter Verlaufsfuellung darunter, letzter Punkt als Kreis hervorgehoben.
+
+### pages/dashboard.vue (Dashboard-Seite)
+
+Die Seite wurde vom Platzhalter zu einer vollstaendigen Dashboard-Komposition ausgebaut:
+
+```
+┌─────────────────────────────────────────────────┐
+│  DashboardFilterBar                              │
+├─────────────────────────────────────────────────┤
+│  KPI 1  │  KPI 2  │  KPI 3  │  KPI 4           │
+├─────────────────────────────────────────────────┤
+│  VizStackedArea (Erzeugungsmix)                  │
+├─────────────────────────────────────────────────┤
+│  VizHeatmapCO2 (CO2-Heatmap)                     │
+├─────────────────────────────────────────────────┤
+│  VizScatterAnalysis (Zusammenhaenge)              │
+├─────────────────────────────────────────────────┤
+│  VizDuckCurve (Tagesprofile)                     │
+└─────────────────────────────────────────────────┘
+```
+
+**Datenfluss:**
+1. `useData().loadHourly()` + `loadYearly()` werden beim Mount aufgerufen
+2. `useFilters().filteredHours(hourly)` erzeugt reaktiven Computed
+3. KPIs werden aus den Rohdaten berechnet (Mittelwerte, Summen, Sparklines)
+4. Jede Viz-Komponente bekommt `:data="filtered"` (ausser DuckCurve, die alle Daten bekommt)
+5. Die FilterBar schreibt direkt in `useFilters().state`
+
+### Vier KPIs im Dashboard
+
+| KPI | Wert (2015-2024) | Sparkline-Quelle | Delta-Bewertung |
+|---|---|---|---|
+| EE-Anteil (Durchschnitt) | yearly_mix.avg_ee_share | yearly_mix (10 Jahre) | Anstieg = gruen |
+| CO2-Intensitaet (Durchschnitt) | yearly_mix.avg_co2 | yearly_mix (10 Jahre) | Rueckgang = gruen |
+| Day-Ahead-Preis (Durchschnitt) | hourly gemittelt | aus hourly (10 Jahre) | immer grau |
+| Negativ-Stunden | hourly summiert | aus hourly aggregiert | Rueckgang = gruen |
+
+---
+
+## 20. Dashboard-Layout (Finale Komposition)
+
+### Layout-Struktur
+
+Das Dashboard ist als vertikaler Stack mit CSS Grid realisiert:
+
+```
+┌──────────────────────────────────────────────────────────┐
+│  Wovon haengt die Klimabilanz des deutschen Stroms ab?   │
+│  Eine interaktive Analyse ...              [FilterBar]   │
+├──────────────────────────────┬───────────────────────────┤
+│  Viz 1: StackedArea          │  Viz 2: HeatmapCO2        │
+│  (Erzeugungsmix ueber Zeit)  │  (CO2-Heatmap)            │
+├──────────────────────────────┼───────────────────────────┤
+│  Viz 3: ScatterAnalysis      │  Viz 4: DuckCurve         │
+│  (Zusammenhaenge)            │  (Tagesprofile)           │
+├──────────┬──────────┬────────┼──────────┬────────────────┤
+│  KPI 1   │  KPI 2   │  KPI 3 │  KPI 4                   │
+├──────────┴──────────┴────────┴──────────────────────────┤
+│  Footer: Quellenangaben                                  │
+└──────────────────────────────────────────────────────────┘
+```
+
+### Cross-Viz-Verdrahtung
+
+HeatmapCO2 und DuckCurve sind miteinander verbunden:
+1. Nutzer klickt in der Heatmap auf eine Zelle (ein bestimmter Tag)
+2. HeatmapCO2 emittiert `@day-selected` mit ISO-Datum
+3. Dashboard setzt `selectedDay`-Ref
+4. DuckCurve schaltet in den "Konkreter Tag"-Modus und zeigt die Kurven fuer diesen Tag
+
+Die FilterBar schreibt direkt in `useFilters().state`. Alle Viz-Komponenten (ausser DuckCurve) bekommen `:data="filtered"`, das ein Computed auf `filteredHours(hourly)` ist. Aenderungen in der FilterBar wirken sich sofort auf alle Charts aus.
+
+### Datenfluss
+
+```
+useData().loadHourly() ──→ hourly (ref)
+                              │
+                              ├──→ filteredHours(hourly) ──→ filtered (computed)
+                              │       │                        │
+                              │       └── useFilters().state   ├──→ StackedArea
+                              │                                ├──→ HeatmapCO2
+                              │                                └──→ ScatterAnalysis
+                              │
+                              └──→ hourly (direkt) ────────────→ DuckCurve
+```
+
+### Entwurfsbegruendung
+
+**Warum CSS Grid statt Flexbox?** Das Layout hat zwei Achsen: horizontal (zwei Viz-Spalten, vier KPI-Spalten) und vertikal (vier Zeilen). Grid erlaubt es, beide Achsen in einem Container zu definieren, ohne verschachtelte Flex-Container. Die `gap: 16px` sorgt fuer einheitliche Abstaende zwischen allen Karten. Bei Flexbox haette man die vier KPI-Karten in eine eigene Reihe packen muessen, was zusaetzliche Container bedeutet haette.
+
+**Warum die KPIs unter den Charts?** Der Screenshot zeigt die KPIs unten. Das ist bewusst so gewaehlt: der Nutzer sieht zuerst die vier interaktiven Charts (die Hauptinformation), dann die Zusammenfassung als KPI-Zahlen. Waeren die KPIs oben, wuerden sie die Charts nach unten druecken und der Nutzer muesste scrollen, um die Charts zu sehen.
+
+**Warum selectedDay als Prop statt Event-Bus?** Die Verbindung zwischen HeatmapCO2 und DuckCurve ist eine 1:1-Beziehung innerhalb derselben Seite. Ein Prop + Callback dafuer ist der einfachste und TypeScript-sicherste Weg. Ein Event-Bus oder zentraler Store waere hier Overkill, weil kein anderer Teil der App diesen Zustand braucht.
+
+---
+
+## 21. Landing-Seite + RacingBarChart
+
+### RacingBarChart (components/landing/RacingBarChart.vue)
+
+Animierter Balken-Chart auf der Landing-Seite, der den deutschen Strommix von 2015 bis 2024 durchlaeuft.
+
+**Datenbasis:** `public/data/yearly_mix.json` (wird via fetch im Browser geladen).
+
+**Datenaufbereitung:**
+- Die neun Quell-Definitionen aus SOURCE_DEFS (Wind, PV, Braunkohle, etc.) werden auf die Keys in yearly_mix.sources gemappt
+- Wind = wind_onshore + wind_offshore, Sonstige = other_renewables + other_fossil + pumped_storage
+- MWh werden in TWh umgerechnet (Division durch 1.000.000)
+- Pro Jahr werden die Top 8 nach TWh sortiert angezeigt
+
+**Animation:**
+- Startet automatisch 1s nach dem Seitenaufbau
+- Durchlaeuft die Jahre 2015 bis 2024
+- 1s pro Jahr (800ms Transition + 200ms Pause)
+- D3-Key-Join: Jeder Balken hat einen fixen Key (z.B. "lignite"), sodass D3 verfolgen kann, wohin der Balken bei einem Rangwechsel wandern muss
+- Bars wechseln Position durch die Band-Scale: wenn sich die Sortierung aendert, bekommt ein Balken einen neuen y-Wert und gleitet dorthin
+- Grosse Jahreszahl (64px, hellgrau) unten rechts wechselt mit
+- Nach Durchlauf: "Zuruecksetzen"-Button erscheint
+
+**Animations-Strategie:**
+D3s Key-Data-Join ist der zentrale Mechanismus: `data(bars, (d) => d.key)`. Dadurch erkennt D3, welcher Balken aus dem Vorjahr noch existiert (update), welcher neu ist (enter) und welcher verschwunden ist (exit). Die `easeCubicOut`-Easing-Funktion sorgt fuer ein natuerliches Abbremsen am Ende jeder Bewegung, was angenehmer aussieht als lineare Transition. Die Jahreszahl wird separat eingeblendet (opacity-Transition), sodass sie sich von Jahr zu Jahr sanft ueberblendet.
+
+### pages/index.vue
+
+Die Landing-Seite wurde vom Platzhalter zu einer vollstaendigen Einstiegsseite ausgebaut:
+
+- **Headline** (2.8rem / ~45px): "Wovon haengt die Klimabilanz des deutschen Stroms ab?"
+- **Subtitle** (1.1rem / ~18px): Quellenangabe
+- **RacingBarChart** zentriert (700px breit, ~500px hoch)
+- **Projektbeschreibung**: 2 Absaetze als FliessText
+- **Dashboard-Button**: Gruener Button mit Hover-Effekt, NuxtLink zu /dashboard
+- **Footer**: Quellenangaben
+
+---
+
+## 22. Naechste Schritte / Ausstehende Aufgaben
 
 - [ ] **2018-Datenluecke schliessen** durch Fix der Domain-Logik in `download-prices.js`
 - [ ] **Vollstaendigen Stundenindex aufspannen** (left join) in `build_hourly.mjs`
-- [ ] **pages/dashboard.vue** Alle Komponenten einbinden (FilterBar, StackedArea, HeatmapCO2, DuckCurve)
-- [ ] **pages/index.vue** Landing-Seite mit Dashboard-Link ausbauen
-- [ ] **Viz 3**: Jahresbalken negative Preisstunden
-- [ ] **pages/index.vue** Landing-Seite ausbauen
-- [ ] **pages/dashboard.vue** Dashboard mit D3-Charts und FilterBar + Heatmap einbinden
+- [ ] App final testen und ggf. Feinschliff
