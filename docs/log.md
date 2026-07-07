@@ -812,8 +812,830 @@ Die Landing-Seite wurde vom Platzhalter zu einer vollstaendigen Einstiegsseite a
 
 ---
 
-## 22. Naechste Schritte / Ausstehende Aufgaben
+## 22. Layout-Refactoring: Responsives Dashboard
+
+### Problem
+
+Das Dashboard hatte auf 1920px, 1440px und 1366px Breite horizontalen Scroll, weil jede Viz-Komponente eine feste SVG-Breite hatte (700px oder 900px). Die Cards waren breiter als der Viewport, sobald zwei Spalten nebeneinander standen (2 x 700px + 16px Gap = 1416px).
+
+Betroffene Komponenten:
+
+| Komponente | Feste Breite | viewBox | overflow-x |
+|---|---|---|---|
+| StackedArea | WIDTH = 900 | vorhanden | auto |
+| HeatmapCO2 | SVG_W = ~4925px (365 Zellen) | fehlte | auto |
+| ScatterAnalysis | WIDTH = 700 | fehlte | auto |
+| DuckCurve | WIDTH = 700 | vorhanden | auto |
+
+### Massnahmen
+
+**1. Dashboard-Container (pages/dashboard.vue):**
+- `max-width` von 1400px auf 1600px erhoeht
+- `overflow-x: hidden` hinzugefuegt
+- Responsive Media Queries:
+  - Bei < 1200px: Header (Titel + Filter) untereinander
+  - Bei < 1100px: 2x2 Grid -> 1 Spalte, KPI 4->2 Spalten
+  - Bei < 600px: KPI 2->1 Spalte, Padding reduziert
+
+**2. SVGs responsiv gemacht:**
+- Allen SVGs `viewBox` hinzugefuegt (fehlte in HeatmapCO2 und ScatterAnalysis)
+- CSS `width: 100%; height: auto` auf allen Chart-SVGs
+- Dadurch skalieren SVGs auf Containerbreite, aspect ratio bleibt via viewBox erhalten
+
+**3. Horizontal-Scroll reduziert:**
+- `overflow-x: auto` von `display: block` auf Media-Query-Bedingungen verschoben
+- StackedArea, ScatterAnalysis, DuckCurve: Scroll nur < 900px
+- HeatmapCO2: Scroll nur < 1400px (weil 365 Zellen x 13px = 4745px natuerlich breit ist)
+
+**4. ScatterAnalysis Canvas korrigiert:**
+- Absolute Position von `top: 70px; left: 50px` auf `top: 20px; left: 65px` korrigiert
+- Passt jetzt zu MARGIN.top (20) und MARGIN.left (65)
+- Das Canvas lag vorher neben dem Chart statt darueber
+
+**5. FilterBar responsiv:**
+- `flex-wrap: wrap` (war bereits vorhanden, funktioniert jetzt durch Container-Breite)
+- Date-Inputs: `max-width: 45%` statt fixen 140px
+- Padding bei < 1200px reduziert
+
+### Ergebnis
+
+- Kein horizontaler Page-Scroll auf 1920px, 1440px, 1366px
+- Dashboard wirkt wie eine Karten-Komposition (2 Spalten, gleichhoehe Cards)
+- Charts skalieren mit dem Viewport mit
+- Bei Tablet/Mobil klappt das Layout in 1 Spalte um
+- Canvas-Position im Scatter ist korrigiert
+
+### Nachbesserung: Header + FilterBar (06.07.2026)
+
+Nach dem ersten Refactoring war die Ueberschrift links extrem schmal und brach Wort fuer Wort um, weil der Header per Flexbox mit `flex: 1; min-width: 0` auf der Intro-Seite zu stark schrumpfen konnte.
+
+**Fix Header (pages/dashboard.vue):**
+- Flexbox durch CSS Grid ersetzt: `grid-template-columns: minmax(420px, 0.9fr) minmax(720px, 1.6fr)`
+- Linke Spalte (Titel) hat jetzt mindestens 420px Breite, der Titel bricht nicht mehr Wort fuer Wort um
+- Unter 1200px: Grid auf 1 Spalte, Filter unter dem Titel
+
+**Fix FilterBar (FilterBar.vue):**
+- Filterbar visual trennen: `background: transparent`, `border-bottom: none`, `padding: 10px 0`
+- Einheitliche Control-Hoehe von 36px fuer: date-Inputs, Dropdown-Header, Segmented-Toggle, Year-Buttons, More-Button
+- Date-Inputs auf 145px feste Breite (kein `max-width: 45%` mehr)
+- Gap zwischen Filtergruppen von 24px auf 16px reduziert
+- Schriftgroessen einheitlich auf 0.78-0.8rem
+
+---
+
+## 23. Layout-Umbau nach Mockup (06.07.2026)
+
+### Neues Dashboard-Layout
+
+Komplette Neustrukturierung des Dashboards nach dem Mockup-Screenshot:
+
+**Neue Seitenstruktur (von oben nach unten):**
+
+1. **Full-width Header** - Titel gross (clamp 28-44px), Untertitel, Aktualisierungs-Datum rechts. Header steht allein (keine FilterBar daneben).
+2. **FilterCard** - Die FilterBar ist jetzt eine eigene weisse Card mit border-radius: 16px, padding: 16px 20px. Controls alle auf 36px Hoehe vereinheitlicht.
+3. **KPI-Reihe** - Vier KPI-Karten in einer Grid-Zeile. 4 Spalten auf Desktop, 2 unter 900px, 1 unter 600px.
+4. **Viz-Reihe 1** - 2-Spalten-Grid: links StackedArea, rechts ScatterAnalysis. Beide Cards gleich hoch.
+5. **Full-width Heatmap** - HeatmapCO2 als Hero-Visualisierung ueber die volle Breite. ResizeObserver fuer responsive Zellgroessen. Lokaler Saison-Fokus (Ganzes Jahr, Winter, Fruehling, Sommer, Herbst). Monats-Trennlinien.
+6. **Full-width DuckCurve** - DuckCurve ueber volle Breite. WIDTH auf 900 erhoeht, HEIGHT auf 360.
+7. **Footer** - Quellen links, Stack rechts, geteilter Footer.
+
+### Geaenderte Dateien (7)
+
+| Datei | Aenderung |
+|---|---|
+| `assets/css/main.css` | body background auf `#f8fafc` |
+| `pages/dashboard.vue` | Komplett neues Layout (Header full-width, FilterCard, KPI oben, 2-Spalten-Grid, Heatmap full-width, DuckCurve full-width) |
+| `components/dashboard/FilterBar.vue` | Vereinfachtes Card-Layout, 36px Controls, border-radius 8px, #fff Hintergrund |
+| `components/viz/HeatmapCO2.vue` | ResizeObserver fuer responsive Zellgroessen, Saison-Fokus-Buttons, Monats-Trennlinien, dynamische Chart-Hoehe 260px |
+| `components/viz/DuckCurve.vue` | WIDTH 900, HEIGHT 360, border-radius 16px |
+| `components/viz/StackedArea.vue` | HEIGHT 370, border-radius 16px |
+| `components/viz/ScatterAnalysis.vue` | border-radius 16px |
+| `components/dashboard/KpiCard.vue` | border-radius 16px, #fff Hintergrund |
+
+### Heatmap-Aenderungen im Detail
+
+- **ResizeObserver** auf containerRef -> `containerWidth` wird bei Fenster-Aenderung aktualisiert
+- **Zellgroessen dynamisch**: `cellWidth = plotWidth / visibleDays`, `cellHeight = 260 / 24`
+- **Saison-Fokus**: 5 Buttons (Ganzes Jahr, Winter, Fruehling, Sommer, Herbst). Nur lokal fuer die Heatmap. Filtert sichtbare Tage, Skala bleibt gleich.
+- **Monats-Trennlinien**: Senkrechte Linien in #cbd5e1 zwischen Monaten
+- **Stundenlabels**: 00:00, 04:00, 08:00, 12:00, 16:00, 20:00 (alle 4h)
+
+### Einheitlicher Card-Stil
+
+Alle Cards im Dashboard: `background: #fff`, `border: 1px solid #e5e7eb`, `border-radius: 16px`, `box-shadow: none`. Dadurch wirkt das Dashboard wie eine saubere Karten-Komposition auf hellgrauem Hintergrund.
+
+---
+
+## 24. Dashboard-Validierungsskript (scripts/check-dashboard-data.mjs)
+
+### Erstellung (06.07.2026)
+
+Ein unabhaengiges Node.js-Skript, das saemtliche Dashboard-Kennzahlen aus den JSON-Daten berechnet und im Terminal ausgibt. Ermoeglicht den direkten Vergleich mit den Werten im Browser-Dashboard.
+
+**Aufruf:** `bun run check:data`
+
+**Gepruefte Bereiche:**
+1. Grunddaten (Stundenanzahl, Zeitraum, 2025-Pruefung, Stunden pro Jahr mit Soll/Ist)
+2. Preise (Min, Max, Durchschnitt, negative Stunden gesamt + pro Jahr)
+3. CO2 (Min, Max, Durchschnitt, null/NaN/unrealistische Werte)
+4. EE-Anteil (Min, Max, Durchschnitt, Bereich 0-100)
+5. Jahresvergleich hourly vs yearly_mix (EE, CO2, Negativ-Stunden, Abweichung > 0,5% = WARN)
+6. Korrelationen (Pearson r fuer EE/CO2, EE/Preis, CO2/Preis)
+7. Duck-Curve-Check (24h-Profile fuer Sommer und Winter: PV, Residuallast, Preis)
+8. Dashboard-KPI-Vergleich (Zusammenfassung aller Kennzahlen)
+
+### Pruefbericht: Korrelationsabweichung (06.07.2026)
+
+Nachdem der Scatterplot im Dashboard abweichende r-Werte zeigte (vermutet r ≈ -0.62 statt -0.94), wurde der Code analysiert.
+
+**Ergebnis:**
+- Die Pearson-Formel in ScatterAnalysis.vue ist identisch zum check-Skript
+- Die Datenmenge ist korrekt (84.964 von 84.987 Zeilen, 23 Randstunden durch dateRange-Ende 00:00 UTC)
+- r ≈ -0.62 kommt in keiner getesteten Achsen-Kombination vor (naechste: EE vs Stunde = -0.06)
+- Die Korrelation bleibt bei allen Filter-Kombinationen nahe -0.94
+
+**Gefundener Bug in ScatterAnalysis.vue:**
+```js
+// VORHER (falsch):
+const vals = rows.map((r) => ({ x: xFn(r), y: yFn(r) }))
+  .filter((v) => !isNaN(v.x) && !isNaN(v.y))
+return vals.map((v, i) => ({
+  x: v.x,
+  y: v.y,
+  colorVal: cFn(rows[i]),  // rows[i] zeigt nach filter auf falsche Zeile
+}))
+```
+
+Nach dem `filter` waren die Indizes von `vals` und `rows` nicht mehr synchron. Die Farbe eines Punktes konnte von einer anderen Datenzeile stammen. Die Korrelation selbst war nicht betroffen (x/y bleiben korrekt).
+
+### Fix: Farbzuordnung (06.07.2026)
+
+Der Bug wurde behoben, indem x, y und Farbe vor dem Filter gemeinsam berechnet werden:
+
+```js
+// NACHHER (korrekt):
+const all = rows
+  .map((r) => ({
+    x: xFn(r),
+    y: yFn(r),
+    colorVal: cFn(r),       // Farbe aus derselben Zeile wie x/y
+  }))
+  .filter((p) =>
+    Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.colorVal)
+  )
+```
+
+`Number.isFinite` ersetzt `!isNaN` und filtert auch null/undefined/Infinity zuverlaessiger.
+
+---
+
+## 25. Enddatum-Fix (useFilters.ts + FilterBar.vue)
+
+### Problem
+
+Der Default-Filter in `useFilters.ts` setzte `end` auf `Date.UTC(2024, 11, 31)`, was 2024-12-31 00:00 UTC entspricht. Die Stunden 01:00 bis 23:00 des 31.12. wurden dadurch aus dem Filter ausgeschlossen (23 von 84.987 Zeilen).
+
+### Fix
+
+- `useFilters.ts`: Default `end` und `reset()` auf `Date.UTC(2024, 11, 31, 23, 59, 59, 999)` geaendert
+- `FilterBar.vue`: Neue Funktion `stringToDateEnd()` erzeugt Enddatum mit 23:59:59.999 UTC. `stringToDate()` bleibt fuer Startdatum bei 00:00 UTC.
+
+### Ergebnis
+
+- Default-Filter laesst jetzt alle 84.987 Zeilen durch
+- Dashboard-KPIs stimmen exakt mit `check-dashboard-data.mjs` ueberein
+
+---
+
+## 26. Fehlende Stunden: 2.685 vs 2.590 (klaerung)
+
+### Diskrepanz
+
+| Quelle | Fehlende Stunden | Bezug |
+|---|---|---|
+| docs/log.md (alt) | 2.590 | Ab tatsaechlichem Datenstart (2015-01-04) |
+| check-dashboard-data.mjs | 2.685 | Ab idealem Soll-Start (2015-01-01) |
+
+### Ursache
+
+Der Datensatz beginnt nicht am 2015-01-01 00:00 UTC, sondern erst am **2015-01-04 23:00 UTC** (erster verfuegbarer Timestamp aus der SMARD-/ENTSO-E-API).
+
+```
+2015-01-01 00:00  ────────────────────── 2015-01-04 23:00
+                    95 Stunden spaeter
+```
+
+- 95 Stunden Differenz = 3 Tage + 23 Stunden = exakt die Zeit zwischen 01.01. 00:00 UTC und 04.01. 23:00 UTC
+- 2.685 (Soll 01.01.) - 95 (Spaetstart) = 2.590 (ab Datenstart) – Rechnung geht auf
+
+### Fix in check-dashboard-data.mjs
+
+Das Skript gibt jetzt beide Werte aus:
+1. **Fehlend (Soll 01.01.)** = 2.685 – bezogen auf den idealen 10-Jahres-Zeitraum
+2. **Fehlend (ab Datenstart)** = 2.590 – bezogen auf den tatsaechlichen ersten Datenpunkt
+
+Zusaetzlich: Ausgabe der Soll-Stunden 2015-2024 (87.672), des genauen Datenstarts und der API-Spaetstart-Differenz (95h).
+
+---
+
+## 27. DuckCurve: Negative Residuallast sichtbar gemacht
+
+### Problem
+
+Die linke Y-Achse der DuckCurve startete bei 0 (`gwMin = 0`). 810 Stunden mit negativer Residuallast (Minimum -13,71 GW) wurden unterhalb des sichtbaren Bereichs gezeichnet und waren unsichtbar. Das ist fachlich relevant, weil der Duck-Curve-Effekt gerade den mittaglichen Einbruch der Residuallast durch PV-Einspeisung zeigt – teilweise bis unter Null (EE-UEberschuss).
+
+### Fix
+
+```js
+// VORHER:
+const gwMin = 0
+const gwMax = d3.max(allGW) ?? 100
+
+// NACHHER:
+const rawMin = d3.min(allGW) ?? 0
+const rawMax = d3.max(allGW) ?? 100
+const gwMin = rawMin < 0 ? rawMin * 1.1 : 0
+const gwMax = rawMax * 1.1
+```
+
+1. `gwMin` wird auf den minimalen GW-Wert (oder 0, falls alle Werte positiv sind) gesetzt
+2. 10% Padding nach oben und unten
+3. Nulllinie (gestrichelt, grau) wird eingezeichnet, wenn der Bereich negativ ist
+4. Y-Achsen-Beschriftung bleibt unveraendert (zeigt GW)
+5. Rechte Preisachse bleibt unveraendert
+
+---
+
+## 28. Fachliche Pruefung: HeatmapCO2.vue (06.07.2026)
+
+Die Heatmap-Komponente wurde auf fachliche Korrektheit geprueft. Das Ergebnis war:
+
+| Kriterium | Status | Begruendung |
+|---|---|---|
+| Vollstaendiges 0-23-Stundenraster | OK | `for (const doy of visibleDays) { for (let h = 0; h < 24; h++) }` |
+| Fehlende Stunden als grau | OK | `if (d.value === undefined) return '#f1f5f9'` |
+| Kein 0-Fallback | OK | `lookup.get()` gibt `undefined` fuer fehlende Werte |
+| X-Achse = Tag des Jahres | OK | `d.doy - dayOffset` |
+| Y-Achse = Stunde 0-23 | OK | `d.hour * cellHeight` |
+| CO2 aus `co2_g_per_kwh` | OK | Metric `value: (r) => r.co2_g_per_kwh` |
+| EE aus `ee_share` | OK | Metric `value: (r) => r.ee_share` |
+| Fossil aus `fossil_share` | OK | Metric `value: (r) => r.fossil_share` |
+| Preis aus `price_eur_mwh` | OK | Metric `value: (r) => r.price_eur_mwh` |
+| Negative Preise korrekt | OK | `interpolateViridis` mit auto-domain inkludiert negative Werte |
+| Saison-Fokus nur lokal | OK | Separates `seasonFocus`-Ref, keine Verbindung zu useFilters |
+| Farbskala bleibt bei Fokus-Wechsel gleich | OK | `yearData` bleibt ungefiltert, nur `visibleDays` aendert sich |
+| Klick sendet ISO-Datum in UTC | OK | `new Date(Date.UTC(jahr, 0, d.doy))` |
+| Full-width, kein Page-Scroll | OK | ResizeObserver + `cellWidth = Math.max(3, plotWidth / days)` |
+| Chart-Hoehe ausreichend | OK | 260px + Margins = ~320px |
+
+**Keine kritischen Fehler gefunden.** Ein kosmetischer Hinweis: Die Monats-Trennlinie wird auch am ersten Tag (Januar 1) gezeichnet, was eine unnötige Linie am linken Rand erzeugt.
+
+---
+
+## 28b. StackedArea-Fix: 2018-Annotation + Default Prozentmodus (06.07.2026)
+
+### Aenderungen in StackedArea.vue
+
+**1. 2018-Datenluecken-Annotation hinzugefuegt**
+```js
+{ date: new Date(2018, 9, 1), label: 'Datenluecke 2018\n(ENTSO-E-Wechsel)', color: '#94a3b8' }
+```
+- Position: 1. Oktober 2018 (Beginn der Luecke durch Marktgebietswechsel)
+- Farbe: dezentes Slate-Grau (#94a3b8), gestrichelt wie die anderen Annotationen
+- Text: "Datenluecke 2018" und "ENTSO-E-Wechsel" in zwei Zeilen
+
+**2. Default-Modus auf Prozent geaendert**
+```js
+const mode = ref<'absolute' | 'percent'>('percent')
+```
+Begruendung: Prozentmodus ist robuster gegenueber fehlenden Stunden. Die 2018-Luecke (Okt-Dez ohne Preisdaten) verfaelscht im Absolutmodus die Jahressumme, im Prozentmodus sind die relativen Anteile korrekt. Der Nutzer kann jederzeit auf Absolut umschalten.
+
+**3. Hinweistext im Absolutmodus**
+Nur sichtbar wenn `mode === 'absolute'`:
+> Hinweis: 2018 enthaelt ab Oktober Datenluecken durch den ENTSO-E-Marktgebietswechsel. Prozentwerte und Durchschnittswerte sind dadurch besser vergleichbar als Jahressummen.
+
+---
+
+## 29. Fachliche Pruefung: DuckCurve.vue (06.07.2026)
+
+Die DuckCurve-Komponente wurde auf fachliche Korrektheit geprueft:
+
+| Kriterium | Status | Begruendung |
+|---|---|---|
+| PV aus `generation_by_source.pv` | OK | `pvGW()` liest `gen.pv` |
+| PV-Umrechnung MWh -> GW | OK | `/1000` in `pvGW()` |
+| Preis in EUR/MWh | OK | `r.price_eur_mwh` ohne Umrechnung |
+| Residuallast: nur EE in Summe | OK | `wind_onshore + wind_offshore + pv + biomass + hydro + other_renewables` |
+| Kein nuclear in EE-Summe | OK | Nicht enthalten |
+| Kein pumped_storage in EE-Summe | OK | Nicht enthalten |
+| Keine fossilen in EE-Summe | OK | Nicht enthalten |
+| Residuallast /1000 fuer GW | OK | `(load_mwh - ee) / 1000` |
+| Sommer = Jun-Aug | OK | `m >= 5 && m <= 7` |
+| Winter = Dez-Feb | OK | `m === 11 \|\| m <= 1` |
+| 2015 vs 2024 korrekt | OK | `getUTCFullYear() === 2015/2024` |
+| Werktag = Mon-Fri | OK | `getUTCDay() >= 1 && <= 5` |
+| Wochenende = Sat-Sun | OK | `getUTCDay() === 0 \|\| === 6` |
+| Konkreter Tag in UTC | OK | `selectedDay + 'T00:00:00Z'` |
+| Exakt 24h-Fenster | OK | `dayEnd = dayStart + 86400000` |
+| Keine Zeitzonenprobleme | OK | Beide Seiten UTC |
+| DuckCurve bekommt alle Daten | OK (bewusst) | `:data="hourly"`, wegen eigener Vergleichsmodi |
+
+**Kritischer Fehler gefunden und gefixt:** Negative Residuallast war unsichtbar (siehe Abschnitt 27).
+
+---
+
+## 30. KPI-Fix: Filter-Reaktionsfaehigkeit (06.07.2026)
+
+### Problem
+
+Die fachliche Prufung ergab, dass KPIs aus `hourly.value` (ungefiltert) statt `filtered.value` berechnet wurden. Aenderungen an Zeitraum-, Saison- oder Tagtyp-Filtern aktualisierten alle Charts, aber die KPI-Zahlen blieben auf den 10-Jahres-Gesamtwerten stehen.
+
+Zudem sagten Delta-Labels pauschal "vs. 2015", auch wenn 2015 gar nicht mehr im aktiven Filter enthalten war.
+
+### Fix in pages/dashboard.vue
+
+**1. KPI-Werte aus `filtered.value`:**
+```js
+// VORHER: const data = hourly.value
+// NACHHER: const data = filtered.value
+```
+Damit reagieren die vier Haupt-KPIs (EE, CO2, Preis, Negativ-Stunden) auf alle Filter.
+
+**2. Delta-Labels dynamisch:**
+Die Jahresmittelwerte werden jetzt aus dem gefilterten Datensatz ermittelt:
+```js
+const eeByYear = {}
+for (const r of data) {
+  const y = new Date(r.timestamp).getUTCFullYear()
+  eeByYear[y] = (eeByYear[y] || []).push(r.ee_share)
+}
+// erstes vs. letztes Jahr im gefilterten Bereich
+const deltaLabel = (firstY, lastY, prefix) => {
+  if (firstY && lastY && lastY > firstY) return `${prefix} vs. ${firstY}`
+  return 'im aktuellen Filter'
+}
+```
+
+Wenn nur ein Jahr im Filter enthalten ist (z.B. nur 2024), heisst das Label "im aktuellen Filter" statt irrefuehrend "vs. 2015".
+
+**3. Sparklines bleiben als 10-Jahres-Kontext:**
+Die Sparkline-Daten kommen weiterhin aus `yearly_mix` (EE, CO2) bzw. `hourly` (Preis, Negativ). Sie zeigen den Gesamttrend 2015-2024 unabhaengig vom aktiven Filter. Das ist bewusst so gewaehlt: der Trend-Vergleich (z.B. "EE-Anteil steigt seit 2015") ist als Kontext wertvoll, auch wenn der Nutzer nur 2020-2024 filtert.
+
+### Ergebnis
+
+| Aspekt | Vorher | Nachher |
+|---|---|---|
+| KPIs bei Filter 2015-2024 | 42,8% EE, 402 g/kWh CO2 | 42,8% EE, 402 g/kWh CO2 (unveraendert) |
+| KPIs bei Filter 2024 nur | 42,8% EE, 402 g/kWh CO2 | 56,7% EE, 342 g/kWh CO2 (korrekt aktualisiert) |
+| Delta-Label bei Filter 2020-2024 | "vs. 2015" | "vs. 2020" |
+| Delta-Label bei Filter 2024 nur | "vs. 2015" | "im aktuellen Filter" |
+| Sparklines (alle Filter) | 10-Jahres-Trend | 10-Jahres-Trend (unveraendert) |
+
+---
+
+## 32. Vor-Abgabe-Fixes (06.07.2026)
+
+Fünf gezielte Fixes basierend auf systematischem Code-Review, vor dem Bau der Landing-Page.
+
+| # | Fix | Datei(en) | Beschreibung |
+|---|---|---|---|
+| 1 | **Scatter: Redundanz Farbe=X verhindert** | `ScatterAnalysis.vue` | Watch erkennt wenn `colorAxis.key === xAxis.key` und setzt Farbe automatisch auf eine sinnvolle Alternative (Preis oder CO₂). Guard `_adjustingColor` mit `setTimeout` verhindert Endlosschleife. Hinweistext "Farbe wurde angepasst, um redundante Kodierung zu vermeiden." |
+| 2 | **Heatmap: Dynamischer Titel** | `HeatmapCO2.vue` | Titel `heatmapTitle` computed wechselt mit Metrik: "Stündliche CO₂-Heatmap", "Stündliche EE-Anteil-Heatmap", "Stündliche Fossil-Anteil-Heatmap", "Stündliche Preis-Heatmap". METRICS-Labels auf "CO₂-Intensität", "Dunkelgrün" mit echten Umlauten korrigiert. |
+| 3 | **Heatmap: Preis-Perzentil-Clipping** | `HeatmapCO2.vue` | Für `metric.key === 'price'` wird die Farbskala nicht mehr mit min/max, sondern mit 1./99. Perzentil belegt (`d3.quantile(sorted, 0.01/0.99)`). Werte ausserhalb werden visuell geklemmt, Tooltip zeigt echten Preis. Legende zeigt "Skala: 1.–99. Perzentil". |
+| 4 | **FilterBar: Leeres Panel entfernt** | `FilterBar.vue` | "Weitere Filter"-Button + Platzhalter-Panel "(Folgt in einem spaeteren Baustein)" komplett entfernt. Nur "Filter zuruecksetzen" bleibt rechts aussen. CSS `.more-wrapper`, `.more-btn`, `.more-panel`, `.more-placeholder` gelöscht. |
+| 5 | **DuckCurve: Auto-Switch bei Heatmap-Klick** | `DuckCurve.vue` | `watch(() => props.selectedDay)` schaltet `mode` automatisch auf `'concrete'`, sobald ein Tag aus der Heatmap ausgewählt wird. Button "Konkreter Tag" wird aktiv, Preset-Dropdown deaktiviert. |
+
+---
+
+## 33. Feinschliff: Scatter + StackedArea (06.07.2026)
+
+Weitere Detailverbesserungen vor dem Bau der Landing-Page.
+
+| # | Fix | Datei(en) | Beschreibung |
+|---|---|---|---|
+| 1 | **Scatter: Stundeneinheit korrigiert** | `ScatterAnalysis.vue` | `unit: ''` → `unit: 'h'` für "Stunde des Tages". Kein leeres `()` mehr im Dropdown. |
+| 2 | **Scatter: Regression bei Stunde ausgeblendet** | `ScatterAnalysis.vue` | Wenn `xAxis.key === 'hour'` wird die Regressionslinie nicht gezeichnet. Statistikbox zeigt "Stunde ist zyklisch; lineare Regression ausgeblendet" statt der Regressionsformel. |
+| 3 | **Scatter: R²-Hinweis bei schwachem Zusammenhang** | `ScatterAnalysis.vue` | Wenn `r2 < 0.1` und X ≠ Stunde wird "Kein starker linearer Zusammenhang" in der Statistikbox angezeigt. Box-Höhe (`boxH`) dynamisch basierend auf Zeilenanzahl. |
+| 4 | **StackedArea: Brush-Platzhalter entfernt** | `StackedArea.vue` | D3-Text `[Zeitraum im unteren Bereich auswaehlen]` vollständig entfernt. Kein non-funktionaler UI-Hinweis mehr. |
+| 5 | **StackedArea: Kohleannotation präzisiert** | `StackedArea.vue` | "Kohleausstiegspfad bis 2038" → "Kohleausstiegsbeschluss 2020 / Ziel: 2038". Erklärt warum die Markierung 2020 liegt. |
+
+---
+
+## 34. Filterleiste radikal verschlankt (06.07.2026)
+
+Globale Filter auf Minimum reduziert, Panel-Eigenkontrollen gestärkt.
+
+### Änderungen im Überblick
+
+| Änderung | Betroffene Dateien | Beschreibung |
+|---|---|---|
+| **useFilters.ts entschlackt** | `useFilters.ts` | `Season`-Typ, `seasons`-Set, `compareYears`-Array, `getSeason()`-Funktion entfernt. Nur `dateRange` und `dayType` bleiben global. `filteredHours()` filtert nur noch nach Zeitraum und Wochentag. |
+| **FilterBar vereinfacht** | `FilterBar.vue` | Komplett neues Script/Template/CSS. Saison-Dropdown und Vergleichsjahre-Toggles entfernt. Drei Zeitraum-Preset-Chips ergänzt: "Gesamter Zeitraum", "Seit Atomausstieg", "Letztes vollständiges Jahr". Preset als runde Chips (border-radius: 20px), aktiv = grün gefüllt. |
+| **Status-Zeile** | `dashboard.vue` | Neue Zeile unter der Filterleiste: "Aktive Auswahl: 01.01.2015–31.12.2024 · Alle Tage → 84.987 Stunden". Dynamisch via `statusLine`-computed. |
+| **Per-KPI-Baseline-Dropdown** | `dashboard.vue`, `KpiCard.vue` | Jede KPI-Karte hat rechts oben ein Dropdown "vs. 2015 ▼" mit Optionen 2015/2020/2023. Steuert die Delta-Anzeige pro Karte unabhängig. Baseline-Werte aus `yearly_mix` (EE, CO₂) bzw. aus hourly aggregiert (Preis, Negativstunden). |
+| **KPI-Titel kosmetisch** | `dashboard.vue` | "EE-Anteil (Durchschnitt)" → "EE-Anteil", "CO2-Intensitaet (Durchschnitt)" → "CO₂-Intensität", "Stunden mit negativen Preisen" → "Negative Preisstunden". |
+| **TypeScript-Korrekturen** | `useFilters.ts` | Export `Season` entfernt (nicht mehr nötig). Import `computed` entfernt (nicht mehr verwendet). |
+
+---
+
+## 35. Scatter-Fokussierung + Umlaute + KPI-Farben + Nummerierung (06.07.2026)
+
+Systematische Umsetzung der offenen Kritikpunkte aus dem Review.
+
+| Änderung | Betroffene Dateien | Beschreibung |
+|---|---|---|
+| **Scatter: Y-Achse fix auf CO₂** | `ScatterAnalysis.vue` | Y-Dropdown entfernt, durch fixe Anzeige "CO₂-Intensität (g/kWh) `fix`" ersetzt. `yAxis` bleibt als `ref` aber wird nie geändert. |
+| **Scatter: Farbe default Stunde** | `ScatterAnalysis.vue` | `colorAxis` default von `price` auf `hour` (Stunde des Tages) geändert. Zeigt Tag/Nacht-Struktur als dritte Dimension. |
+| **Scatter: Umlaute im Panel** | `ScatterAnalysis.vue` | "CO2-Intensitaet" → "CO₂-Intensität", "Zusammenhaenge" → "Zusammenhänge", "Ausreisser" → "Ausreißer", "ueber" → "über", "waehlen" → "wählen". |
+| **Umlaute gesamte UI** | `dashboard.vue`, `FilterBar.vue`, `StackedArea.vue`, `HeatmapCO2.vue` | "haengt" → "hängt", "zuruecksetzen" → "zurücksetzen", "Erzeugungsmix ueber die Zeit" → "über die Zeit", "Datenluecke" → "Datenlücke", "Fruehling" → "Frühling". |
+| **Aktualisierungsdatum dynamisch** | `dashboard.vue` | "Letzte Aktualisierung: 06.07.2025, 11:36" → `Aktualisiert: {{ new Date().toLocaleDateString(...) }}`. Zeigt aktuelles Datum/Uhrzeit. |
+| **KPI-Sparkline-Farben semantisch** | `dashboard.vue`, `KpiCard.vue` | Neue Prop `sparkColor` in KpiCard. EE = grün (`--accent`), CO₂ = grün bei Fall / rot bei Anstieg, Preis = neutralgrau (`#6b7280`), Negativstunden = neutralgrau. Sparkline-Gradient passt sich an. |
+| **Panel-Nummerierung korrigiert** | `ScatterAnalysis.vue`, `HeatmapCO2.vue` | Lesereihenfolge 1→2→3→4: StackedArea=1 (unverändert), ScatterAnalysis=3→2, HeatmapCO2=2→3, DuckCurve=4 (unverändert). |
+
+### Datenfluss
+
+```
+useFilters.ts (reactive state)
+  ├── dateRange (start/end)
+  ├── dayType (all/weekday/weekend)
+  └── filteredHours() → filtered (computed in dashboard.vue)
+
+Panel-Eigenkontrollen (nicht global):
+  ├── HeatmapCO2: seasonFocus, activeMetric (lokal)
+  ├── DuckCurve: activePreset, mode (lokal)
+  └── ScatterAnalysis: xAxis, yAxis, colorAxis (lokal)
+```
+
+---
+
+## 36. Landing Page mit animiertem Streamgraph (06.07.2026)
+
+### Neues Konzept
+
+Die Landing Page (`pages/index.vue`) wurde von Racing-Bar-Chart auf animierten **Streamgraph/Stacked-Area-Chart** umgestellt. Der vollständige Verlauf 2015–2024 bleibt immer sichtbar, ein vertikaler Zeitcursor macht den Wandel als Animation erlebbar.
+
+### AnimatedStreamgraph.vue (`components/landing/AnimatedStreamgraph.vue`)
+
+| Aspekt | Umsetzung |
+|---|---|
+| **Daten** | `yearly_mix.json` (MWh → TWh), 9 Energieträger, Mapping identisch zum Dashboard |
+| **Stapelreihenfolge** (unten→oben) | Sonstige → Wasserkraft → Biomasse → PV → Wind → Gas → Steinkohle → Braunkohle → Kernenergie |
+| **Farben** | Konsistent zum Dashboard (Wind blau, PV gelb, Braunkohle braun, etc.) |
+| **Animation** | Cursor läuft über 6 Sekunden (easeInOut) von 2015–2024. Start 1s nach Sichtbarkeit. `requestAnimationFrame`-basiert. |
+| **Ereignisse** | Gestrichelte Linien + Labels: "2020 · Kohleausstiegsgesetz", "2022 · Energiekrise", "2023 · Atomausstieg", "2024 · Vergleichsjahr" |
+| **Tooltip** | Bei Hover/Scrub: Werte in TWh + Prozent pro Energieträger + Gesamtsumme |
+| **Erkenntniszeile** | Wechselt mit Cursor-Jahr (10 verschiedene Texte von 2015–2024) |
+| **Steuerung** | Button "Animation starten" / "Animation überspringen" / "Nochmal ansehen" |
+| **reduced-motion** | `prefers-reduced-motion: reduce` → keine Animation, Cursor sofort bei 2024 |
+| **Technik** | D3 stack + area mit curveMonotoneX, SVG viewBox, responsive |
+| **SSR** | In `pages/index.vue` mit `<ClientOnly>` umschlossen |
+
+### pages/index.vue
+
+Komplett neu geschrieben:
+- Headline, Subtitle, Leitsatz (neu)
+- AnimatedStreamgraph als zentrales visuelles Element
+- Projektbeschreibung (aktualisiert)
+- Großer grüner "Zum Dashboard →" Button (NuxtLink)
+- Footer mit Quellenangabe
+- `max-width: 1100px`, viel Weißraum, responsive
+
+### useDashboardPreload.ts (neuer Composable)
+
+Lädt Dashboard-Daten im Hintergrund, während die Landing Page angezeigt wird:
+1. **Sofort**: `yearly_mix.json` (klein, ~4 kB)
+2. **Nach requestIdleCallback**: `hourly_2015_2024.json` (groß, ~32 MB)
+3. Nutzt `useData()`-Cache wieder – Dashboard sieht keine Ladezeit
+4. Fehler werden leise geschluckt (nur `console.warn` in dev)
+
+---
+
+## 37. Panel 4: Interaktive Duck-Curve-Analyse mit Story-Modus (06.07.2026)
+
+Komplette Neuentwicklung von `components/viz/DuckCurve.vue`. Ersetzt den alten Dual-Axis-Chart durch Small Multiples mit geführtem Story-Modus.
+
+### Architektur
+
+| Aspekt | Alt | Neu |
+|---|---|---|
+| **Visualisierung** | Ein Chart, doppelte Y-Achse (GW links, EUR/MWh rechts) | Drei gekoppelte Small Multiples, gleiche X-Achse, keine doppelte Y-Achse |
+| **Metriken** | PV, Residuallast, Preis | PV + Residuallast (GW), Day-Ahead-Preis (EUR/MWh, Step-Line), CO₂-Intensität (g/kWh) |
+| **Hauptinteraktion** | Preset-Dropdown (Sommer/Winter, etc.) | Story-Modus mit 5 geführten Schritten |
+| **Vergleiche** | Presets als Hauptfeature | Presets als sekundäre Option "Vergleich" |
+| **Legende** | Im Chart (überdeckte Kurven) | Keine Legende im Plot nötig (separate Panels) |
+| **Preis-Darstellung** | CatmullRom-Spline | `curveStepAfter` (stündliches Marktprodukt) |
+
+### Story-Modus
+
+Fünf Schritte, die die kausale Kette erklären:
+
+| Schritt | Fokus | Highlight | Text |
+|---|---|---|---|
+| 1 PV-Mittag | PV-Erzeugung | 10–15 Uhr | PV erreicht Tageshöchstwert |
+| 2 Residuallast-Tal | Residuallast | 10–15 Uhr | Residuallast sinkt durch PV |
+| 3 Preisreaktion | Day-Ahead-Preis | 10–15 Uhr | Markt reagiert auf Knappheit |
+| 4 CO₂-Effekt | CO₂-Intensität | 10–15 Uhr | CO₂ sinkt bei hohem EE-Anteil |
+| 5 Abendrampe | Residuallast-Anstieg | 17–21 Uhr | Flexibilitätsbedarf am Abend |
+
+### Weitere Features
+
+- **Analyse-Box**: Zeigt Ø-Werte für den hervorgehobenen Zeitraum (PV, RL, Preis, CO₂)
+- **Mittag-vs-Abend-Vergleich**: Automatisch bei Schritt 5, mit Differenzen in GW, EUR/MWh, g/kWh
+- **Manuelle Auswahl**: Klick in Chart setzt eigenen Highlight-Bereich, "Zur Story zurückkehren"-Button
+- **Tooltip**: Hover zeigt stündliche Werte aller vier Metriken
+- **Methodische Hinweise**: Als ausklappbares `<details>` unter dem Panel
+- **Vergleichs-Presets**: Durchschnitt, Sommer/Winter, Werktag/Wochenende, 2015/2024 (sekundär)
+- **Konkreter Tag**: per `selectedDay`-Prop (von Heatmap-Klick)
+- **CO₂-Chart**: Neue Metrik mit roter Linie (`#dc2626`), `curveMonotoneX`
+
+---
+
+## 31. Naechste Schritte / Ausstehende Aufgaben
 
 - [ ] **2018-Datenluecke schliessen** durch Fix der Domain-Logik in `download-prices.js`
 - [ ] **Vollstaendigen Stundenindex aufspannen** (left join) in `build_hourly.mjs`
 - [ ] App final testen und ggf. Feinschliff
+
+---
+
+## 38. Farben + Header-Korrektur (06.07.2026)
+
+| Änderung | Datei | Beschreibung |
+|---|---|---|
+| **Lignite-Farbe dunkler** | `StackedArea.vue` | `#78350f` → `#451a03`. Braunkohle ist jetzt deutlich von Gas (Orange) unterscheidbar. |
+| **Hardcoal-Farbe dunkler** | `StackedArea.vue` | `#6b7280` → `#374151`. Entspricht IEA/Ember-Konvention für Steinkohle. |
+| **Header ehrlicher** | `dashboard.vue` | Dynamisches "Aktualisiert: 06.07.2026, 14:06" → statisches "Datenstand: 31.12.2024". Kein Echtzeit-Suggestiv mehr, Daten enden tatsächlich 12/2024. |
+
+---
+
+## 39. Scatterplot: Erklärmodul für Einflussfaktoren der CO₂-Intensität (06.07.2026)
+
+Komplette Überarbeitung von `components/viz/ScatterAnalysis.vue` – vom Statistik-Tool zum verständlichen Erklärmodul.
+
+### Achsen und Labels
+
+| Alt | Neu |
+|---|---|
+| Panel-Titel "Zusammenhänge" | "Einflussfaktoren der CO₂-Intensität" + Untertitel |
+| "EE-Anteil (%)" | "Anteil erneuerbarer Energien (%)" |
+| "CO₂-Intensität (g/kWh)" | "CO₂ pro Kilowattstunde Strom (g/kWh)" |
+| "Day-Ahead-Preis (EUR/MWh)" | "Strombörsenpreis (€/MWh)" |
+| "Last (GW)" | "Stromnachfrage / Last (GW)" |
+| "Stunde des Tages (h)" | "Uhrzeit des Tages" |
+| "Fossiler Anteil (%)" | "Anteil fossiler Energien (%)" |
+| Badge "fix" | Badge "Zielgröße" |
+
+### Neue Achsen-Optionen
+
+- **Jahr** – aus Timestamp abgeleitet
+- **Monat** – 1–12, aus Timestamp
+- **Jahreszeit** – 0=Winter, 1=Frühling, 2=Sommer, 3=Herbst
+
+### Intelligente Farbsteuerung
+
+- `colorOptions` computed filtert dynamisch alle Optionen, die X oder Y bereits verwenden
+- CO₂ ist als Farboption gesperrt (weil Y-Achse)
+- Bei Konflikt automatischer Fallback: Uhrzeit → Jahr → Jahreszeit → Monat → Last
+- Farb-Legende zeigt benutzerfreundliche Labels (`00:00` statt `0.0`, Monatsnamen, Jahreszeiten)
+
+---
+
+## 40. Scatterplot-Vereinfachung: X-Optionen reduziert, Auswertung laienfreundlich (07.07.2026)
+
+Weitere Vereinfachung von `components/viz/ScatterAnalysis.vue` basierend auf Feedback.
+
+### X-Achse reduziert
+
+Auf 6 Optionen gekürzt: Anteil erneuerbarer/fossiler Energien, Stromnachfrage, Strompreis, Tageszeit, Jahreszeit. Entfernt wurden "Jahr", "Monat", "CO₂ pro Kilowattstunde" (Y) und "Uhrzeit des Tages" (redundant zu Tageszeit). Neue interne Struktur: `X_OPTIONS` (für X) und `ALL_OPTIONS` (für Y+Farbe).
+
+### Intelligente Farbsteuerung
+
+- `colorOptions` filtert dynamisch CO₂ (Y) und die aktuelle X-Variable
+- Bei X-Wechsel: Farbe wird automatisch gesetzt (Standard: fossiler Anteil bei X=erneuerbar, sonst erneuerbarer Anteil)
+- Farb-Legende ohne Jahr/Monat (entfernte Optionen)
+
+### Auswertungsbox (neu)
+
+- Titel "Auswertung" mit dynamischem Hauptsatz (z.B. "Starker negativer Zusammenhang")
+- Erklärungstext: "Wenn X größer wird, sinkt/steigt die CO₂-Intensität tendenziell."
+- Stärke-Zusatz: beschreibt Streuung und Erklärkraft
+- "Zusammenhang einfach erklärt"-Toggle mit Korrelationserklärung in Klartext
+- Erklärter Anteil: ca. X % (statt R²)
+- Regressionsgleichung nur unter "Für Interessierte"
+
+### Labels und UI
+
+- "X = möglicher Einfluss", "Y = CO₂-Intensität", "Farbe = Zusatzinfo"
+- Y-Einheit: "g CO₂ pro kWh Strom"
+- "So liest du die Grafik": kompakte Kurzform
+- "Bitte beachten": ersetzt "Wissenschaftlicher Hinweis"
+- "Statistische Details anzeigen" → "Zusammenhang einfach erklärt"
+- Datenpunkte + "≈ 10 Jahre"
+- Rohe Regressionsformel und R² unter "Statistische Details anzeigen" (Details-Toggle)
+
+---
+
+## 41. Scatterplot: Ansichts-Auswahl statt Farbe, dynamischer Zeitraum (07.07.2026)
+
+### Zeitraum-Anzeige
+- Dynamisch aus globalem `useFilters().state.dateRange`
+- "Zeitraum: 2015–2024 · Jeder Punkt = eine Stunde" (bei Jahresgenauigkeit)
+- "Zeitraum: 01.01.2022–31.12.2024 · Jeder Punkt = eine Stunde" (bei genauerem Filter)
+
+### Farb-Dropdown entfernt
+- Farb-Dropdown "Farbe = Zusatzinfo" komplett entfernt
+- Punkte jetzt einfarbig blau (`#2563eb`) – Fokus auf X-Y-Zusammenhang
+- Keine Farblegende mehr im SVG
+
+### Ansichts-Auswahl (neu)
+Vier Buttons ersetzen das Farb-Dropdown:
+- **Alle Stunden** (Default) – keine Filterung
+- **Nach Jahreszeit** – Chips: Alle / Winter / Frühling / Sommer / Herbst
+- **Nach Tageszeit** – Chips: Alle / Nacht / Morgen / Mittag / Abend
+- **Nach Jahr** – Chips: Alle + verfügbare Jahre aus dem aktuellen Filter
+- Beschreibungstext: "Aktuell angezeigt: ..."
+
+### Lesebeispiel (neu)
+- Dynamischer Text je nach X-Auswahl
+- "Punkte rechts unten zeigen Stunden mit viel erneuerbarem Strom..."
+- "Hier sieht man, zu welchen Tageszeiten der Strom eher CO₂-arm ist..."
+
+### Datenbereinigung
+- `colorAxis`, `colorOptions`, `colorAutoFixed`, `_adjustingColor` entfernt
+- `interpretationText` computed entfernt (durch lesebeispiel + auswertung ersetzt)
+- `showDetails` ref entfernt
+- `yAxis` ref entfernt (Y ist fix CO₂, hartcodiert im Rendering)
+- Doppelte `stats` und `auswertung`-Definitionen entfernt
+- `colorVal` aus Point-Interface entfernt (Punkte einfarbig)
+
+---
+
+## 42. Scatterplot: X reduziert, Statistik-Box entfernt, Badge entfernt (07.07.2026)
+
+### X-Dropdown auf 4 Optionen reduziert
+- Entfernt: Tageszeit, Jahreszeit
+- Verblieben: Anteil erneuerbarer Energien, Anteil fossiler Energien, Stromnachfrage, Strompreis
+- Tageszeit und Jahreszeit nur noch unter "Ansicht" als Filter verfügbar
+
+### Statistik-Box im Chart entfernt
+- Die dauerhaft eingeblendete Box ("Starker Zusammenhang (r = -0.94)", "84.987 Stunden") aus dem SVG entfernt
+- Auswertung bleibt nur in der separaten Box unter dem Chart
+
+### "Zielgröße"-Badge entfernt
+- Y-Achse zeigt jetzt nur "g CO₂ pro kWh Strom" ohne grünen Badge
+
+### "Aktuell angezeigt:"-Texte entfernt
+- Alle redundanten Beschreibungstexte unter den Filter-Chips entfernt
+
+### CSS aufgeräumt
+- `.y-fixed-badge`, `.view-description` entfernt
+
+---
+
+## 43. Scatterplot: Zeitraum-Slider + Ansicht ohne "Nach Jahr" (07.07.2026)
+
+### Zeitraum-Slider (neu)
+- Range-Slider mit zwei Griffen für Start- und Endjahr
+- Deckt immer 2015–2024 ab (unabhängig vom globalen Filter)
+- Startwerte: 2015 (links) und 2024 (rechts)
+- Schrittweite: 1 Jahr
+- Anzeige: "Zeitraum im Diagramm: 2015–2024 · Jeder Punkt = eine Stunde"
+- Slider unter der Ansichts-Auswahl, über dem Chart
+
+### Datenfilter aktualisiert
+- `points` computed filtert zuerst nach Slider-Jahren, dann nach Ansichts-Filter
+- Korrelation, Trendlinie und Auswertung basieren auf den sichtbaren Punkten
+
+### "Nach Jahr" aus Ansicht entfernt
+- Nur noch 3 Optionen: Alle Stunden / Nach Jahreszeit / Nach Tageszeit
+- Jahresauswahl übernimmt der Zeitraum-Slider
+
+### Sonstiges
+- `useFilters`-Import entfernt (nicht mehr benötigt)
+- `yearFilter`, `availableYears` entfernt
+- `ViewMode` auf `'none' | 'season' | 'time'` reduziert
+- `periodLabel` nutzt jetzt sliderStart/sliderEnd statt globalem Filter
+
+### Geänderte Dateien
+- Nur `components/viz/ScatterAnalysis.vue`
+
+---
+
+## 44. Scatterplot radikal verschlankt (07.07.2026)
+
+Aufräumaktion: Entfernt wurden alle nicht mehr benötigten UI-Elemente und deren zugehörige Logik.
+
+| Entfernt | Begründung |
+|---|---|
+| **Ansichts-Auswahl** (Alle Stunden / Nach Jahreszeit / Nach Tageszeit) | Zu viele Optionen, lenkt von der Kernfrage ab |
+| **Auswertungsbox** (Korrelations-Bewertung + "Zusammenhang einfach erklärt") | Zu technisch, nicht mehr zeitgemäß für das Dashboard |
+| **Lesebeispiel** | Redundant zur Achsenbeschriftung |
+| **"So liest du die Grafik"** | Hilfetext nicht mehr nötig |
+| **"Bitte beachten"** | Wissenschaftlicher Hinweis entfernt |
+
+### Code-Bereinigung
+- `viewMode`, `seasonFilter`, `timeFilter`, `SEASONS`, `TIMES` entfernt
+- `seasonMap`, `matchesView()` entfernt
+- `auswertung` computed entfernt
+- `lesebeispielText` computed entfernt
+- Punkte-Filterung nur noch über Zeitraum-Slider (Jahre)
+- Unnötige CSS-Klassen entfernt
+
+### Verblieben im Scatterplot
+- X-Dropdown (4 Optionen) + Y = CO₂-Intensität (fix)
+- Zeitraum-Slider (2015–2024, zwei Griffe)
+- Canvas-Scatterplot + Regressionslinie
+- "Besondere Stunden hervorheben"-Checkbox
+- Hover-Tooltip
+
+---
+
+## 45. KPI-Filter + Scatterplot-Zeitsteuerung (Refactoring) (08.07.2026)
+
+### Ziel
+
+Globale Filterleiste entfernt, KPI-Jahrfilter nur für KPIs, Scatterplot mit eigener Play/Pause-Zeitsteuerung über 3-Monats-Phasen, KPI-Sparkline-Hover-Sync.
+
+### Änderungen
+
+| Datei | Änderung |
+|---|---|
+| `composables/useFilters.ts` | Radikal vereinfacht: nur noch KPI-Jahrfilter (`year: number \| null`). `filteredKpiData()` filtert hourly nach Jahr. Kein `dateRange`/`dayType` mehr. |
+| `components/dashboard/FilterBar.vue` | Komplett neu: KPI-Jahr-Chips (Gesamtzeitraum, 2015-2024). Custom-Style, nur für KPIs sichtbar. |
+| `pages/dashboard.vue` | Script auf `kpiFiltered` umgestellt. Template: FilterBar + KPI-Reihe in `kpi-section`. Vizes bekommen `hourly` (ungefiltert) statt `filtered`. `hoveredIndex`-Ref für Sparkline-Sync. Statuszeile entfernt. |
+| `components/dashboard/KpiCard.vue` | Hover-Sync: `hoveredIndex`-Prop, `hover`/`leave`-Emits. Tooltip-Div mit Jahr + Wert bei Hover. Fadenkreuz + Punkt auf gehoverter Position. Baseline-Select entfernt. |
+| `components/viz/ScatterAnalysis.vue` | Play/Pause-Steuerung: 40 Phasen (10 Jahre × 4 Quartale), `setInterval` alle 1,5s. Timeline-Slider. Auswertungsbox: Korrelation + Richtung + Stärke pro Phase. Trendlinie dynamisch. |
+
+### Neue Konzepte
+
+**KPI-Jahrfilter**: Nur vier Chips (Gesamtzeitraum, 2015, 2020, 2024). Beeinflusst nur KPI-Werte und Sparklines. Alle Charts (StackedArea, Scatter, Heatmap, DuckCurve) bekommen ungefilterte `hourly`-Daten.
+
+**Scatterplot-Zeitsteuerung**: 3-Monats-Phasen von Jan–Mrz 2015 bis Okt–Dez 2024. Play/Pause-Button startet automatischen Durchlauf. Timeline-Slider für manuelle Navigation. Pro Phase: separate Punktewolke, Trendlinie, Korrelations-Auswertung.
+
+**KPI-Hover-Sync**: `hoveredIndex` wird von dashboard.vue zentral verwaltet. Bei Mausbewegung über eine Sparkline sendet KpiCard `hover(index)`-Event → dashboard aktualisiert `hoveredIndex` → alle KpiCards rendern Fadenkreuz + Tooltip an derselben Position.
+
+---
+
+## 46. Dashboard-Redesign: Tab-Navigation, KPI-Verbesserungen + Editorial Style (07.07.2026)
+
+### Dashboard neu strukturiert
+
+Kompletter Umbau des Dashboard-Layouts mit Tab-Navigation:
+
+| Tab | Inhalt |
+|---|---|
+| **Überblick** | StackedArea (links) + Kontext-Panel mit Kernaussagen (rechts) |
+| **Zusammenhänge** | ScatterAnalysis mit Play/Pause + 3-Monats-Phasen |
+| **Tagesmuster** | HeatmapCO2 |
+| **Preise** | DuckCurve |
+
+### KPI-Verbesserungen (07.07.2026)
+
+**Adaptive Delta-Zeilen:**
+- Gesamtzeitraum: `"Trend 2015→2024: +23,6 PP"` (Endwert − Startwert der Sparkline)
+- Einzeljahr = 2015: Kein Delta (kein Vergleich mit sich selbst)
+- Einzeljahr > 2015: `"+X,X PP vs. 2015"`
+
+**Aggregations-Label pro Kachel:**
+- EE-Anteil, CO₂, Preis: `Ø 2015–2024` (Durchschnitt)
+- Negativpreis-Stunden: `Σ 2015–2024` (Summe)
+
+**KPI-Gruppierung:** Zwei Gruppen mit Überschriften (Klima-Kennzahlen / Markt-Kontext) – später auf Wunsch entfernt.
+
+**Sparkline-Verbesserungen:**
+- Bei Einzeljahr-Auswahl dauerhafte Markierung des Jahres-Punkts
+- Min/Max-Hinweise unter jeder Sparkline
+- PP-Erklärung (ⓘ-Icon mit Tooltip)
+
+### Editorial Design (Print-Data-Journalism-Ästhetik)
+
+**Erste Iteration (warme Papieroptik):**
+- Hintergrund: `#F5F1E8` (Cremeweiß)
+- Text: `#1F1B16` (warmes Anthrazit)
+- Akzent: `#6B7A3F` (Olivgrün)
+- Überschriften: Playfair Display (Serif)
+- Keine Cards mehr (border-radius, box-shadow entfernt)
+- Tabs: Unterstreichungs-Stil statt Pill-Buttons
+- Filter-Chips: Text-only mit Unterstrich
+
+**Zweite Iteration (kühles, journalistisches Design):**
+- Hintergrund: `#F2F3F5` (helles Kühlgrau)
+- Text: `#111318` (kühles Tiefgrau)
+- Primärakzent: `#2563EB` (Blau) statt Terracotta
+- Teal: `#0D9488`
+- Überschriften: Source Serif 4 (klare, kühle Serif)
+- KPIs wieder in 4-Spalten-Reihe ohne Gruppenlabels
+
+### Geänderte Dateien (07.07.2026)
+
+| Datei | Änderung |
+|---|---|
+| `pages/dashboard.vue` | Tab-Navigation, Überblick-Layout, Kontext-Panel, adaptive Deltas, Aggregations-Label, KPI-Gruppierung, neues CSS |
+| `components/dashboard/KpiCard.vue` | Hover-Sync, Tooltip, Min/Max, PP-Hilfe, neuer Print-Style |
+| `components/dashboard/FilterBar.vue` | Neuer Print-Style (Text-only Chips, Unterstrich) |
+| `components/viz/StackedArea.vue` | Card-Style entfernt, Serif-Überschrift |
+| `components/viz/ScatterAnalysis.vue` | Card-Style entfernt, Print-Style für Controls, Auswertungsbox |
+| `components/viz/HeatmapCO2.vue` | Card-Style entfernt, Serif-Überschrift |
+| `components/viz/DuckCurve.vue` | Card-Style entfernt, Serif-Überschrift |
+| `assets/css/main.css` | Neue Farbpalette (kühl), Source Serif 4, neue Tokens |
+| `nuxt.config.ts` | Source Serif 4 Font hinzugefügt |

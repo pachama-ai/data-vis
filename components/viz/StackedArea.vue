@@ -15,7 +15,6 @@
  *   - Vertikale Annotations-Linien fuer Kohleausstieg und Atomausstieg
  *   - Optionale CO2-Linie (zweite Y-Achse), per Toggle unten
  *   - Tooltip mit Werten fuer den Zeitpunkt unter der Maus
- *   - Platzhalter fuer Range-Slider (Zoom)
  */
 
 import { ref, computed, watchEffect, onUnmounted } from 'vue'
@@ -35,8 +34,8 @@ const props = defineProps<{
 const COLORS: Record<string, string> = {
   wind:       '#2563eb',   // dunkelblau
   pv:         '#facc15',   // gelb
-  lignite:    '#78350f',   // dunkelbraun
-  hardcoal:   '#6b7280',   // schwarz-grau
+  lignite:    '#451a03',   // sehr dunkelbraun (abgrenzbar zu Gas)
+  hardcoal:   '#374151',   // dunkel-slate (IEA/Ember-Konvention)
   gas:        '#f97316',   // orange
   nuclear:    '#8b5cf6',   // violett
   biomass:    '#16a34a',   // dunkelgruen
@@ -70,7 +69,7 @@ function toggleKey(key: string) {
 // ----------------------------------------------------------------
 // Absolut / Prozent Toggle
 // ----------------------------------------------------------------
-const mode = ref<'absolute' | 'percent'>('absolute')
+const mode = ref<'absolute' | 'percent'>('percent')
 
 // ----------------------------------------------------------------
 // CO2-Linie an/aus
@@ -153,7 +152,7 @@ onUnmounted(() => {
 // ----------------------------------------------------------------
 const MARGIN = { top: 20, right: 90, bottom: 40, left: 65 }
 const WIDTH = 900
-const HEIGHT = 420
+const HEIGHT = 370
 const INNER_W = WIDTH - MARGIN.left - MARGIN.right
 const INNER_H = HEIGHT - MARGIN.top - MARGIN.bottom
 
@@ -298,8 +297,9 @@ watchEffect(() => {
 
   // 10. Annotations-Linien
   const annotations = [
-    { date: new Date(2020, 0, 1), label: 'Kohleausstiegspfad\nbis 2038', color: '#78350f' },
+    { date: new Date(2020, 0, 1), label: 'Kohleausstiegsbeschluss 2020\nZiel: 2038', color: '#78350f' },
     { date: new Date(2023, 3, 15), label: 'Atomausstieg\n2023', color: '#8b5cf6' },
+    { date: new Date(2018, 9, 1), label: 'Datenlücke 2018\n(ENTSO-E-Wechsel)', color: '#94a3b8' },
   ]
 
   for (const ann of annotations) {
@@ -402,14 +402,7 @@ watchEffect(() => {
       tooltipDiv!.style('display', 'none')
     })
 
-  // 12. Platzhalter Range-Slider
-  chart.append('text')
-    .attr('x', INNER_W / 2)
-    .attr('y', INNER_H + 30)
-    .attr('text-anchor', 'middle')
-    .attr('font-size', '11px')
-    .attr('fill', '#9ca3af')
-    .text('[Zeitraum im unteren Bereich auswaehlen]')
+  // 12. Platzhalter entfernt – kein Range-Slider implementiert
 })
 </script>
 
@@ -419,7 +412,7 @@ watchEffect(() => {
     <div class="stacked-header">
       <div class="stacked-title">
         <span class="stacked-number">1</span>
-        <span class="stacked-heading">Erzeugungsmix ueber die Zeit</span>
+        <span class="stacked-heading">Erzeugungsmix über die Zeit</span>
       </div>
       <div class="mode-toggle">
         <button
@@ -462,19 +455,21 @@ watchEffect(() => {
         <span>CO2-Intensitaet (g/kWh)</span>
       </label>
     </div>
+
+    <!-- Hinweis bei Absolut-Modus -->
+    <p v-if="mode === 'absolute'" class="stacked-hint">
+      Hinweis: 2018 enthält ab Oktober Datenlücken durch den ENTSO-E-Marktgebietswechsel.
+      Prozentwerte und Durchschnittswerte sind dadurch besser vergleichbar als Jahressummen.
+    </p>
   </div>
 </template>
 
 <style scoped>
 /* ----------------------------------------------------------------
-   Card
+   Container
    ---------------------------------------------------------------- */
 .stacked-card {
-  background: var(--bg);
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  width: 100%;
 }
 
 /* ----------------------------------------------------------------
@@ -494,30 +489,26 @@ watchEffect(() => {
 }
 
 .stacked-number {
+  font-family: var(--font-serif);
   font-size: 0.75rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--fg-muted);
-  background: #f3f4f6;
-  width: 22px;
-  height: 22px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 50%;
+  opacity: 0.5;
+  margin-right: 6px;
 }
 
 .stacked-heading {
+  font-family: var(--font-serif);
   font-size: 1rem;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--fg);
 }
 
 .mode-toggle {
   display: flex;
-  gap: 2px;
-  background: #f3f4f6;
-  border-radius: 8px;
-  padding: 3px;
+  gap: 0;
+  border: 1px solid var(--hairline);
+  padding: 2px;
 }
 
 .mode-btn {
@@ -525,16 +516,18 @@ watchEffect(() => {
   font-size: 0.75rem;
   padding: 5px 14px;
   border: none;
-  border-radius: 6px;
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
-  transition: background 0.15s, color 0.15s;
+  font-family: var(--font-sans);
+  font-size: 0.7rem;
+  padding: 3px 8px;
+  transition: color 0.15s, background 0.15s;
 }
 
 .mode-btn.active {
-  background: var(--accent);
-  color: #fff;
+  background: var(--fg);
+  color: var(--bg);
   font-weight: 500;
 }
 
@@ -588,11 +581,20 @@ watchEffect(() => {
    Chart-Container
    ---------------------------------------------------------------- */
 .chart-wrap {
-  overflow-x: auto;
+  width: 100%;
+  min-width: 0;
 }
 
 .chart-wrap svg {
+  width: 100%;
+  height: auto;
   display: block;
+}
+
+@media (max-width: 900px) {
+  .chart-wrap {
+    overflow-x: auto;
+  }
 }
 
 /* ----------------------------------------------------------------
@@ -619,5 +621,17 @@ watchEffect(() => {
   width: 16px;
   height: 16px;
   cursor: pointer;
+}
+
+/* ----------------------------------------------------------------
+   Hinweistext bei Absolut-Modus
+   ---------------------------------------------------------------- */
+.stacked-hint {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 0.7rem;
+  color: #94a3b8;
+  line-height: 1.4;
 }
 </style>
