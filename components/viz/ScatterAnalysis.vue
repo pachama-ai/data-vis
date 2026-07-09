@@ -269,7 +269,6 @@ type RenderReason = 'init' | 'metricChanged' | 'timeRangeChanged' | 'trendToggle
 let renderRaf: number | null = null
 let pendingReason: RenderReason | null = null
 let trendlineTimer: ReturnType<typeof setTimeout> | null = null
-let voronoiTimer: ReturnType<typeof setTimeout> | null = null
 // Module-level D3-Selections (nach Init)
 let chart: d3.Selection<SVGGElement, unknown, null, undefined>
 let pg: d3.Selection<SVGGElement, unknown, null, undefined>
@@ -291,7 +290,7 @@ function scheduleRender(reason: RenderReason) {
 // ----------------------------------------------------------------
 // updateChart — zentrale Render-Funktion
 // ----------------------------------------------------------------
-const TRANS_DURATION = 80
+const TRANS_DURATION = 0
 
 function updateChart(reason: RenderReason) {
   const svgEl = svgRef.value
@@ -434,29 +433,21 @@ function updateChart(reason: RenderReason) {
   if (reason === 'init' || reason === 'metricChanged') {
     const POINT_R = 2.5
 
+    // Einmaliger Data-Join — cached die circle-Selection
     const circles = pg.selectAll<SVGCircleElement, Point>('circle.point')
       .data(pts, (d) => String(d.id))
 
-    circles.exit()
-      .transition().duration(TRANS_DURATION).attr('r', 0).attr('opacity', 0).remove()
+    // Exit: sofort entfernen
+    circles.exit().remove()
 
+    // Enter: neue Kreise ohne Transition
     const enter = circles.enter().append('circle')
-      .attr('class', 'point').attr('r', 0).attr('opacity', 0)
+      .attr('class', 'point')
       .attr('stroke', ac.outline).attr('stroke-width', 1)
       .attr('cursor', 'crosshair')
 
-    // Bestehende: direkte attr-Updates
-    circles
-      .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
-      .attr('fill', (d) => getHourColor(d.hour))
-      .attr('stroke', (d) => highlightOutliers.value && d.isOutlier ? '#1a1a1a' : ac.outline)
-      .attr('stroke-width', (d) => highlightOutliers.value && d.isOutlier ? 1.5 : 1)
-      .attr('r', POINT_R).attr('opacity', ac.opacity)
-      .style('display', null) // alle sichtbar
-
-    // Neue mit Transition
+    // Alle Kreise (Enter + Update) direkt setzen — keine Transitions
     enter.merge(circles)
-      .transition().duration(TRANS_DURATION)
       .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
       .attr('fill', (d) => getHourColor(d.hour))
       .attr('stroke', (d) => highlightOutliers.value && d.isOutlier ? '#1a1a1a' : ac.outline)
@@ -470,8 +461,8 @@ function updateChart(reason: RenderReason) {
     // Erklärmodus (komplett)
     updateExplainMode(ux, uy)
 
-    // Voronoi (komplett)
-    updateVoronoi(ux, uy, pts, ac)
+    // Hover-Overlay (brute-force nearest point, kein Delaunay/Voronoi)
+    updateHoverOverlay(ux, uy, pts, ac)
 
   } else if (reason === 'timeRangeChanged') {
     // Nur Sichtbarkeit toggeln + Positionen — KEIN Data-Join
@@ -489,8 +480,9 @@ function updateChart(reason: RenderReason) {
     // Trendline debounced
     scheduleTrendline(ux, uy)
 
-    // Voronoi debounced
-    scheduleVoronoi(ux, uy, ac)
+    // Hover-Overlay debounced (nur neu aufbauen, wenn sich Punkte geändert haben)
+    // Bei reinem timeRangeChanged reicht das bestehende Hover-Overlay
+    // (es nutzt die live-Positionen via updatePointCache)
 
     // Toggles neuzeichnen (Erklärmodus)
     chart.selectAll('g.explain-zone').remove()
@@ -608,41 +600,50 @@ function updateExplainMode(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinea
   }
 }
 
-function updateVoronoi(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
-                       pts: Point[], ac: any) {
-  chart.selectAll('rect.voronoi-hit').remove()
+function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
+                             pts: Point[], ac: any) {
+  chart.selectAll('rect.hover-hit').remove()
   if (pts.length <= 1) return
-  const delaunay = d3.Delaunay.from(pts, (d) => ux(d.x), (d) => uy(d.y))
-  chart.append('rect').attr('class', 'voronoi-hit')
+
+  // Brute-force nearest point: für ~4k Punkte schnell genug (< 1ms).
+  // Kein Delaunay/Voronoi — spart den O(n log n) Rebuild.
+  function findNearest(mx: number, my: number): Point | null {
+    let best: Point | null = null
+    let bestDist = Infinity
+    for (let i = 0; i < pts.length; i++) {
+      const dx = ux(pts[i].x) - mx, dy = uy(pts[i].y) - my
+      const dist = dx * dx + dy * dy
+      if (dist < bestDist) { bestDist = dist; best = pts[i] }
+    }
+    return best
+  }
+
+  chart.append('rect').attr('class', 'hover-hit')
     .attr('width', INNER_W).attr('height', INNER_H)
     .attr('fill', 'transparent').attr('cursor', 'crosshair')
     .on('mousemove', (event: MouseEvent) => {
-      if (pts.length < 2) return
       const [mx, my] = d3.pointer(event, chart.node()!)
-      const idx = delaunay.find(mx, my)
-      if (idx < 0 || idx >= pts.length) return
-      const p = pts[idx]
+      const p = findNearest(mx, my)
+      if (!p) return
       const row = rowLookup.value.get(p.id)
       if (!row) return
-      pg.selectAll('circle.point').attr('opacity', ac.opacity).attr('r', 2.5)
-      pg.selectAll('circle.point').filter((d: any) => d.id === p.id)
-        .attr('opacity', 1).attr('r', 5)
-        .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
+      // Cache die circle-Selection (wiederholte selectAll sind teuer)
+      const circles = pg.selectChild<SVGGElement>('circle.point')
+        ? pg.selectAll<SVGCircleElement, Point>('circle.point')
+        : null
+      if (circles) {
+        circles.attr('opacity', ac.opacity).attr('r', 2.5)
+        circles.filter((d: any) => d.id === p.id)
+          .attr('opacity', 1).attr('r', 5)
+          .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
+      }
       tooltip.value = { x: ux(p.x) + MARGIN.left, y: uy(p.y) + MARGIN.top, d: row }
     })
     .on('mouseleave', () => {
-      pg.selectAll('circle.point').attr('opacity', ac.opacity).attr('r', 2.5)
+      pg.selectAll<SVGCircleElement, Point>('circle.point')
+        .attr('opacity', ac.opacity).attr('r', 2.5)
       tooltip.value = null
     })
-}
-
-function scheduleVoronoi(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
-                         ac: any) {
-  if (voronoiTimer !== null) clearTimeout(voronoiTimer)
-  voronoiTimer = setTimeout(() => {
-    voronoiTimer = null
-    updateVoronoi(ux, uy, rangePoints.value, ac)
-  }, 200)
 }
 
 // ----------------------------------------------------------------
@@ -758,7 +759,7 @@ onUnmounted(() => {
     <div class="chip-toolbar">
       <button :class="{ active: showTrendline }" class="chip-btn" @click="showTrendline = !showTrendline">Trendlinie</button>
       <button :class="{ active: explainMode }" class="chip-btn" @click="explainMode = !explainMode">
-        Erklärmodus
+        Einordnung
         <span class="chip-info" title="Markiert Bereiche mit wenig/viel EE und der zugehörigen CO₂-Intensität.">ⓘ</span>
       </button>
       <button :class="{ active: highlightOutliers }" class="chip-btn" @click="highlightOutliers = !highlightOutliers">

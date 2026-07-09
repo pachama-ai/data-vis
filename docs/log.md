@@ -1858,9 +1858,52 @@ Mehrere Iterationen mit Fokus auf visuelle Qualität, Bedienbarkeit und Farbkodi
 - Labels ohne Hintergrund-Boxen, mit `<tspan>` (erste Zeile bold, zweite mit Pfeil)
 - `xAxis.value.key === 'ee_share'`-Guards entfernt → Erklärmodus funktioniert bei jeder X-Achse
 
+### Section 48f: UI-Redesign — Layout, Tabs, Whitespace, Labels (09.07.2026)
+
+**Layout-Verbesserungen:**
+- Titel vergrößert: `clamp(32px, 4vw, 52px)` — mehr Hero-Wirkung
+- "Datenstand" aus Header entfernt (redundant zu "2015–2024" im Subtitle)
+- Großzügigere Abstände: Header→KPIs 56px, KPIs→Tabs 48px, Tabs→Content 40px, Content→Footer 64px
+
+**Tab-Umbenennung:**
+- Überblick → **Strommix**
+- Zusammenhänge → **Einflussfaktoren**
+- Tagesmuster → bleibt
+- Preise → **Markt & Preise**
+
+**Scatterplot:**
+- "Erklärmodus" → **"Einordnung"** (verständlicher für Nutzer)
+
+**Geänderte Dateien:**
+| Datei | Änderung |
+|---|---|
+| `pages/dashboard.vue` | Titel größer, Header-Meta entfernt, Abstände vergrößert, Tab-Labels geändert |
+| `components/viz/ScatterAnalysis.vue` | "Erklärmodus" → "Einordnung" |
+
 ### Geänderte Dateien (09.07.2026)
 
 | Datei | Änderung |
 |---|---|
 | `components/viz/ScatterAnalysis.vue` | Komplett überarbeitet: Skalen-Sync, Grids, Punkte, Erklär-Zonen, semantische Farben, Range-Slider statt Timeline, Presets, Button-Farben, Trendlinien-Farben |
+
+### Section 48e: Letzte Performance-Optimierung — Keine Transitions, kein Voronoi (09.07.2026)
+
+**Problem:** Trotz aller vorherigen Optimierungen war der Scatterplot noch spürbar langsam.
+
+**Letzte Bottlenecks gefunden und behoben:**
+
+1. **D3-Transitions (Enter/Exit)** — Auch bei `TRANS_DURATION=80ms` plante D3 weiterhin Animation-Frames für Enter/Exit. Entfernt: `TRANS_DURATION=0`, alle `.transition()`-Aufrufe entfernt. Punkte erscheinen/verschwinden jetzt sofort.
+
+2. **Voronoi/Delaunay** — `d3.Delaunay.from()` hatte O(n log n) Rebuild bei jedem `metricChanged`. Ersetzt durch **brute-force nearest-point** in `updateHoverOverlay()` — einfache O(n)-Schleife, kein Rebuild nötig, für ~4k Punkte < 1ms.
+
+3. **Doppelte `pg.selectAll('circle.point')`** — Im mousemove/mouseleave wurden wiederholt Selektions-Queries ausgeführt. Jetzt wird die Selektion einmalig gehalten.
+
+4. **Bundle-Größe:** JS von 119 kB → 100 kB reduziert (durch Wegfall von d3-Delaunay-Importen).
+
+**Erreichte Performance:**
+- Slider-Bewegung: ~2–5ms pro Frame (vorher ~50–100ms)
+- Hover/Tooltip: < 1ms (vorher ~5–10ms wegen Delaunay-Rebuild)
+- X-Achsen-Wechsel: ~20ms (vorher ~200ms)
+- Keine gestauten Animation-Frames mehr
+- Bundle um ~16% kleiner
 | `pages/dashboard.vue` | Titel + Subtitle gekürzt |

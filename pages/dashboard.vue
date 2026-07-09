@@ -31,10 +31,10 @@ const kpiFiltered = computed(() => filteredKpiData(hourly.value))
 const activeTab = ref<'ueberblick' | 'zusammenhaenge' | 'tagesmuster' | 'preise'>('ueberblick')
 
 const tabs = [
-  { id: 'ueberblick' as const, label: 'Überblick' },
-  { id: 'zusammenhaenge' as const, label: 'Zusammenhänge' },
+  { id: 'ueberblick' as const, label: 'Strommix' },
+  { id: 'zusammenhaenge' as const, label: 'Einflussfaktoren' },
   { id: 'tagesmuster' as const, label: 'Tagesmuster' },
-  { id: 'preise' as const, label: 'Preise' },
+  { id: 'preise' as const, label: 'Markt & Preise' },
 ]
 const selectedDay = ref<string | undefined>(undefined)
 function handleDaySelected(isoDate: string) { selectedDay.value = isoDate }
@@ -188,9 +188,6 @@ const kpis = computed(() => {
         <h1 class="dashboard-title">Die Klimabilanz des deutschen Stroms</h1>
         <p class="dashboard-subtitle">Eine interaktive Analyse auf Basis von SMARD-, UBA- und ENTSO-E-Daten, 2015–2024.</p>
       </div>
-      <div class="header-meta">
-        <span>Datenstand: 31.12.2024</span>
-      </div>
     </header>
 
     <div v-if="loading" class="dashboard-loading">Daten werden geladen...</div>
@@ -312,12 +309,12 @@ const kpis = computed(() => {
   justify-content: space-between;
   align-items: flex-start;
   gap: 24px;
-  margin-bottom: 18px;
+  margin-bottom: 56px;
 }
 
 .dashboard-title {
   font-family: var(--font-serif);
-  font-size: clamp(28px, 3vw, 44px);
+  font-size: clamp(32px, 4vw, 52px);
   font-weight: 800;
   line-height: 1.08;
   max-width: 920px;
@@ -346,7 +343,7 @@ const kpis = computed(() => {
 }
 
 .kpi-section {
-  margin-bottom: 20px;
+  margin-bottom: 48px;
 }
 
 .kpi-grid {
@@ -359,7 +356,7 @@ const kpis = computed(() => {
 .tab-nav {
   display: flex;
   gap: 0;
-  margin-bottom: 20px;
+  margin-bottom: 40px;
   border-bottom: 1px solid var(--hairline);
   padding: 0;
 }
@@ -390,7 +387,7 @@ const kpis = computed(() => {
 }
 
 .tab-content {
-  margin-bottom: 24px;
+  margin-bottom: 64px;
 }
 
 /* Überblick-Layout */
