@@ -1639,3 +1639,228 @@ Kompletter Umbau des Dashboard-Layouts mit Tab-Navigation:
 | `components/viz/DuckCurve.vue` | Card-Style entfernt, Serif-Überschrift |
 | `assets/css/main.css` | Neue Farbpalette (kühl), Source Serif 4, neue Tokens |
 | `nuxt.config.ts` | Source Serif 4 Font hinzugefügt |
+
+---
+
+## 47. Scatterplot-Zoom: Skalen-Synchronisations-Bug behoben (09.07.2026)
+
+### Problembeschreibung
+
+Beim Zoomen und Verschieben im Scatterplot (`Zusammenhänge`-Tab) gerieten die Achsen-Skalen aus dem Takt mit den Datenpunkten. Konkret:
+
+- **Nach Zoom + Re-Render** (z.B. Timeline-Phasenwechsel): Punkte wurden mit gezoomten Skalen positioniert, Achsen fielen auf ungezoomte Skalen zurück.
+- **Grid-Linien** zeigten immer die ungezoomten Tick-Positionen.
+- **Trendlinie** wurde während des Zoomens nie aktualisiert.
+- **Erklär-Zonen** (wenig EE / viel EE) verwendeten im Zoom-Handler andere Domains als im watchEffect.
+
+### Root-Cause-Analyse
+
+Fünf unabhängige Bugs, die zusammen den Effekt verstärkten:
+
+#### Bug 1: `useX`/`useY` nach Achsen-Rendering definiert (TDZ)
+
+```typescript
+// Zeile 339 — greift auf useX zu, ABER:
+axisGroup.select('.x-axis').call(d3.axisBottom(useX).ticks(6) as any)
+
+// Zeile 370 — useX wird erst hier definiert:
+const useX = currentZoom.value ? currentZoom.value.rescaleX(xScale) : xScale
+```
+
+`useX`/`useY` wurden **nach** der Achsen- und Grid-Renderlogik definiert (Temporal Dead Zone). Das heisst: Die Variablen existierten noch gar nicht, als die Achsen sie verwenden sollten. Die App lief trotzdem — vermutlich weil der Vue-SFC-Compiler die Funktion als Ganzes betrachtet und die Werte durch Closure-Capture aus vorherigen Runs weitergereicht wurden — aber die Semantik war undefiniert.
+
+#### Bug 2: Grid-Linien nutzten ungezoomte `xScale`/`yScale`
+
+```typescript
+const xAxisGen = d3.axisBottom(xScale).ticks(6) // ← xScale statt useX
+```
+
+Grid-Linien wurden immer mit der **Original-Skala** berechnet. Nach einem Zoom zeigten die Grids also Ticks an den falschen Positionen (nicht synchron mit den gezoomten Achsen).
+
+#### Bug 3: Zoom-Handler duplizierte die gesamte Renderlogik
+
+Der `.on('zoom', ...)`-Handler hatte eine **separate, eigenständige** Implementierung für:
+- Punkte neu positionieren (`.attr('cx', ...)`)
+- Achsen neu zeichnen (`.call(d3.axisBottom(zx))`)
+- Grid-Linien entfernen + neu erstellen
+- Erklär-Zonen entfernen + neu erstellen
+
+Diese Duplikation war eine klassische Wartungsfalle: Jede Änderung an der watchEffect-Renderlogik musste **manuell synchron** im Zoom-Handler nachgezogen werden — sonst gab es Inkonsistenzen. Die Trendlinie wurde z.B. im Zoom-Handler **komplett vergessen**.
+
+#### Bug 4: Trendlinie blieb beim Zoomen statisch
+
+Der Zoom-Handler aktualisierte die Trendlinie nie. Nach einem Zoom blieb sie in der alten Position — bis zum nächsten watchEffect-Durchlauf. Bei schnellem Scrollen war das deutlich sichtbar.
+
+#### Bug 5: Erklär-Zonen nutzten unterschiedliche Domains
+
+- **watchEffect**: `useX.domain()` (gezoomte Domain)
+- **Zoom-Handler**: `bx.domain()` (Basis-Domain)
+
+Das führte zu unterschiedlichen Mittelpunkt-Berechnungen und damit zu Zonen, die beim Zoom + Re-Render sprangen.
+
+### Lösung: `updateVisuals(ux, uy)` — Eine Funktion für alle Skalen
+
+#### Änderung 1: `useX`/`useY` nach ganz oben verschoben
+
+Direkt nach der Skalen-Erzeugung, **vor** aller Renderlogik:
+
+```typescript
+baseXScale.value = xScale
+baseYScale.value = yScale
+
+// Jetzt gleich hier — für alle nachfolgenden Render-Schritte
+const useX = currentZoom.value ? currentZoom.value.rescaleX(xScale) : xScale
+const useY = currentZoom.value ? currentZoom.value.rescaleY(yScale) : yScale
+```
+
+#### Änderung 2: Grid-Linien auf `useX`/`useY` umgestellt
+
+```typescript
+const xAxisGen = d3.axisBottom(useX).ticks(6).tickSize(INNER_H).tickFormat(() => '')
+const yAxisGen = d3.axisLeft(useY).ticks(5).tickSize(-INNER_W).tickFormat(() => '')
+```
+
+#### Änderung 3: Gemeinsame `updateVisuals(ux, uy)`-Funktion
+
+```typescript
+function updateVisuals(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
+  // Punkte (direkte attr-Updates, keine Data-Joins)
+  pg.selectAll('circle.point')
+    .attr('cx', (d: any) => ux(d.x))
+    .attr('cy', (d: any) => uy(d.y))
+
+  // Achsen (mit Tick-Formatierung)
+  axisGroup.select('.x-axis').call(d3.axisBottom(ux).ticks(6)...)
+  axisGroup.select('.y-axis').call(d3.axisLeft(uy).ticks(5)...)
+
+  // Grid-Linien (komplett neu)
+  gridGroup.selectAll('*').remove()
+  // ... neu mit ux.ticks(6) / uy.ticks(5)
+
+  // Trendlinie (komplett neu)
+  chart.selectAll('g.reg-group').remove()
+  if (showTrendline.value) { /* ... mit ux/uy */ }
+
+  // Erklär-Zonen (komplett neu)
+  chart.selectAll('g.explain-zone').remove()
+  if (explainMode.value) { /* ... mit ux.domain() */ }
+}
+```
+
+#### Änderung 4: Zoom-Handler auf `updateVisuals` reduziert
+
+Der Zoom-Handler berechnet nur noch `zx`/`zy` aus den Basis-Skalen und ruft dann `updateVisuals(zx, zy)` auf:
+
+```typescript
+.on('zoom', (event) => {
+  if (!zoomEnabled.value) return
+  currentZoom.value = event.transform
+  const bx = baseXScale.value, by = baseYScale.value
+  if (!bx || !by) return
+  const zx = event.transform.rescaleX(bx)
+  const zy = event.transform.rescaleY(by)
+  updateVisuals(zx, zy) // ← EIN AUFRUF für alles
+})
+```
+
+### Validierung
+
+- ✅ Build erfolgreich (`nuxt build`)
+- ✅ Server läuft, Dashboard lädt
+- ✅ Scatterplot rendert mit allen Features
+- ✅ Zoom + Pan: Punkte, Achsen, Grids, Trendlinie, Erklär-Zonen bleiben synchron
+- ✅ Timeline-Phasenwechsel nach Zoom: Alles bleibt korrekt skaliert
+- ✅ Reset-Zoom: `currentZoom.value = null` + `d3.zoomIdentity` → saubere Rückkehr
+- ✅ X-Achsen-Wechsel (EE-Anteil → Fossil-Anteil → etc.): Zoom wird zurückgesetzt, Skalen neu berechnet
+
+### Geänderte Dateien (09.07.2026)
+
+| Datei | Änderung |
+|---|---|
+| `components/viz/ScatterAnalysis.vue` | `useX`/`useY` nach oben verschoben, Grids auf `useX`/`useY`, `updateVisuals()`-Funktion eingeführt, Zoom-Handler vereinfacht, Trendlinie in updateVisuals integriert, doppelte `useX`/`useY`-Definition entfernt |
+
+---
+
+## 48. Scatterplot-Redesign: Breiter, farblich semantisch, Range-Slider, Presets (09.07.2026)
+
+### Überblick
+
+Mehrere Iterationen mit Fokus auf visuelle Qualität, Bedienbarkeit und Farbkodierung:
+
+1. **Chart-Breite erhöht** — WIDTH 700 → 860 → 960 (mehr horizontale Lesefläche, Skalierung korrekt)
+2. **Hintergrund + Raster** — Plot-Hintergrund `#F0F0F0`, nur horizontale Gridlines (`#DCDCDC`), Basislinie unten (`#AAAAAA`, 1.5px), kein Box-Rahmen
+3. **Punkt-Rendering Zwei-Schichtig** — Outline (`#2D6A4F`, stroke 1.2px, r=4) + Fill (`#52B788`, opacity 0.25) → Dichte durch Überlagerung sichtbar. Später verkleinert auf `r=2.5`
+4. **Achsen ohne Rahmen** — `.domain` entfernt, `tickSize(0)`, Labels in `#888888`
+5. **Erklär-Zonen mit Callout-Labels** — Fachliche Schwellen (Wenig EE < 30%, Übergang 30–55%, Viel EE > 55%). Hintergrundflächen (rot/grün/beige), weiße Callout-Boxen
+6. **Semantische Punktfarben pro X-Achse**:
+   - EE-Anteil: Grün `#4A8A5F` / `#2D5A38`
+   - Fossil-Anteil: Anthrazit `#4A4A4A` / `#2A2A2A`
+   - Stromnachfrage: Petrol-Blau `#3E7A9E` / `#2A5870`
+   - Strompreis: Ocker `#B8935A` / `#8A6A35`
+7. **Button-Farbe matched Punktfarbe** — Aktiver Pill-Button in jeweiliger `btnBg`
+8. **Trendlinie in Farbfamilie** — Dunklere Variante der Punktfarbe (nicht schwarz)
+9. **Timeline-Player entfernt → Range-Slider** — Play/Pause/rAF-Animation durch Dual-Handle-Slider ersetzt. Monatsauflösung (120 Monate). Keine Timer/Intervalle.
+10. **Preset-Buttons** — `Alles`, `2015/16`, `2017/18`, `2019/20`, `2021/22`, `2023/24`. Default: 2015/16
+11. **`Besondere Stunden`-Erklärung** — Infobox bei Aktivierung mit Erläuterung (2 Standardabweichungen)
+12. **Titel + Subtitle aktualisiert** — "Die Klimabilanz des deutschen Stroms", Subtitle gestrafft
+
+### Technische Details
+
+- **Zoom-State bleibt erhalten** beim Wechsel des Zeitraums (Slider und X-Achse)
+- **`updateVisuals(ux, uy)`** als gemeinsame Render-Funktion für watchEffect + Zoom-Handler
+- **`rangePoints`** ersetzt `phasePoints` (filtert nach `selectedStartDate`/`selectedEndDate`)
+- **`rangeStats`** ersetzt `phaseStats` (identische Regression)
+- **`AXIS_COLORS`**-Map mit `fill`, `outline`, `trend`, `label`, `btnBg`, `opacity` pro X-Achse
+- **Keine Play/Pause-Animation, kein rAF, keine PHASES, kein currentPhase** mehr
+
+### Section 48b: Tageszeit-Färbung + Performance (09.07.2026)
+
+**Tageszeit-Färbung:**
+- Punkte im Scatterplot werden nach **Tageszeit (4 Gruppen)** eingefärbt
+- Nacht (0–5h): `#34495E` — Winddominant, niedrige Nachfrage
+- Morgen (6–9h): `#E67E22` — Lastanstieg, PV beginnt
+- Tag (10–17h): `#F4D03F` — PV-Spitze, sauberster Strom
+- Abend (18–23h): `#8E44AD` — PV weg, fossile Reserve
+- Legende unterhalb der Toggle-Chips (farbige Swatches + Labels)
+
+**Performance (erste Iteration):**
+- `TRANS_DURATION` 300 → 80ms
+- Zwei Circle-Layer (`circle.outline` + `circle.fill`) zu einem einzigen `circle.point` zusammengelegt → DOM-Elemente halbiert
+- Bestehende Punkte werden direkt per `.attr()` ohne Transition aktualisiert (nur Enter/Exit haben Transitions)
+
+### Section 48c: Performance-Optimierung (09.07.2026)
+
+**Problem:** Trotz 80ms TRANS_DURATION und Single-Circle-Layer war der Scatterplot bei Slider-Änderungen langsam, weil `watchEffect` bei **jeder** Änderung einen kompletten Re-Render auslöste:
+- Kompletter D3-Data-Join aller Punkte (Enter/Exit/Update)
+- Trendlinie + R²-Neuberechnung
+- Voronoi/Delaunay-Neuaufbau
+- Achsen + Labels + Overlays neu gerendert
+
+**Lösung:**
+1. `watchEffect` → gezielte `watch()`-Aufrufe + `scheduleRender(reason)`
+2. `RenderReason`-Typ: `'init' | 'metricChanged' | 'timeRangeChanged' | 'trendToggleChanged' | 'explainToggleChanged' | 'zoom'`
+3. `requestAnimationFrame`-Scheduler für Slider-Bündelung
+4. **Slider: keine Data-Joins** — Punkte werden einmal gerendert, dann per `style.display` ein-/ausgeblendet
+5. **Trendlinie debounced** — nur nach Slider-Stopp neu berechnet
+6. **Voronoi debounced** — nur nach Slider-Stopp neu aufgebaut
+7. `updateChart(reason)` strukturiert nach Update-Grund
+
+**Geänderte Dateien (09.07.2026):**
+| `components/viz/ScatterAnalysis.vue` | Tageszeit-Färbung, Legende, Single-Circle-Layer, TRANS_DURATION, watch→watch+scheduleRender, RenderReasons, Slider-Debounce |
+
+### Section 48d: Erklärmodus für alle X-Achsen + SQLite-Evaluierung (09.07.2026)
+
+**Erklärmodus erweitert:**
+- Bisher nur für EE-Anteil. Jetzt für alle 4 X-Achsen:
+  - **Fossil-Anteil**: "Viel Fossil ↗ hohe CO₂" (oben rechts), "Wenig Fossil ↘ niedrige CO₂" (unten links)
+  - **Stromnachfrage**: "Hohe Last + wenig EE ↗ schmutzig" (oben rechts), "Niedrige Last ↘ EE-Anteil steigt" (unten links), "Schwache Korrelation — Mix entscheidet" (oben Mitte)
+  - **Strompreis**: "Negativpreise → EE-Überschuss" (links mitte), "Spitzenlast → Gas als Puffer" (oben rechts), "Günstig & sauber → EE-Hochphase" (unten links), vertikale Linie bei 0 EUR/MWh
+- Labels ohne Hintergrund-Boxen, mit `<tspan>` (erste Zeile bold, zweite mit Pfeil)
+- `xAxis.value.key === 'ee_share'`-Guards entfernt → Erklärmodus funktioniert bei jeder X-Achse
+
+### Geänderte Dateien (09.07.2026)
+
+| Datei | Änderung |
+|---|---|
+| `components/viz/ScatterAnalysis.vue` | Komplett überarbeitet: Skalen-Sync, Grids, Punkte, Erklär-Zonen, semantische Farben, Range-Slider statt Timeline, Presets, Button-Farben, Trendlinien-Farben |
+| `pages/dashboard.vue` | Titel + Subtitle gekürzt |

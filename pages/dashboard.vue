@@ -185,8 +185,8 @@ const kpis = computed(() => {
   <div class="dashboard-page">
     <header class="dashboard-header">
       <div>
-        <h1 class="dashboard-title">Wovon hängt die Klimabilanz des deutschen Stroms ab?</h1>
-        <p class="dashboard-subtitle">Der deutsche Strommix wird sauberer – aber auch volatiler. Erneuerbare Energien dominieren zunehmend, während Kohle an Bedeutung verliert. Eine interaktive Analyse auf Basis von SMARD-, UBA- und ENTSO-E-Daten, 2015–2024.</p>
+        <h1 class="dashboard-title">Die Klimabilanz des deutschen Stroms</h1>
+        <p class="dashboard-subtitle">Eine interaktive Analyse auf Basis von SMARD-, UBA- und ENTSO-E-Daten, 2015–2024.</p>
       </div>
       <div class="header-meta">
         <span>Datenstand: 31.12.2024</span>

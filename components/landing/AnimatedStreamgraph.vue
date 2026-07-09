@@ -38,7 +38,7 @@ const SOURCE_DEFS: SourceDef[] = [
   { key: 'hydro',     label: 'Wasserkraft',  color: '#38bdf8', sourceKeys: ['hydro'] },
   { key: 'biomass',   label: 'Biomasse',     color: '#16a34a', sourceKeys: ['biomass'] },
   { key: 'pv',        label: 'PV',           color: '#facc15', sourceKeys: ['pv'] },
-  { key: 'wind',      label: 'Wind',         color: '#2563eb', sourceKeys: ['wind_onshore', 'wind_offshore'] },
+  { key: 'wind',      label: 'Wind',         color: '#2D6A4F', sourceKeys: ['wind_onshore', 'wind_offshore'] },
   { key: 'gas',       label: 'Gas',          color: '#f97316', sourceKeys: ['gas'] },
   { key: 'hardcoal',  label: 'Steinkohle',   color: '#6b7280', sourceKeys: ['hardcoal'] },
   { key: 'lignite',   label: 'Braunkohle',   color: '#78350f', sourceKeys: ['lignite'] },

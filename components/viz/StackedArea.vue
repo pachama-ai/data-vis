@@ -32,7 +32,7 @@ const props = defineProps<{
 // Farben fuer die Energietraeger (konstant, fuer Legende + Chart)
 // ----------------------------------------------------------------
 const COLORS: Record<string, string> = {
-  wind:       '#2563eb',   // dunkelblau
+  wind:       '#2D6A4F',   // tealgrün
   pv:         '#facc15',   // gelb
   lignite:    '#451a03',   // sehr dunkelbraun (abgrenzbar zu Gas)
   hardcoal:   '#374151',   // dunkel-slate (IEA/Ember-Konvention)

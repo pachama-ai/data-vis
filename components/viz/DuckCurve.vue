@@ -300,8 +300,8 @@ watchEffect(() => {
     },
     { id: 'price', y: MARGIN.top + (PANEL_H + GAP), label: 'Day-Ahead-Preis', unit: 'EUR/MWh',
       lines: [
-        { key: 'price', data: profileA, color: '#2563eb', label: 'Preis', curve: d3.curveStepAfter },
-        ...(profileB.length ? [{ key: 'price', data: profileB, color: '#2563eb', label: `${currentPreset.value.groupA} Preis`, curve: d3.curveStepAfter, dashed: true }] : []),
+        { key: 'price', data: profileA, color: '#2D6A4F', label: 'Preis', curve: d3.curveStepAfter },
+        ...(profileB.length ? [{ key: 'price', data: profileB, color: '#2D6A4F', label: `${currentPreset.value.groupA} Preis`, curve: d3.curveStepAfter, dashed: true }] : []),
       ],
       yFn: (v: number) => yPrice(v),
     },
@@ -367,7 +367,7 @@ watchEffect(() => {
           `<strong>${String(cl).padStart(2, '0')}:00</strong><br/>` +
           `<span style="color:#10b981">●</span> PV: ${gv(profileA, 'pv', 1)} GW<br/>` +
           `<span style="color:#1a1a1a">●</span> RL: ${gv(profileA, 'residuallast', 1)} GW<br/>` +
-          `<span style="color:#2563eb">●</span> Preis: ${gv(profileA, 'price', 1)} EUR/MWh<br/>` +
+          `<span style="color:#2D6A4F">●</span> Preis: ${gv(profileA, 'price', 1)} EUR/MWh<br/>` +
           `<span style="color:#dc2626">●</span> CO₂: ${gv(profileA, 'co2', 0)} g/kWh`
         ).style('left', `${Math.min(e.clientX + 14, window.innerWidth - 240)}px`)
          .style('top', `${Math.max(8, e.clientY - 20)}px`)

@@ -35,7 +35,7 @@ interface SourceDef {
 }
 
 const SOURCE_DEFS: SourceDef[] = [
-  { key: 'wind',       label: 'Wind',        color: '#2563eb', sourceKeys: ['wind_onshore', 'wind_offshore'] },
+  { key: 'wind',       label: 'Wind',        color: '#2D6A4F', sourceKeys: ['wind_onshore', 'wind_offshore'] },
   { key: 'pv',         label: 'PV',          color: '#facc15', sourceKeys: ['pv'] },
   { key: 'lignite',    label: 'Braunkohle',  color: '#78350f', sourceKeys: ['lignite'] },
   { key: 'hardcoal',   label: 'Steinkohle',  color: '#6b7280', sourceKeys: ['hardcoal'] },
