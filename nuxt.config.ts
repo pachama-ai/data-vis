@@ -4,10 +4,10 @@
 // Die App läuft als reiner Static-SPA-Mode (Client-Side-Rendering).
 // Dadurch kann sie offline aus dem `dist/`-Ordner oder via `bun run dev -o` starten.
 //
-// css: lädt globales CSS aus assets/css/main.css
+// css: lädt globales CSS aus assets/css/main.css (inkl. lokaler @font-face-Definitionen)
 //
-// app.head: hier wird der Inter-Font von Google Fonts eingebunden.
-// Die Design-Tokens stehen in :root in main.css, nicht hier.
+// Fonts: Inter und Source Serif 4 werden lokal aus public/fonts/ geladen.
+// Kein CDN — App ist offline-fähig.
 export default defineNuxtConfig({
   ssr: false,
 
@@ -19,13 +19,7 @@ export default defineNuxtConfig({
     head: {
       charset: 'utf-8',
       viewport: 'width=device-width, initial-scale=1',
-      title: 'Stromdaten-Visualisierung',
-      link: [
-        {
-          rel: 'stylesheet',
-          href: 'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Source+Serif+4:wght@600;700;800&display=swap'
-        }
-      ]
+      title: 'Stromdaten-Visualisierung'
     }
   },
 

@@ -1907,3 +1907,39 @@ Mehrere Iterationen mit Fokus auf visuelle Qualität, Bedienbarkeit und Farbkodi
 - Keine gestauten Animation-Frames mehr
 - Bundle um ~16% kleiner
 | `pages/dashboard.vue` | Titel + Subtitle gekürzt |
+
+---
+
+## 49. Performance-Fix: `allPoints` entfernt, echter Data-Join bei `timeRangeChanged` (10.07.2026)
+
+### Problem
+
+Der Scatterplot lagerte **alle 85.000 Datenpunkte** in den DOM (via `allPoints`-computed) und blendete die außerhalb des Zeitraums liegenden Punkte nur per `style.display: none` aus. Das führte zu:
+- ~85k DOM-`<circle>`-Elementen statt nur der gefilterten Menge (~4k–24k)
+- Höherem Speicherverbrauch und langsameren Reflow-Operationen
+- Verwirrender Code-Struktur (zwei Datenquellen: `allPoints` für Join, `rangePoints` für Trendlinie)
+
+### Lösung
+
+1. **`allPoints`-computed komplett entfernt** — Es gibt nur noch `rangePoints` (nach Datum gefiltert).
+2. **`timeRangeChanged` macht jetzt einen echten D3-Data-Join** mit `rangePoints` — kein `style.display`-Toggling mehr.
+3. **Einheitlicher Code-Pfad** für `init`, `metricChanged` und `timeRangeChanged`: Alle drei nutzen denselben Data-Join-Block.
+4. **`performance.mark()` / `performance.measure()`** mit eindeutigen IDs (Reason + Timestamp) für saubere Profiling-Ergebnisse.
+5. **`console.table()`-Kontrolle** nach jedem Join: zeigt `selectedPeriod`, `filteredPoints` und `circlesInDom`.
+
+### Ergebnis
+
+| Metrik | Vorher | Nachher |
+|---|---|---|
+| DOM-Circles | 85.000 (alle) | ~4.000–24.000 (nur gefilterte) |
+| Speicher | Höher (85k DOM-Nodes) | Deutlich reduziert |
+| Slider-Wechsel | `style.display`-Toggle | Sauberer Data-Join |
+| Profiling | `console.time` (einfach) | `performance.mark`/`measure` (eindeutig) |
+| Code-Klarheit | Zwei Datenquellen, schwer verständlich | Eine Datenquelle (`rangePoints`) |
+| Verifikation | Manuelles Zählen | `console.table({filteredPoints, circlesInDom})` |
+
+### Geänderte Dateien
+
+| Datei | Änderung |
+|---|---|
+| `components/viz/ScatterAnalysis.vue` | `allPoints` computed entfernt, `allPts`-Referenz entfernt, `timeRangeChanged` auf Data-Join umgestellt, `performance.mark`/`measure` eingeführt, `console.table`-Kontrolle hinzugefügt, doppelten `explain`-Block entfernt |

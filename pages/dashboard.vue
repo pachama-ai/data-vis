@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, shallowRef, computed, defineAsyncComponent } from 'vue'
 import { useData } from '~/composables/useData'
 import { useFilters } from '~/composables/useFilters'
 import type { HourlyRow, YearlyRow } from '~/composables/useData'
@@ -7,8 +7,17 @@ import type { HourlyRow, YearlyRow } from '~/composables/useData'
 const { loadHourly, loadYearly } = useData()
 const { state, filteredKpiData } = useFilters()
 
-const hourly = ref<HourlyRow[]>([])
-const yearly = ref<YearlyRow[]>([])
+// shallowRef: große Arrays sind unveränderlich, keine tiefe Reaktivität nötig
+const hourly = shallowRef<HourlyRow[]>([])
+const yearly = shallowRef<YearlyRow[]>([])
+
+// Lazy Loading: Nur der direkt sichtbare Tab "Strommix" lädt synchron.
+// Die drei anderen Charts werden asynchron geladen, sobald der Nutzer
+// den entsprechenden Tab anklickt. Spart ~80 kB initiales Bundle.
+const VizScatterAnalysis = defineAsyncComponent(() => import('~/components/viz/ScatterAnalysis.vue'))
+const VizHeatmapCO2 = defineAsyncComponent(() => import('~/components/viz/HeatmapCO2.vue'))
+const VizDuckCurve = defineAsyncComponent(() => import('~/components/viz/DuckCurve.vue'))
+
 const loading = ref(true)
 const error = ref<string | null>(null)
 
@@ -273,17 +282,32 @@ const kpis = computed(() => {
 
       <!-- Zusammenhänge -->
       <section v-if="activeTab === 'zusammenhaenge'" class="tab-content">
-        <VizScatterAnalysis :data="hourly" />
+        <Suspense>
+          <VizScatterAnalysis :data="hourly" />
+          <template #fallback>
+            <div class="chart-loading">Visualisierung wird geladen …</div>
+          </template>
+        </Suspense>
       </section>
 
       <!-- Tagesmuster -->
       <section v-if="activeTab === 'tagesmuster'" class="tab-content">
-        <VizHeatmapCO2 :data="hourly" @day-selected="handleDaySelected" />
+        <Suspense>
+          <VizHeatmapCO2 :data="hourly" @day-selected="handleDaySelected" />
+          <template #fallback>
+            <div class="chart-loading">Visualisierung wird geladen …</div>
+          </template>
+        </Suspense>
       </section>
 
       <!-- Preise -->
       <section v-if="activeTab === 'preise'" class="tab-content">
-        <VizDuckCurve :data="hourly" :selected-day="selectedDay" />
+        <Suspense>
+          <VizDuckCurve :data="hourly" :selected-day="selectedDay" />
+          <template #fallback>
+            <div class="chart-loading">Visualisierung wird geladen …</div>
+          </template>
+        </Suspense>
       </section>
 
       <footer class="dashboard-footer">
@@ -459,6 +483,12 @@ const kpis = computed(() => {
   text-align: center;
   padding: 80px 0;
   font-size: 0.9rem;
+  color: var(--fg-muted);
+}
+.chart-loading {
+  text-align: center;
+  padding: 60px 0;
+  font-size: 0.8rem;
   color: var(--fg-muted);
 }
 .dashboard-error { color: var(--accent); }

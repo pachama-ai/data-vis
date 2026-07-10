@@ -144,6 +144,7 @@ const fixedDomains = computed(() => {
 // ----------------------------------------------------------------
 interface Point { id: number; x: number; y: number; hour: number; isOutlier: boolean }
 
+// Nach Zeitraum gefilterte Punkte — einzige Datenbasis für DOM-Join + Regression
 const rangePoints = computed<Point[]>(() => {
   const xFn = xAxis.value.value
   const start = selectedStartDate.value.getTime()
@@ -269,6 +270,8 @@ type RenderReason = 'init' | 'metricChanged' | 'timeRangeChanged' | 'trendToggle
 let renderRaf: number | null = null
 let pendingReason: RenderReason | null = null
 let trendlineTimer: ReturnType<typeof setTimeout> | null = null
+let hoverRaf: number | null = null
+let lastHoverId: number | null = null
 // Module-level D3-Selections (nach Init)
 let chart: d3.Selection<SVGGElement, unknown, null, undefined>
 let pg: d3.Selection<SVGGElement, unknown, null, undefined>
@@ -293,25 +296,28 @@ function scheduleRender(reason: RenderReason) {
 const TRANS_DURATION = 0
 
 function updateChart(reason: RenderReason) {
+  console.time(`⏱ updateChart [${reason}]`)
   const svgEl = svgRef.value
-  if (!svgEl) return
+  if (!svgEl) { console.timeEnd(`⏱ updateChart [${reason}]`); return }
 
   const pts = rangePoints.value
   const { xDomain, yDomain } = fixedDomains.value
 
-  // Scales immer aktualisieren (für updateVisuals)
+  console.time(`  scales`)
   xScale = d3.scaleLinear().domain(xDomain).range([0, INNER_W])
   yScale = d3.scaleLinear().domain(yDomain).range([INNER_H, 0])
   baseXScale.value = xScale
   baseYScale.value = yScale
   const ux = currentZoom.value ? currentZoom.value.rescaleX(xScale) : xScale
   const uy = currentZoom.value ? currentZoom.value.rescaleY(yScale) : yScale
+  console.timeEnd(`  scales`)
 
   const svg = d3.select(svgEl)
   const ac = axisColor.value
 
   // --- INIT: Einmalige SVG-Struktur ---
   if (reason === 'init' || !chart?.node()) {
+    console.time(`  init-structure`)
     svg.attr('viewBox', `0 0 ${WIDTH} ${HEIGHT}`)
 
     chart = svg.selectChild<SVGGElement>('g.chart-area')
@@ -397,11 +403,13 @@ function updateChart(reason: RenderReason) {
     }
     svg.call(zoomBehavior)
     svg.style('cursor', 'crosshair')
+    console.timeEnd(`  init-structure`)
   }
 
   // --- RENDER nach Grund ---
 
   // 1. Grids + Baseline (immer, schnell)
+  console.time(`  grids+axes`)
   const yAxisGen = d3.axisLeft(uy).ticks(5).tickSize(-INNER_W).tickFormat(() => '')
   gridGroup.selectAll('g.y-grid').remove()
   gridGroup.append('g').attr('class', 'y-grid').call(yAxisGen)
@@ -427,62 +435,65 @@ function updateChart(reason: RenderReason) {
   // X-Label
   svg.select<SVGTextElement>('.x-label').text(`${xAxis.value.label} (${xAxis.value.unit})`)
   svg.select<SVGTextElement>('.x-label').attr('fill', ac.label)
+  console.timeEnd(`  grids+axes`)
 
   // 3. Punkte — Data-Join NUR bei init oder metricChanged
   //    Bei timeRangeChanged: nur Sichtbarkeit via display togglen
-  if (reason === 'init' || reason === 'metricChanged') {
+  if (reason === 'init' || reason === 'metricChanged' || reason === 'timeRangeChanged') {
+    const markId = `${reason}_${Date.now()}`
+    performance.mark(`${markId}-start`)
+
+    console.time(`  data-join (${pts.length} pts)`)
     const POINT_R = 2.5
 
-    // Einmaliger Data-Join — cached die circle-Selection
     const circles = pg.selectAll<SVGCircleElement, Point>('circle.point')
       .data(pts, (d) => String(d.id))
 
-    // Exit: sofort entfernen
     circles.exit().remove()
 
-    // Enter: neue Kreise ohne Transition
     const enter = circles.enter().append('circle')
       .attr('class', 'point')
       .attr('stroke', ac.outline).attr('stroke-width', 1)
       .attr('cursor', 'crosshair')
 
-    // Alle Kreise (Enter + Update) direkt setzen — keine Transitions
     enter.merge(circles)
       .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
       .attr('fill', (d) => getHourColor(d.hour))
       .attr('stroke', (d) => highlightOutliers.value && d.isOutlier ? '#1a1a1a' : ac.outline)
       .attr('stroke-width', (d) => highlightOutliers.value && d.isOutlier ? 1.5 : 1)
       .attr('r', POINT_R).attr('opacity', ac.opacity)
-      .style('display', null)
+
+    console.timeEnd(`  data-join (${pts.length} pts)`)
+
+    const circlesInDom = pg.selectAll('circle.point').size()
+    console.table({ selectedPeriod: `${selectedStartIdx.value * 2 + 2015}-${selectedEndIdx.value * 2 + 2015}`, filteredPoints: pts.length, circlesInDom })
+
+    performance.mark(`${markId}-end`)
+    performance.measure(`data-join [${markId}]`, `${markId}-start`, `${markId}-end`)
 
     // Trendlinie (komplett)
+    console.time(`  trendline`)
     updateTrendline(ux, uy, ac)
+    console.timeEnd(`  trendline`)
 
     // Erklärmodus (komplett)
+    console.time(`  explain`)
     updateExplainMode(ux, uy)
+    console.timeEnd(`  explain`)
 
     // Hover-Overlay (brute-force nearest point, kein Delaunay/Voronoi)
+    console.time(`  hover-overlay`)
     updateHoverOverlay(ux, uy, pts, ac)
+    console.timeEnd(`  hover-overlay`)
 
   } else if (reason === 'timeRangeChanged') {
-    // Nur Sichtbarkeit toggeln + Positionen — KEIN Data-Join
-    const startT = selectedStartDate.value.getTime()
-    const endT = selectedEndDate.value.getTime()
-
-    pg.selectAll<SVGCircleElement, any>('circle.point')
-      .attr('cx', (d: any) => ux(d.x))
-      .attr('cy', (d: any) => uy(d.y))
-      .style('display', (d: any) => {
-        const t = d.id // timestamp
-        return (t >= startT && t < endT) ? null : 'none'
-      })
+    // Data-Join passiert bereits im ersten if-Zweig (init | metricChanged | timeRangeChanged)
 
     // Trendline debounced
     scheduleTrendline(ux, uy)
 
-    // Hover-Overlay debounced (nur neu aufbauen, wenn sich Punkte geändert haben)
-    // Bei reinem timeRangeChanged reicht das bestehende Hover-Overlay
-    // (es nutzt die live-Positionen via updatePointCache)
+    // Hover-Overlay aktualisieren
+    updateHoverOverlay(ux, uy, pts, ac)
 
     // Toggles neuzeichnen (Erklärmodus)
     chart.selectAll('g.explain-zone').remove()
@@ -498,6 +509,7 @@ function updateChart(reason: RenderReason) {
     chart.selectAll('g.explain-zone').remove()
     if (explainMode.value) updateExplainMode(ux, uy)
   }
+  console.timeEnd(`⏱ updateChart [${reason}]`)
 }
 
 // ----------------------------------------------------------------
@@ -618,28 +630,48 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
     return best
   }
 
+  // rAF-gebündelter Hover: maximal eine Berechnung pro Frame
+  let latestHoverEvent: MouseEvent | null = null
+
   chart.append('rect').attr('class', 'hover-hit')
     .attr('width', INNER_W).attr('height', INNER_H)
     .attr('fill', 'transparent').attr('cursor', 'crosshair')
-    .on('mousemove', (event: MouseEvent) => {
-      const [mx, my] = d3.pointer(event, chart.node()!)
-      const p = findNearest(mx, my)
-      if (!p) return
-      const row = rowLookup.value.get(p.id)
-      if (!row) return
-      // Cache die circle-Selection (wiederholte selectAll sind teuer)
-      const circles = pg.selectChild<SVGGElement>('circle.point')
-        ? pg.selectAll<SVGCircleElement, Point>('circle.point')
-        : null
-      if (circles) {
-        circles.attr('opacity', ac.opacity).attr('r', 2.5)
-        circles.filter((d: any) => d.id === p.id)
-          .attr('opacity', 1).attr('r', 5)
-          .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
-      }
-      tooltip.value = { x: ux(p.x) + MARGIN.left, y: uy(p.y) + MARGIN.top, d: row }
+    .on('pointermove', (event: PointerEvent) => {
+      latestHoverEvent = event
+      if (hoverRaf !== null) return
+      hoverRaf = requestAnimationFrame(() => {
+        hoverRaf = null
+        const ev = latestHoverEvent
+        latestHoverEvent = null
+        if (!ev) return
+        const [mx, my] = d3.pointer(ev, chart.node()!)
+        const p = findNearest(mx, my)
+        if (!p) return
+        // Tooltip + Highlight nur aktualisieren, wenn sich der Punkt ändert
+        if (p.id === lastHoverId) return
+        lastHoverId = p.id
+        const row = rowLookup.value.get(p.id)
+        if (!row) return
+        // Cache die circle-Selection (wiederholte selectAll sind teuer)
+        const circles = pg.selectChild<SVGGElement>('circle.point')
+          ? pg.selectAll<SVGCircleElement, Point>('circle.point')
+          : null
+        if (circles) {
+          circles.attr('opacity', ac.opacity).attr('r', 2.5)
+          circles.filter((d: any) => d.id === p.id)
+            .attr('opacity', 1).attr('r', 5)
+            .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
+        }
+        tooltip.value = { x: ux(p.x) + MARGIN.left, y: uy(p.y) + MARGIN.top, d: row }
+      })
     })
-    .on('mouseleave', () => {
+    .on('pointerleave', () => {
+      latestHoverEvent = null
+      lastHoverId = null
+      if (hoverRaf !== null) {
+        cancelAnimationFrame(hoverRaf)
+        hoverRaf = null
+      }
       pg.selectAll<SVGCircleElement, Point>('circle.point')
         .attr('opacity', ac.opacity).attr('r', 2.5)
       tooltip.value = null
@@ -706,6 +738,11 @@ watch(svgRef, (el) => { if (el) scheduleRender('init') }, { once: true })
 // Cleanup
 // ----------------------------------------------------------------
 onUnmounted(() => {
+  // Ausstehende rAFs und Timeouts aufräumen
+  if (renderRaf !== null) { cancelAnimationFrame(renderRaf); renderRaf = null }
+  if (trendlineTimer !== null) { clearTimeout(trendlineTimer); trendlineTimer = null }
+  if (hoverRaf !== null) { cancelAnimationFrame(hoverRaf); hoverRaf = null }
+
   const svgEl = svgRef.value
   if (svgEl) {
     const svg = d3.select(svgEl)
