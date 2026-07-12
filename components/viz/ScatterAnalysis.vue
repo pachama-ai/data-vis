@@ -31,10 +31,10 @@ const xAxis = ref<AxisOption>(X_OPTIONS[0])
 
 // Semantische Farben pro X-Achse
 const AXIS_COLORS: Record<string, { fill: string; outline: string; trend: string; label: string; btnBg: string; opacity: number }> = {
-  ee_share:     { fill: '#4A8A5F', outline: '#2D5A38', trend: '#1E3D26', label: '#4A8A5F', btnBg: '#4A8A5F', opacity: 0.40 },
-  fossil_share: { fill: '#4A4A4A', outline: '#2A2A2A', trend: '#1A1A1A', label: '#4A4A4A', btnBg: '#4A4A4A', opacity: 0.40 },
-  load:         { fill: '#3E7A9E', outline: '#2A5870', trend: '#1E4058', label: '#3E7A9E', btnBg: '#3E7A9E', opacity: 0.25 },
-  price:        { fill: '#B8935A', outline: '#8A6A35', trend: '#6A5030', label: '#B8935A', btnBg: '#B8935A', opacity: 0.30 },
+  ee_share:     { fill: '#4A8A5F', outline: '#2D5A38', trend: '#1E3D26', label: '#4A8A5F', btnBg: '#2D6A4F', opacity: 0.40 },
+  fossil_share: { fill: '#4A4A4A', outline: '#2A2A2A', trend: '#1A1A1A', label: '#4A4A4A', btnBg: '#3A3A3A', opacity: 0.40 },
+  load:         { fill: '#3E7A9E', outline: '#2A5870', trend: '#1E4058', label: '#3E7A9E', btnBg: '#4A90A4', opacity: 0.30 },
+  price:        { fill: '#B8935A', outline: '#8A6A35', trend: '#6A5030', label: '#B8935A', btnBg: '#D97742', opacity: 0.35 },
 }
 const axisColor = computed(() => AXIS_COLORS[xAxis.value.key] || AXIS_COLORS.ee_share)
 
@@ -95,23 +95,56 @@ function clampRange() {
 }
 
 // ----------------------------------------------------------------
-// Tageszeit-Farben
+// Tageszeit-Farben (aus Träger-Palette abgeleitet)
 // ----------------------------------------------------------------
 const HOUR_COLORS: [number, number, string][] = [
-  [0,  5,  '#34495E'], // Nacht
-  [6,  9,  '#E67E22'], // Morgen
-  [10, 17, '#F4D03F'], // Tag
-  [18, 23, '#8E44AD'], // Abend
+  [0,  5,  '#2C3E50'], // Nacht
+  [6,  9,  '#D97742'], // Morgen (Erdgas-Orange)
+  [10, 17, '#E8B547'], // Tag (PV-Gelb)
+  [18, 23, '#B85C8E'], // Abend (Kernenergie-Magenta)
 ]
 const HOUR_LABELS = [
-  { label: 'Nacht (0–5h)',   color: '#34495E' },
-  { label: 'Morgen (6–9h)',  color: '#E67E22' },
-  { label: 'Tag (10–17h)',   color: '#F4D03F' },
-  { label: 'Abend (18–23h)', color: '#8E44AD' },
+  { key: 'nacht',  label: 'Nacht',   color: '#2C3E50' },
+  { key: 'morgen', label: 'Morgen',  color: '#D97742' },
+  { key: 'tag',    label: 'Tag',     color: '#E8B547' },
+  { key: 'abend',  label: 'Abend',   color: '#B85C8E' },
 ]
+
 function getHourColor(h: number): string {
   for (const [lo, hi, c] of HOUR_COLORS) { if (h >= lo && h <= hi) return c }
-  return '#34495E'
+  return '#2C3E50'
+}
+function getHourKey(h: number): string {
+  if (h >= 0 && h <= 5) return 'nacht'
+  if (h >= 6 && h <= 9) return 'morgen'
+  if (h >= 10 && h <= 17) return 'tag'
+  return 'abend'
+}
+
+// ----------------------------------------------------------------
+// Chart-Masse (an Strommix angeglichen)
+// ----------------------------------------------------------------
+const MARGIN = { top: 12, right: 16, bottom: 60, left: 60 }
+const WIDTH = 900
+const HEIGHT = 412
+const INNER_W = WIDTH - MARGIN.left - MARGIN.right
+const INNER_H = HEIGHT - MARGIN.top - MARGIN.bottom
+
+// ----------------------------------------------------------------
+// Toggle für sichtbare Tageszeiten
+// ----------------------------------------------------------------
+const visibleTimes = ref<Set<string>>(new Set(HOUR_LABELS.map(h => h.key)))
+const hoveredTime = ref<string | null>(null)
+
+function toggleTime(key: string) {
+  if (visibleTimes.value.has(key)) {
+    visibleTimes.value.delete(key)
+    if (visibleTimes.value.size === 0) visibleTimes.value.add(key)
+  } else {
+    visibleTimes.value.add(key)
+  }
+  visibleTimes.value = new Set(visibleTimes.value)
+  scheduleRender('metricChanged')
 }
 
 // ----------------------------------------------------------------
@@ -192,20 +225,48 @@ const rangeStats = computed(() => {
 })
 
 // ----------------------------------------------------------------
+// Sidebar-Metriken
+// ----------------------------------------------------------------
+const sidebarMetrics = computed(() => {
+  const stats = rangeStats.value
+  const pts = rangePoints.value
+  const n = stats.count
+
+  // Korrelationsstärke
+  const absR = Math.abs(stats.r)
+  let strength = 'keine'
+  if (absR >= 0.7) strength = 'starke'
+  else if (absR >= 0.5) strength = 'mittlere'
+  else if (absR >= 0.3) strength = 'schwache'
+  const direction = stats.r < 0 ? 'negative' : 'positive'
+  const correlationLabel = stats.r < 0
+    ? (absR >= 0.7 ? 'starke negative Korrelation' : absR >= 0.5 ? 'mittlere negative Korrelation' : 'schwache negative Korrelation')
+    : (absR >= 0.7 ? 'starke positive Korrelation' : absR >= 0.5 ? 'mittlere positive Korrelation' : 'schwache positive Korrelation')
+
+  // Steigung
+  const slopeLabel = Number.isFinite(stats.a)
+    ? (stats.a < 0 ? '' : '+') + stats.a.toFixed(1) + ' g/kWh pro %-Punkt'
+    : '—'
+
+  // Datumsbereich – Ende: letzter Tag des Monats, nicht erster Tag des Folgemonats
+  const startLabel = selectedStartDate.value.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  const endMonthEnd = new Date(selectedEndDate.value)
+  endMonthEnd.setDate(0) // letzter Tag des Vormonats = letzter Tag des gewählten Monats
+  const endLabel = endMonthEnd.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  return {
+    correlation: { value: stats.r.toFixed(2).replace('.', ','), context: correlationLabel },
+    slope: { value: slopeLabel, context: 'je zusätzlichem Prozentpunkt EE-Anteil' },
+    count: { value: n.toLocaleString('de-DE') + ' Stunden', context: startLabel + ' bis ' + endLabel },
+  }
+})
+
+// ----------------------------------------------------------------
 // Toggle States
 // ----------------------------------------------------------------
 const showTrendline = ref(false)
 const explainMode = ref(false)
 const highlightOutliers = ref(false)
-
-// ----------------------------------------------------------------
-// Chart-Masse
-// ----------------------------------------------------------------
-const MARGIN = { top: 12, right: 12, bottom: 28, left: 52 }
-const WIDTH = 960
-const HEIGHT = 360
-const INNER_W = WIDTH - MARGIN.left - MARGIN.right
-const INNER_H = HEIGHT - MARGIN.top - MARGIN.bottom
 
 // ----------------------------------------------------------------
 // Refs
@@ -226,19 +287,18 @@ const rowLookup = computed(() => {
 })
 
 // ----------------------------------------------------------------
-// Zoom State (module-level, init einmal)
+// Zoom State + Selection
 // ----------------------------------------------------------------
 let xScale: d3.ScaleLinear<number, number> | null = null
 let yScale: d3.ScaleLinear<number, number> | null = null
 let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
 const currentZoom = ref<d3.ZoomTransform | null>(null)
 let zoomInitialized = false
-// Basisskalen für Zoom (stabil, werden bei Datenänderung aktualisiert)
 const baseXScale = ref<d3.ScaleLinear<number, number> | null>(null)
 const baseYScale = ref<d3.ScaleLinear<number, number> | null>(null)
 
-// Zoom immer aktiv (kein Play/Pause mehr)
 const zoomEnabled = true
+const selectedHour = ref<{ point: Point; row: HourlyRow } | null>(null)
 
 // ----------------------------------------------------------------
 // Datums-Formatierung
@@ -365,8 +425,10 @@ function updateChart(reason: RenderReason) {
       labelGroup = svg.append('g').attr('class', 'label-group')
         .attr('transform', `translate(${MARGIN.left}, ${MARGIN.top})`)
       labelGroup.append('text').attr('class', 'x-label')
-        .attr('x', INNER_W / 2).attr('y', INNER_H + 24)
-        .attr('text-anchor', 'middle').attr('font-size', '10px').attr('fill', '#6b7280')
+        .attr('x', INNER_W / 2).attr('y', INNER_H + 45)
+        .attr('text-anchor', 'middle')
+        .attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
+        .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
     }
 
     // Y-Label
@@ -375,7 +437,8 @@ function updateChart(reason: RenderReason) {
         .attr('x', 12).attr('y', MARGIN.top + INNER_H / 2)
         .attr('text-anchor', 'middle')
         .attr('transform', `rotate(-90, 12, ${MARGIN.top + INNER_H / 2})`)
-        .attr('font-size', '11px').attr('fill', '#6B7280')
+        .attr('font-size', '11px').attr('fill', 'var(--fg-muted)').attr('font-family', 'var(--font-sans)')
+        .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
         .text('CO₂-Intensität (g CO₂/kWh)')
 
     // Point-Gruppe
@@ -383,12 +446,13 @@ function updateChart(reason: RenderReason) {
     if (pg.empty()) pg = chart.append('g').attr('class', 'point-group')
       .attr('clip-path', 'url(#chart-clip)')
 
-    // Zoom einmalig
+    // Zoom einmalig (nur Mausrad, kein Klick)
     if (!zoomInitialized) {
       zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
         .scaleExtent([1, 20])
         .translateExtent([[0, 0], [WIDTH, HEIGHT]])
         .extent([[0, 0], [WIDTH, HEIGHT]])
+        .filter((event) => event.type === 'wheel')
         .on('zoom', (event) => {
           currentZoom.value = event.transform
           const bx = baseXScale.value
@@ -420,48 +484,88 @@ function updateChart(reason: RenderReason) {
     .attr('x1', 0).attr('x2', INNER_W).attr('y1', INNER_H).attr('y2', INNER_H)
     .attr('stroke', '#AAAAAA').attr('stroke-width', 1.5)
 
-  // 2. Achsen (immer)
+  // 2. Achsen (immer) — Strommix-Stil: Inter 11px uppercase
   axisGroup.select('.x-axis')
-    .call(d3.axisBottom(ux).ticks(6).tickSize(0) as any)
+    .call(d3.axisBottom(ux).ticks(6).tickSize(0).tickFormat((d: any) => String(d)) as any)
     .call(g => g.select('.domain').remove())
   axisGroup.select('.x-axis .tick text')
-    .attr('fill', '#888888').attr('font-size', '9px').attr('font-family', 'var(--font-sans)')
+    .attr('fill', 'var(--fg-muted)').attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
+    .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
   axisGroup.select('.y-axis')
     .call(d3.axisLeft(uy).ticks(5).tickSize(0) as any)
     .call(g => g.select('.domain').remove())
   axisGroup.select('.y-axis .tick text')
-    .attr('fill', '#888888').attr('font-size', '9px').attr('font-family', 'var(--font-sans)')
+    .attr('fill', 'var(--fg-muted)').attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
+    .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
 
   // X-Label
   svg.select<SVGTextElement>('.x-label').text(`${xAxis.value.label} (${xAxis.value.unit})`)
-  svg.select<SVGTextElement>('.x-label').attr('fill', ac.label)
+  svg.select<SVGTextElement>('.x-label').attr('fill', 'var(--fg-muted)')
   console.timeEnd(`  grids+axes`)
 
-  // 3. Punkte — Data-Join NUR bei init oder metricChanged
-  //    Bei timeRangeChanged: nur Sichtbarkeit via display togglen
+  // 3. Punkte — Data-Join NUR bei init, metricChanged oder timeRangeChanged
   if (reason === 'init' || reason === 'metricChanged' || reason === 'timeRangeChanged') {
     const markId = `${reason}_${Date.now()}`
     performance.mark(`${markId}-start`)
 
     console.time(`  data-join (${pts.length} pts)`)
     const POINT_R = 2.5
+    const filteredPts = pts.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
 
     const circles = pg.selectAll<SVGCircleElement, Point>('circle.point')
-      .data(pts, (d) => String(d.id))
+      .data(filteredPts, (d) => String(d.id))
 
     circles.exit().remove()
 
     const enter = circles.enter().append('circle')
-      .attr('class', 'point')
-      .attr('stroke', ac.outline).attr('stroke-width', 1)
-      .attr('cursor', 'crosshair')
+      .attr('class', 'point').attr('cursor', 'crosshair')
 
-    enter.merge(circles)
+    const merged = enter.merge(circles)
       .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
       .attr('fill', (d) => getHourColor(d.hour))
-      .attr('stroke', (d) => highlightOutliers.value && d.isOutlier ? '#1a1a1a' : ac.outline)
-      .attr('stroke-width', (d) => highlightOutliers.value && d.isOutlier ? 1.5 : 1)
-      .attr('r', POINT_R).attr('opacity', ac.opacity)
+      .attr('stroke', 'none')
+      .attr('r', POINT_R)
+      .attr('opacity', (d) => {
+        const hk = getHourKey(d.hour)
+        if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
+        if (selectedHour.value && selectedHour.value.point.id !== d.id) return ac.opacity * 0.5
+        return ac.opacity
+      })
+
+    // Unsichtbare Treffer-Kreise für Klick (r=8, transparent)
+    const hitCircles = pg.selectAll<SVGCircleElement, Point>('circle.point-hit')
+      .data(filteredPts, (d) => String(d.id))
+
+    hitCircles.exit().remove()
+
+    hitCircles.enter().append('circle')
+      .attr('class', 'point-hit')
+      .attr('fill', 'transparent').attr('stroke', 'none')
+      .attr('cursor', 'pointer').attr('pointer-events', 'all')
+      .merge(hitCircles)
+      .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
+      .attr('r', 8)
+      .on('click', function (event: MouseEvent, d: Point) {
+        event.stopPropagation()
+        const row = rowLookup.value.get(d.id)
+        if (!row) return
+        if (selectedHour.value?.point.id === d.id) {
+          selectedHour.value = null
+          pg.selectAll('circle.point').attr('opacity', (p: any) => {
+            const hk = getHourKey(p.hour)
+            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
+            return ac.opacity
+          }).attr('r', POINT_R).attr('stroke', 'none')
+          return
+        }
+        selectedHour.value = { point: d, row }
+        // Hervorhebung
+        pg.selectAll('circle.point')
+          .attr('opacity', (p: any) => p.id === d.id ? 1 : ac.opacity * 0.5)
+          .attr('r', (p: any) => p.id === d.id ? 5 : POINT_R)
+          .attr('stroke', (p: any) => p.id === d.id ? '#333' : 'none')
+          .attr('stroke-width', (p: any) => p.id === d.id ? 1.5 : 0)
+      })
 
     console.timeEnd(`  data-join (${pts.length} pts)`)
 
@@ -523,7 +627,7 @@ function updateTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<
   const x0 = ux.domain()[0], x1 = ux.domain()[1]
   const ld: [number, number][] = [[ux(x0), uy(a * x0 + b)], [ux(x1), uy(a * x1 + b)]]
   rg.append('path').attr('d', d3.line()(ld)!).attr('fill', 'none')
-    .attr('stroke', ac.trend).attr('stroke-width', 1).attr('opacity', 0.6).attr('stroke-dasharray', '4,3')
+    .attr('stroke', ac.trend).attr('stroke-width', 1).attr('opacity', 0.6).attr('stroke-dasharray', '4,4')
   rg.append('text').attr('x', ld[1][0] + 4).attr('y', ld[1][1] - 4)
     .attr('font-size', '8px').attr('fill', '#666').attr('opacity', 0.7).text(`R² = ${r2}`)
 }
@@ -539,76 +643,53 @@ function scheduleTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinea
 function updateExplainMode(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
   chart.selectAll('g.explain-zone').remove()
   if (!explainMode.value) return
-  const xMin = ux.domain()[0], xMax = ux.domain()[1]
-  const yMin = uy.domain()[0], yMax = uy.domain()[1]
   const key = xAxis.value.key
   const zg = chart.append('g').attr('class', 'explain-zone').attr('pointer-events', 'none')
 
-  // Helper: two-line label with <tspan>
-  function addLabel(pxPct: number, pyPct: number, line1: string, line2: string, color = '#6B7280') {
-    const lx = xMin + (xMax - xMin) * (pxPct / 100)
-    const ly = yMin + (yMax - yMin) * (pyPct / 100)
+  // Helper: Eck-Label mit zwei Zeilen (16px Abstand zur Kante, in Pixel-Koordinaten)
+  function cornerLabel(side: 'topleft' | 'topright' | 'bottomleft' | 'bottomright', line1: string, line2: string) {
+    const pad = 16
+    let x: number, y: number, anchor: string
+    if (side === 'topleft') {
+      x = pad; y = pad
+      anchor = 'start'
+    } else if (side === 'topright') {
+      x = INNER_W - pad; y = pad
+      anchor = 'end'
+    } else if (side === 'bottomleft') {
+      x = pad; y = INNER_H - pad
+      anchor = 'start'
+    } else {
+      x = INNER_W - pad; y = INNER_H - pad
+      anchor = 'end'
+    }
     zg.append('text')
-      .attr('x', ux(lx)).attr('y', uy(ly))
-      .attr('text-anchor', 'middle').attr('dominant-baseline', 'middle')
-      .attr('font-size', '10px').attr('fill', color).attr('opacity', 0.8)
+      .attr('x', x).attr('y', y)
+      .attr('text-anchor', anchor)
+      .attr('font-size', '12px').attr('font-weight', '500').attr('fill', 'var(--fg-muted)').attr('opacity', 0.8)
+      .attr('font-family', 'var(--font-sans)')
       .each(function () {
         const el = d3.select(this)
-        el.append('tspan').attr('x', ux(lx)).attr('dy', '-0.35em')
-          .attr('font-weight', '600').text(line1)
-        el.append('tspan').attr('x', ux(lx)).attr('dy', '1.3em')
-          .attr('font-weight', '400').text(line2)
+        el.append('tspan').attr('x', x).attr('dy', '0em')
+          .text(line1)
+        el.append('tspan').attr('x', x).attr('dy', '1.4em')
+          .attr('font-size', '11px').attr('font-weight', '400')
+          .text(line2)
       })
   }
 
   if (key === 'ee_share') {
-    const lowThresh = 30, highThresh = 55
-    const xLow = ux(Math.max(lowThresh, xMin)), xHigh = ux(Math.min(highThresh, xMax))
-    if (xLow > ux(xMin)) {
-      zg.append('rect').attr('x', ux(xMin)).attr('y', uy(yMin))
-        .attr('width', xLow - ux(xMin)).attr('height', uy(yMin) - uy(yMax))
-        .attr('fill', '#E8C8C8').attr('opacity', 0.25).attr('rx', 4)
-      addLabel(15, 15, 'Wenig EE', '↗ hohe CO₂-Intensität', '#8B5E5E')
-    }
-    if (xHigh < ux(xMax)) {
-      zg.append('rect').attr('x', xHigh).attr('y', uy(yMin))
-        .attr('width', ux(xMax) - xHigh).attr('height', uy(yMin) - uy(yMax))
-        .attr('fill', '#A8DBA8').attr('opacity', 0.25).attr('rx', 4)
-      addLabel(85, 85, 'Viel EE', '↘ niedrige CO₂-Intensität', '#2D6A4F')
-    }
-    if (xHigh > xLow) {
-      zg.append('rect').attr('x', xLow).attr('y', uy(yMin))
-        .attr('width', xHigh - xLow).attr('height', uy(yMin) - uy(yMax))
-        .attr('fill', '#E8E0D0').attr('opacity', 0.15).attr('rx', 4)
-      zg.append('text').attr('x', (xLow + xHigh) / 2)
-        .attr('y', uy(yMin) + (uy(yMax) - uy(yMin)) * 0.06)
-        .attr('text-anchor', 'middle').attr('font-size', '8px')
-        .attr('fill', '#9CA3AF').attr('opacity', 0.6).text('Übergangsbereich')
-    }
+    cornerLabel('topleft', 'Wenig EE', 'hohe CO₂-Intensität')
+    cornerLabel('bottomright', 'Viel EE', 'niedrige CO₂-Intensität')
   } else if (key === 'fossil_share') {
-    addLabel(85, 10, 'Viel Fossil', '↗ hohe CO₂-Intensität', '#4A4A4A')
-    addLabel(5, 90, 'Wenig Fossil', '↘ niedrige CO₂-Intensität', '#4A4A4A')
+    cornerLabel('topright', 'Viel Fossil', 'hohe CO₂-Intensität')
+    cornerLabel('bottomleft', 'Wenig Fossil', 'niedrige CO₂-Intensität')
   } else if (key === 'load') {
-    addLabel(80, 10, 'Hohe Last + wenig EE', '↗ schmutzig', '#3E7A9E')
-    addLabel(5, 90, 'Niedrige Last', '↘ EE-Anteil steigt', '#3E7A9E')
-    addLabel(40, 15, 'Schwache Korrelation —', 'Mix entscheidet', '#9CA3AF')
+    cornerLabel('topleft', 'Niedrige Last', 'meist EE-dominiert')
+    cornerLabel('topright', 'Hohe Last', 'oft fossil-dominiert')
   } else if (key === 'price') {
-    addLabel(3, 50, 'Negativpreise', '→ EE-Überschuss', '#B8935A')
-    addLabel(80, 10, 'Spitzenlast', '→ Gas als Puffer', '#B8935A')
-    addLabel(5, 88, 'Günstig & sauber', '→ EE-Hochphase', '#B8935A')
-    // Vertikale Linie bei 0 EUR/MWh
-    const x0 = ux(0)
-    if (x0 > 0 && x0 < INNER_W) {
-      zg.append('line').attr('x1', x0).attr('y1', 0)
-        .attr('x2', x0).attr('y2', INNER_H)
-        .attr('stroke', '#B8935A').attr('stroke-width', 1)
-        .attr('stroke-dasharray', '4,3').attr('opacity', 0.5)
-      zg.append('text').attr('x', x0).attr('y', 10)
-        .attr('text-anchor', 'middle').attr('font-size', '7px')
-        .attr('fill', '#B8935A').attr('opacity', 0.6)
-        .attr('transform', `rotate(-90, ${x0}, 10)`)
-        .text('Negativpreisgrenze')
-    }
+    cornerLabel('topleft', 'Negativpreise', 'EE-Überschuss')
+    cornerLabel('topright', 'Spitzenlast', 'oft Gas als Puffer')
   }
 }
 
@@ -636,6 +717,19 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
   chart.append('rect').attr('class', 'hover-hit')
     .attr('width', INNER_W).attr('height', INNER_H)
     .attr('fill', 'transparent').attr('cursor', 'crosshair')
+    .on('click', function () {
+      // Klick auf leeren Bereich → Auswahl aufheben
+      if (selectedHour.value) {
+        selectedHour.value = null
+        pg.selectAll('circle.point')
+          .attr('opacity', (d: any) => {
+            const hk = getHourKey(d.hour)
+            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
+            return ac.opacity
+          }).attr('r', POINT_R).attr('stroke', 'none')
+        tooltip.value = null
+      }
+    })
     .on('pointermove', (event: PointerEvent) => {
       latestHoverEvent = event
       if (hoverRaf !== null) return
@@ -653,13 +747,18 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
         const row = rowLookup.value.get(p.id)
         if (!row) return
         // Cache die circle-Selection (wiederholte selectAll sind teuer)
+        if (selectedHour.value) return // kein Hover-Highlight bei aktiver Auswahl
         const circles = pg.selectChild<SVGGElement>('circle.point')
           ? pg.selectAll<SVGCircleElement, Point>('circle.point')
           : null
         if (circles) {
-          circles.attr('opacity', ac.opacity).attr('r', 2.5)
+          circles.attr('opacity', (d: any) => {
+            const hk = getHourKey(d.hour)
+            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
+            return ac.opacity
+          }).attr('r', 3)
           circles.filter((d: any) => d.id === p.id)
-            .attr('opacity', 1).attr('r', 5)
+            .attr('opacity', 1).attr('r', 6)
             .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
         }
         tooltip.value = { x: ux(p.x) + MARGIN.left, y: uy(p.y) + MARGIN.top, d: row }
@@ -672,9 +771,15 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
         cancelAnimationFrame(hoverRaf)
         hoverRaf = null
       }
-      pg.selectAll<SVGCircleElement, Point>('circle.point')
-        .attr('opacity', ac.opacity).attr('r', 2.5)
-      tooltip.value = null
+      if (!selectedHour.value) {
+        pg.selectAll<SVGCircleElement, Point>('circle.point')
+          .attr('opacity', (d: any) => {
+            const hk = getHourKey(d.hour)
+            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
+            return ac.opacity
+          }).attr('r', 3)
+        tooltip.value = null
+      }
     })
 }
 
@@ -756,470 +861,295 @@ onUnmounted(() => {
 
 <template>
   <div class="scatter-card">
-    <!-- Header mit "2" Badge + Titel -->
+    <!-- Header mit Kicker + Titel + Untertitel (wie Strommix) -->
     <div class="scatter-header">
-      <span class="badge">2</span>
+      <span class="scatter-kicker">KAPITEL 2</span>
       <h3 class="scatter-heading">Einflussfaktoren der CO₂-Intensität</h3>
     </div>
     <p class="scatter-subtitle">Wie verändern Strommix, Nachfrage, Preis und Tageszeit die Klimabilanz des Stroms?</p>
 
-    <!-- Kompakte X/Y-Auswahl (Pill-Style) -->
-    <div class="axis-selectors">
-      <div class="axis-row">
-        <span class="axis-char">X</span>
-        <div class="pill-group">
+    <!-- Kontrollleiste: zwei Reihen rechtsbündig (wie Strommix) -->
+    <div class="scatter-controls">
+      <div class="control-row">
+        <span class="control-label">X:</span>
+        <div class="segment-group">
           <button v-for="opt in X_OPTIONS" :key="opt.key"
-            :class="{ active: xAxis.key === opt.key }"
-            class="pill-btn"
-            :style="xAxis.key === opt.key ? { '--btn-active': AXIS_COLORS[opt.key].btnBg } : {}"
-            @click="xAxis = opt">
-            {{ opt.label }}
-          </button>
+            class="segment-btn" :class="{ active: xAxis.key === opt.key }"
+            @click="xAxis = opt">{{ opt.label }}</button>
         </div>
+        <span class="control-label" style="margin-left:12px">Y:</span>
+        <span class="segment-static" :style="{ color: axisColor.label }">CO₂ g/kWh</span>
       </div>
-      <div class="axis-row">
-        <span class="axis-char">Y</span>
-        <span class="y-pill" :style="{ color: axisColor.label }">CO₂-Intensität (g CO₂/kWh)</span>
+      <div class="control-row control-row-secondary">
+        <div class="segment-group">
+          <button class="segment-btn-sm" :class="{ active: showTrendline }" @click="showTrendline = true; explainMode = false; highlightOutliers = false">Trendlinie</button>
+          <button class="segment-btn-sm" :class="{ active: explainMode }" @click="explainMode = true; showTrendline = false; highlightOutliers = false">Einordnung</button>
+          <button class="segment-btn-sm" :class="{ active: highlightOutliers }" @click="highlightOutliers = true; showTrendline = false; explainMode = false">Besondere Stunden</button>
+        </div>
+        <button v-if="currentZoom && currentZoom.k !== 1" class="reset-chip-inline" @click="resetZoom">× Zoom</button>
       </div>
     </div>
 
-    <!-- Tageszeit-Legende -->
-    <div class="tod-legend">
-      <span class="tod-label">Tageszeit:</span>
-      <span v-for="hl in HOUR_LABELS" :key="hl.label" class="tod-item">
-        <span class="tod-swatch" :style="{ background: hl.color }"></span>
-        {{ hl.label }}
-      </span>
-    </div>
-
-    <!-- Toggle-Chips (kompakte Toolbar) -->
-    <div class="chip-toolbar">
-      <button :class="{ active: showTrendline }" class="chip-btn" @click="showTrendline = !showTrendline">Trendlinie</button>
-      <button :class="{ active: explainMode }" class="chip-btn" @click="explainMode = !explainMode">
-        Einordnung
-        <span class="chip-info" title="Markiert Bereiche mit wenig/viel EE und der zugehörigen CO₂-Intensität.">ⓘ</span>
-      </button>
-      <button :class="{ active: highlightOutliers }" class="chip-btn" @click="highlightOutliers = !highlightOutliers">
-        Besondere Stunden
-        <span class="chip-info" title="Besondere Stunden sind Werte, die statistisch deutlich vom Durchschnitt abweichen. Technisch: mehr als 2 Standardabweichungen.">ⓘ</span>
+    <!-- Tageszeit-Legende (wie Strommix-Legende) -->
+    <div class="tod-legend-bar">
+      <button v-for="hl in HOUR_LABELS" :key="hl.key"
+        class="tod-item" :class="{ dimmed: !visibleTimes.has(hl.key) }"
+        @mouseenter="hoveredTime = hl.key" @mouseleave="hoveredTime = null"
+        @click="toggleTime(hl.key)">
+        <span class="tod-dot" :style="{ background: hl.color }"></span>
+        <span class="tod-label" :class="{ struck: !visibleTimes.has(hl.key) }">{{ hl.label }}</span>
       </button>
     </div>
+    <div class="tod-hint">Klicken zum Ausblenden · Hovern zum Hervorheben</div>
+    <span class="zoom-hint">Mausrad zum Zoomen · Ziehen zum Verschieben</span>
 
     <!-- Erklärung: Besondere Stunden -->
     <div v-if="highlightOutliers" class="outlier-hint">
       <span class="oh-icon">ⓘ</span>
-      <span class="oh-text"><strong>Besondere Stunden</strong> sind Stunden, in denen EE-Anteil oder CO₂-Intensität mehr als <strong>2 Standardabweichungen</strong> vom Mittelwert des gewählten Zeitraums entfernt liegen – z.&thinsp;B. extrem windreiche oder windarme Stunden, Stromimporte oder Netzengpässe. Hervorgehoben durch stärkere Kontur.</span>
+      <span class="oh-text"><strong>Besondere Stunden</strong> sind Stunden, in denen EE-Anteil oder CO₂-Intensität mehr als <strong>2 Standardabweichungen</strong> vom Mittelwert des gewählten Zeitraums entfernt liegen – z.&thinsp;B. extrem windreiche oder windarme Stunden, Stromimporte oder Netzengpässe.</span>
     </div>
 
-    <!-- Zeitraum-Wahl: Dual Range Slider -->
+    <!-- Zeitraum-Chips (wie Strommix-Segment-Toggle) -->
     <div class="range-section">
-      <div class="range-header">
+      <div class="range-presets">
+        <button v-for="pr in RANGE_PRESETS" :key="pr.label"
+          class="segment-btn range-btn"
+          :class="{ active: selectedStartIdx === pr.start && selectedEndIdx === pr.end }"
+          @click="applyPreset(pr.start, pr.end)">
+          {{ pr.label }}
+        </button>
         <span class="range-label">{{ dateLabel }}</span>
-        <div class="range-presets">
-          <button v-for="pr in RANGE_PRESETS" :key="pr.label"
-            class="preset-btn"
-            :class="{ active: selectedStartIdx === pr.start && selectedEndIdx === pr.end }"
-            @click="applyPreset(pr.start, pr.end)">
-            {{ pr.label }}
-          </button>
+      </div>
+    </div>
+
+    <!-- Chart + Sidebar (Grid wie Strommix) -->
+    <div class="scatter-layout">
+      <div class="scatter-chart">
+        <div ref="containerRef" class="chart-wrap">
+          <svg ref="svgRef" class="scatter-svg"></svg>
+          <!-- Tooltip (Hover) -->
+          <div v-if="tooltip?.d && !selectedHour" class="scatter-tooltip"
+            :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }">
+            <div class="tt-row"><span class="tt-label">Stunde</span><span class="tt-val">{{ formatTimestamp(tooltip.d.timestamp) }}</span></div>
+            <div class="tt-row"><span class="tt-label">EE-Anteil</span><span class="tt-val">{{ tooltip.d.ee_share.toFixed(1) }} %</span></div>
+            <div class="tt-row"><span class="tt-label">CO₂</span><span class="tt-val">{{ tooltip.d.co2_g_per_kwh.toFixed(0) }} g/kWh</span></div>
+            <div class="tt-row"><span class="tt-label">Nachfrage</span><span class="tt-val">{{ (tooltip.d.load_mwh / 1000).toFixed(1) }} GW</span></div>
+            <div class="tt-row"><span class="tt-label">Preis</span><span class="tt-val">{{ tooltip.d.price_eur_mwh.toFixed(1) }} €/MWh</span></div>
+          </div>
+          <!-- Tooltip (Selektion – permanent) -->
+          <div v-if="selectedHour" class="scatter-tooltip scatter-tooltip-selected"
+            :style="{ left: (xScale ? xScale(selectedHour.point.x) + MARGIN.left : 0) + 'px', top: (yScale ? yScale(selectedHour.point.y) + MARGIN.top : 0) + 'px' }">
+            <div class="tt-row"><span class="tt-label">Stunde</span><span class="tt-val">{{ formatTimestamp(selectedHour.row.timestamp) }}</span></div>
+            <div class="tt-row"><span class="tt-label">EE-Anteil</span><span class="tt-val">{{ selectedHour.row.ee_share.toFixed(1) }} %</span></div>
+            <div class="tt-row"><span class="tt-label">CO₂</span><span class="tt-val">{{ selectedHour.row.co2_g_per_kwh.toFixed(0) }} g/kWh</span></div>
+            <div class="tt-row"><span class="tt-label">Nachfrage</span><span class="tt-val">{{ (selectedHour.row.load_mwh / 1000).toFixed(1) }} GW</span></div>
+            <div class="tt-row"><span class="tt-label">Preis</span><span class="tt-val">{{ selectedHour.row.price_eur_mwh.toFixed(1) }} €/MWh</span></div>
+          </div>
         </div>
       </div>
-      <div class="range-slider-wrap">
-        <input type="range" class="range-input range-start"
-          :min="0" :max="TOTAL_MONTHS - 1" step="1"
-          v-model.number="selectedStartIdx"
-          @input="clampRange" />
-        <input type="range" class="range-input range-end"
-          :min="0" :max="TOTAL_MONTHS - 1" step="1"
-          v-model.number="selectedEndIdx"
-          @input="clampRange" />
-        <div class="range-track-bg"></div>
-        <div class="range-fill" :style="rangeFillStyle"></div>
-      </div>
-      <div class="range-month-labels">
-        <span v-for="y in [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]" :key="y">{{ y }}</span>
-      </div>
-    </div>
-
-    <!-- Chart (mit Zoom-Hinweis) -->
-    <div ref="containerRef" class="chart-wrap">
-      <div class="chart-header">
-        <span class="zoom-hint">Mausrad zum Zoomen · Ziehen zum Verschieben</span>
-        <button v-if="currentZoom && currentZoom.k !== 1" class="reset-zoom-btn" @click="resetZoom" title="Zoom zurücksetzen">⟲ Ansicht zurücksetzen</button>
-      </div>
-      <svg ref="svgRef" class="scatter-svg"></svg>
-      <!-- Tooltip (absolut positioniert) -->
-      <div v-if="tooltip?.d" class="scatter-tooltip"
-        :style="{ left: tooltip.x + 'px', top: tooltip.y + 'px' }">
-        <div class="tt-row"><span class="tt-label">Stunde</span><span class="tt-val">{{ formatTimestamp(tooltip.d.timestamp) }}</span></div>
-        <div class="tt-row"><span class="tt-label">EE-Anteil</span><span class="tt-val">{{ tooltip.d.ee_share.toFixed(1) }} %</span></div>
-        <div class="tt-row"><span class="tt-label">CO₂-Intensität</span><span class="tt-val">{{ tooltip.d.co2_g_per_kwh.toFixed(0) }} g CO₂/kWh</span></div>
-        <div class="tt-row"><span class="tt-label">Stromnachfrage</span><span class="tt-val">{{ (tooltip.d.load_mwh / 1000).toFixed(1) }} GW</span></div>
-        <div class="tt-row"><span class="tt-label">Day-Ahead-Preis</span><span class="tt-val">{{ tooltip.d.price_eur_mwh.toFixed(1) }} €/MWh</span></div>
-      </div>
+      <aside class="scatter-sidebar">
+        <div class="metric-tile">
+          <div class="tile-eyebrow">Korrelation</div>
+          <div class="tile-value">{{ sidebarMetrics.correlation.value }}</div>
+          <div class="tile-context">{{ sidebarMetrics.correlation.context }}</div>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-tile">
+          <div class="tile-eyebrow">Steigung Trendlinie</div>
+          <div class="tile-value">{{ sidebarMetrics.slope.value }}</div>
+          <div class="tile-context">{{ sidebarMetrics.slope.context }}</div>
+        </div>
+        <div class="metric-divider"></div>
+        <div class="metric-tile">
+          <div class="tile-eyebrow">Datenpunkte</div>
+          <div class="tile-value">{{ sidebarMetrics.count.value }}</div>
+          <div class="tile-context">{{ sidebarMetrics.count.context }}</div>
+        </div>
+      </aside>
     </div>
   </div>
 </template>
 
 <style scoped>
-.scatter-card {
-  width: 100%;
-}
+.scatter-card { width:100%; }
 
-/* ---- Header ---- */
-.scatter-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 2px;
+/* ---- Header (wie Strommix) ---- */
+.scatter-header { margin-bottom:2px; }
+.scatter-kicker {
+  display:block;
+  font-family:var(--font-sans); font-size:11px; font-weight:600;
+  letter-spacing:0.06em; text-transform:uppercase;
+  color:var(--fg-muted); margin-bottom:8px;
 }
-
-.badge {
-  font-family: var(--font-serif);
-  font-size: 0.75rem;
-  font-weight: 700;
-  color: var(--fg-muted);
-  opacity: 0.5;
-}
-
 .scatter-heading {
-  font-family: var(--font-serif);
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--fg);
-  margin: 0;
+  font-family:var(--font-serif); font-size:22px; font-weight:500;
+  color:var(--fg); margin:0;
 }
-
 .scatter-subtitle {
-  font-size: 0.8rem;
-  color: var(--fg-muted);
-  margin: 4px 0 14px;
-  line-height: 1.4;
+  font-family:var(--font-sans); font-size:15px; color:var(--fg-muted);
+  max-width:640px; line-height:1.5; margin:8px 0 32px;
 }
 
-/* ---- Kompakte X/Y-Auswahl (Pills) ---- */
-.axis-selectors {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 10px;
+/* ---- Kontrollleiste (wie Strommix-Toggles) ---- */
+.scatter-controls {
+  display:flex; flex-direction:column; align-items:flex-end; gap:8px;
+  margin-bottom:12px;
 }
-
-.axis-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.control-row {
+  display:flex; align-items:center; gap:6px;
 }
-
-.axis-char {
-  font-family: var(--font-sans);
-  font-size: 0.65rem;
-  font-weight: 700;
-  color: var(--fg-muted);
-  width: 14px;
-  text-align: center;
-  flex-shrink: 0;
+.control-label {
+  font-family:var(--font-sans); font-size:11px; font-weight:600;
+  text-transform:uppercase; letter-spacing:0.04em; color:var(--fg-muted);
 }
-
-.pill-group {
-  display: flex;
-  gap: 2px;
-  flex-wrap: wrap;
+.segment-group {
+  display:flex; border:1px solid var(--hairline); border-radius:6px; overflow:hidden;
 }
-
-.pill-btn {
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  padding: 3px 8px;
-  border: 1px solid var(--hairline);
-  background: transparent;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 0;
+.segment-btn {
+  font-family:var(--font-sans); font-size:11px; font-weight:500;
+  padding:4px 10px; border:none; background:transparent; color:var(--fg-muted);
+  cursor:pointer; transition:all .15s;
+  border-right:1px solid var(--hairline); text-transform:uppercase; letter-spacing:.04em;
 }
+.segment-btn:last-child { border-right:none; }
+.segment-btn:hover { color:var(--fg); }
+.segment-btn.active { background:var(--accent); color:#fff; }
 
-.pill-btn:hover {
-  border-color: var(--accent);
-  color: var(--fg);
+.segment-btn-sm {
+  font-family:var(--font-sans); font-size:11px; font-weight:500;
+  padding:3px 8px; border:none; background:transparent; color:var(--fg-muted);
+  cursor:pointer; transition:all .15s;
+  border-right:1px solid var(--hairline); text-transform:uppercase; letter-spacing:.04em;
 }
+.segment-btn-sm:last-child { border-right:none; }
+.segment-btn-sm:hover { color:var(--fg); }
+.segment-btn-sm.active { background:var(--accent); color:#fff; }
 
-.pill-btn.active {
-  background: var(--btn-active, var(--accent));
-  border-color: var(--btn-active, var(--accent));
-  color: #fff;
+.control-row-secondary { gap:4px; }
+
+.reset-chip-inline {
+  font-family:var(--font-sans); font-size:11px; font-weight:500;
+  color:var(--fg); padding:3px 8px;
+  border:1px solid var(--hairline); border-radius:4px;
+  background:var(--bg); cursor:pointer; white-space:nowrap;
 }
-
-.y-pill {
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  padding: 3px 8px;
-  border: 1px solid var(--hairline);
-  color: var(--fg-muted);
+.reset-chip-inline:hover { border-color:var(--accent); color:var(--accent); }
+.segment-static {
+  font-family:var(--font-sans); font-size:11px; font-weight:500;
+  padding:4px 10px; border:1px solid var(--hairline); border-radius:6px;
+  text-transform:uppercase; letter-spacing:.04em;
 }
-
-/* ---- Tageszeit-Legende ---- */
-.tod-legend {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 6px 0 6px;
-  font-family: var(--font-sans);
-  font-size: 0.65rem;
-  color: var(--fg-muted);
-  flex-wrap: wrap;
-}
-.tod-label { font-weight: 600; color: var(--fg); }
-.tod-item { display: inline-flex; align-items: center; gap: 3px; }
-.tod-swatch { display: inline-block; width: 8px; height: 8px; border-radius: 50%; }
-
-/* ---- Toggle-Chips (kompakte Toolbar) ---- */
-.chip-toolbar {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.chip-btn {
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  padding: 3px 8px;
-  border: 1px solid var(--hairline);
-  background: transparent;
-  color: var(--fg-muted);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  transition: all 0.15s;
-  border-radius: 0;
-}
-
-.chip-btn:hover {
-  border-color: var(--accent);
-  color: var(--fg);
-}
-
-.chip-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.chip-info {
-  font-size: 0.75rem;
-  cursor: help;
-}
-
-/* ---- Zeitraum-Wahl (Dual Range Slider) ---- */
-.range-section {
-  margin-bottom: 8px;
-}
-
-.range-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 6px;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.range-label {
-  font-family: var(--font-sans);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--fg);
-  white-space: nowrap;
-}
-
-.range-presets {
-  display: flex;
-  gap: 3px;
-  flex-wrap: wrap;
-}
-
-.preset-btn {
-  font-family: var(--font-sans);
-  font-size: 0.6rem;
-  padding: 2px 7px;
-  border: 1px solid var(--hairline);
-  background: transparent;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  border-radius: 0;
-}
-
-.preset-btn:hover {
-  border-color: var(--accent);
-  color: var(--fg);
-}
-
-.preset-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.range-slider-wrap {
-  position: relative;
-  height: 28px;
-}
-
-.range-track-bg {
-  position: absolute;
-  top: 50%;
-  left: 0;
-  right: 0;
-  height: 4px;
-  background: var(--hairline);
-  border-radius: 2px;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.range-fill {
-  position: absolute;
-  top: 50%;
-  height: 4px;
-  background: var(--accent);
-  border-radius: 2px;
-  transform: translateY(-50%);
-  pointer-events: none;
-}
-
-.range-input {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  -webkit-appearance: none;
-  appearance: none;
-  background: transparent;
-  pointer-events: none;
-  z-index: 2;
-  outline: none;
-}
-
-.range-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--accent);
-  cursor: pointer;
-  pointer-events: auto;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.15);
-  transition: box-shadow 0.15s;
-}
-
-.range-input::-webkit-slider-thumb:hover {
-  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
-}
-
-.range-input::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #fff;
-  border: 2px solid var(--accent);
-  cursor: pointer;
-  pointer-events: auto;
-}
-
-.range-month-labels {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.55rem;
-  color: var(--fg-subtle);
-  margin-top: 1px;
-}
-
-.outlier-hint {
-  display: flex;
-  align-items: flex-start;
-  gap: 6px;
-  margin: 6px 0 10px;
-  padding: 6px 10px;
-  background: #F8F8F8;
-  border-radius: 4px;
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  color: var(--fg-muted);
-  line-height: 1.5;
-}
-.oh-icon { font-size: 0.75rem; flex-shrink: 0; margin-top: 1px; }
-.oh-text { flex: 1; }
-
-/* ---- Chart ---- */
-.chart-wrap {
-  width: 100%;
-  max-width: 100%;
-  overflow: hidden;
-  position: relative;
-}
-
-.chart-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 4px;
-}
-
 .zoom-hint {
-  font-family: var(--font-sans);
-  font-size: 0.6rem;
-  color: var(--fg-subtle);
-  opacity: 0.5;
+  font-family:var(--font-sans); font-size:11px; color:var(--fg-muted);
+  opacity:0.5;
 }
 
-.reset-zoom-btn {
-  font-family: var(--font-sans);
-  font-size: 0.62rem;
-  padding: 2px 8px;
-  border: 1px solid var(--hairline);
-  background: #fff;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: color 0.15s, border-color 0.15s;
+/* ---- Tageszeit-Legende (wie Strommix-Legenden-Bar) ---- */
+.tod-legend-bar {
+  display:flex; flex-wrap:wrap; gap:4px 16px; margin-bottom:4px; align-items:center;
+}
+.tod-item {
+  display:inline-flex; align-items:center; gap:4px;
+  border:none; background:transparent; cursor:pointer;
+  padding:2px 4px; border-radius:4px; transition:opacity .2s; font-family:var(--font-sans);
+}
+.tod-item:hover { background:#f0f0f0; }
+.tod-item.dimmed { opacity:.5; }
+.tod-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+.tod-label { font-size:13px; color:var(--fg); transition:all .2s; }
+.tod-label.struck { text-decoration:line-through; color:var(--fg-muted); }
+.tod-hint {
+  font-family:var(--font-sans); font-size:10px; color:var(--fg-muted);
+  opacity:0.6; margin-bottom:12px;
 }
 
-.reset-zoom-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
+/* ---- Bereich Ausreißer-Hinweis ---- */
+.outlier-hint {
+  display:flex; align-items:flex-start; gap:6px;
+  margin:0 0 10px; padding:6px 10px;
+  background:#F8F8F8; border-radius:4px;
+  font-family:var(--font-sans); font-size:0.7rem;
+  color:var(--fg-muted); line-height:1.5;
+}
+.oh-icon { font-size:0.75rem; flex-shrink:0; margin-top:1px; }
+.oh-text { flex:1; }
+
+/* ---- Zeitraum-Chips (Segment-Toggle-Stil) ---- */
+.range-section { margin-bottom:16px; }
+.range-presets {
+  display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+}
+.range-btn { font-size:11px !important; }
+.range-label {
+  font-family:var(--font-sans); font-size:12px; font-weight:500;
+  color:var(--fg); margin-left:12px;
 }
 
+/* ---- Chart + Sidebar (Grid wie Strommix) ---- */
+.scatter-layout {
+  display:grid;
+  grid-template-columns:1fr 260px;
+  gap:32px;
+  align-items:start;
+}
+.scatter-chart {
+  min-width:0;
+}
+.chart-wrap {
+  width:100%; max-width:100%; overflow:hidden; position:relative;
+}
 .scatter-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  max-height: 380px;
-  cursor: crosshair;
+  display:block; width:100%; height:auto;
+  cursor:crosshair;
+}
+.reset-chip {
+  font-family:var(--font-sans); font-size:11px; font-weight:500;
+  color:var(--fg); padding:4px 10px;
+  border:1px solid var(--hairline); border-radius:4px;
+  background:var(--bg); cursor:pointer; white-space:nowrap;
+  margin-top:8px;
+}
+.reset-chip:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ---- Sidebar (wie ExtremeValuesPanel) ---- */
+.scatter-sidebar {
+  border-left:1px solid var(--hairline);
+  padding:4px 0 4px 20px;
+  position:sticky; top:20px;
+}
+.metric-tile { padding:20px 0; position:relative; }
+.metric-divider {
+  height:1px; background:var(--hairline); margin:0;
+}
+.tile-eyebrow {
+  font-family:var(--font-sans); font-size:10px; font-weight:600;
+  letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted);
+  margin-bottom:6px;
+}
+.tile-value {
+  font-family:var(--font-serif); font-size:32px; font-weight:500;
+  color:var(--fg); line-height:1.1; margin-bottom:4px;
+}
+.tile-context {
+  font-family:var(--font-sans); font-size:12px; color:var(--fg-muted);
 }
 
 /* ---- Tooltip ---- */
 .scatter-tooltip {
-  position: absolute;
-  transform: translate(-50%, calc(-100% - 8px));
-  background: var(--fg);
-  color: var(--bg);
-  font-family: var(--font-sans);
-  font-size: 0.7rem;
-  padding: 8px 10px;
-  line-height: 1.5;
-  pointer-events: none;
-  z-index: 20;
-  white-space: nowrap;
+  position:absolute;
+  transform:translate(-50%,calc(-100% - 8px));
+  background:var(--fg); color:var(--bg);
+  font-family:var(--font-sans); font-size:0.7rem;
+  padding:8px 10px; line-height:1.5;
+  pointer-events:none; z-index:20; white-space:nowrap;
 }
+.tt-row { display:flex; justify-content:space-between; gap:12px; }
+.tt-label { opacity:0.6; }
+.tt-val { font-weight:600; text-align:right; }
 
-.tt-row { display: flex; justify-content: space-between; gap: 12px; }
-.tt-label { opacity: 0.6; }
-.tt-val { font-weight: 600; text-align: right; }
+/* ---- Responsive ---- */
+@media (max-width:1200px) {
+  .scatter-layout { grid-template-columns:1fr; }
+  .scatter-sidebar { position:static; border-left:none; border-top:1px solid var(--hairline); padding:16px 0 0; }
+}
 </style>

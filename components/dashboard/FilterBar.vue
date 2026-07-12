@@ -1,242 +1,216 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * components/dashboard/FilterBar.vue
  * ===================================
- * KPI-Jahrfilter – wirkt NUR auf KPI-Werte und -Sparklines.
- * Scatterplot und Panels haben eigene Zeitsteuerung.
+ * KPI-Jahrfilter als Segment-Toggle (wie Strommix-Sektion).
+ * Zwei Ebenen: Modus-Auswahl (immer) + kontextuelle Zusatz-Auswahl (bei Jahr/Vergleich).
  */
 
+import { ref, watch } from 'vue'
 import { useFilters } from '~/composables/useFilters'
+import type { FilterMode } from '~/composables/useFilters'
 
 const { state } = useFilters()
 
-const YEARS = [null, 2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+
+function applyMode(m: FilterMode) {
+  state.mode = m
+  if (m === 'gesamt') {
+    state.year = null
+  } else if (m === 'jahr') {
+    state.year = state.year ?? 2024
+  } else if (m === 'vergleich') {
+    state.year = null
+  }
+}
+
+function selectYear(y: number) {
+  state.year = y
+}
 </script>
 
 <template>
   <div class="kpi-filterbar">
-    <span class="kpi-filter-label">Zeitraum für Kennzahlen</span>
-    <div class="kpi-year-chips">
-      <button
-        v-for="y in YEARS" :key="y ?? 'all'"
-        class="kpi-year-chip"
-        :class="{ active: state.year === y }"
-        @click="state.year = y"
-      >{{ y ?? 'Gesamtzeitraum' }}</button>
+    <!-- Ebene 1: Label + Modus-Toggle -->
+    <div class="filter-level">
+      <span class="kpi-filter-label">Zeitraum</span>
+      <div class="segment-group mode-toggle">
+        <button class="segment-btn" :class="{ active: state.mode === 'gesamt' }" @click="applyMode('gesamt')">Gesamt</button>
+        <button class="segment-btn" :class="{ active: state.mode === 'jahr' }" @click="applyMode('jahr')">Jahr</button>
+        <button class="segment-btn" :class="{ active: state.mode === 'vergleich' }" @click="applyMode('vergleich')">Vergleich</button>
+      </div>
+    </div>
+
+    <!-- Ebene 2: Jahr-Chips -->
+    <div v-if="state.mode === 'jahr'" class="filter-level-sub">
+      <div class="segment-group year-chips">
+        <button v-for="y in YEARS" :key="y"
+          class="year-chip"
+          :class="{ active: state.year === y }"
+          @click="selectYear(y)">{{ y }}</button>
+      </div>
+    </div>
+
+    <!-- Ebene 2: Vergleichs-Auswahl -->
+    <div v-if="state.mode === 'vergleich'" class="filter-level-sub">
+      <div class="compare-group">
+        <div class="compare-field">
+          <span class="compare-label">BASIS</span>
+          <select v-model.number="state.baseYear" class="year-select">
+            <option v-for="y in YEARS" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+        <span class="compare-arrow">&rarr;</span>
+        <div class="compare-field">
+          <span class="compare-label">VERGLEICH</span>
+          <select v-model.number="state.compareYear" class="year-select">
+            <option v-for="y in YEARS" :key="y" :value="y">{{ y }}</option>
+          </select>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <style scoped>
 .kpi-filterbar {
-  margin-bottom: 12px;
-  padding-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--hairline);
+}
+
+.filter-level {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
 }
 
 .kpi-filter-label {
   font-family: var(--font-sans);
-  font-size: 0.6rem;
+  font-size: 11px;
   font-weight: 600;
-  color: var(--fg-muted);
+  letter-spacing: 0.06em;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
-  display: block;
-  margin-bottom: 8px;
+  color: var(--fg-muted);
+  flex-shrink: 0;
 }
 
-.kpi-year-chips {
+.filter-level-sub {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0;
+  justify-content: flex-end;
+  margin-top: 20px;
+  height: 32px;
 }
 
-.kpi-year-chip {
+.mode-toggle {
+  height: 32px;
+}
+
+.segment-group {
+  display: flex;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.segment-btn {
   font-family: var(--font-sans);
-  font-size: 0.72rem;
-  font-weight: 400;
-  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0 14px;
+  height: 32px;
   border: none;
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--fg);
   cursor: pointer;
-  transition: color 0.15s;
-  position: relative;
+  transition: all .15s;
+  border-right: 1px solid var(--hairline);
   white-space: nowrap;
 }
 
-.kpi-year-chip:hover {
+.segment-btn:last-child { border-right: none; }
+.segment-btn:hover { background: var(--bg); }
+.segment-btn.active { background: var(--accent); color: #fff; }
+
+/* Jahr-Chips (28px hoch) */
+.year-chips {
+  height: 28px;
+  border-radius: 6px;
+}
+
+.year-chip {
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  padding: 0 9px;
+  height: 28px;
+  border: none;
+  background: transparent;
   color: var(--fg);
+  cursor: pointer;
+  transition: all .15s;
+  border-right: 1px solid var(--hairline);
+  white-space: nowrap;
 }
 
-.kpi-year-chip.active {
-  color: var(--fg);
-  font-weight: 600;
-}
+.year-chip:last-child { border-right: none; }
+.year-chip:hover { background: var(--bg); }
+.year-chip.active { background: var(--accent); color: #fff; }
 
-.kpi-year-chip.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 10px;
-  right: 10px;
-  height: 2px;
-  background: var(--fg);
-}
-</style>
-
-<style scoped>
-.filterbar {
+/* Vergleichs-Auswahl (32px Grundlinie) */
+.compare-group {
   display: flex;
-  flex-wrap: wrap;
-  align-items: end;
-  gap: 14px 24px;
+  align-items: flex-end;
+  gap: 12px;
+  height: 32px;
 }
 
-.filter-group {
+.compare-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.filter-label {
-  font-size: 11px;
-  font-weight: 700;
-  color: #64748b;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  user-select: none;
-}
-
-.date-range {
-  display: flex;
+  gap: 4px;
   align-items: center;
-  gap: 8px;
 }
 
-.date-input {
-  font-family: var(--font);
-  font-size: 0.8rem;
+.compare-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  line-height: 1;
+}
+
+.year-select {
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
   padding: 6px 10px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
+  height: 32px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: var(--bg);
   color: var(--fg);
-  background: #fff;
-  width: 150px;
-  height: 36px;
   cursor: pointer;
-  box-sizing: border-box;
-}
-
-.date-input:focus {
   outline: none;
-  border-color: var(--accent);
-}
-
-.date-sep {
-  color: var(--fg-muted);
-  font-size: 0.8rem;
-  user-select: none;
-}
-
-.preset-chips {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-}
-
-.preset-chip {
-  font-family: var(--font);
-  font-size: 0.72rem;
-  padding: 3px 10px;
-  height: 26px;
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  background: #fff;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition: all 0.15s;
-  white-space: nowrap;
   box-sizing: border-box;
 }
 
-.preset-chip:hover {
-  border-color: var(--accent);
-  color: var(--fg);
-}
+.year-select:hover { border-color: var(--accent); }
 
-.preset-chip.active {
-  background: var(--accent);
-  color: #fff;
-  border-color: var(--accent);
-}
-
-.segmented-toggle {
-  display: flex;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  overflow: hidden;
-  height: 36px;
-}
-
-.seg-btn {
-  font-family: var(--font);
-  font-size: 0.78rem;
-  padding: 6px 12px;
-  border: none;
-  background: #fff;
-  color: var(--fg);
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-  border-right: 1px solid var(--border);
-  white-space: nowrap;
-}
-
-.seg-btn:last-child {
-  border-right: none;
-}
-
-.seg-btn:hover {
-  background: #f1f5f9;
-}
-
-.seg-btn.active {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-
-.filter-actions {
-  margin-left: auto;
-  display: flex;
-  gap: 10px;
-  align-items: end;
-}
-
-.reset-btn {
-  font-family: var(--font);
-  font-size: 0.8rem;
-  padding: 6px 12px;
-  height: 36px;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: #fff;
-  color: var(--accent);
-  cursor: pointer;
-  white-space: nowrap;
-  box-sizing: border-box;
-  transition: background 0.15s;
-}
-
-.reset-btn:hover {
-  background: #f0fdf4;
-  border-color: var(--accent);
-}
-
-@media (max-width: 900px) {
-  .filter-actions {
-    margin-left: 0;
-    width: 100%;
-  }
+.compare-arrow {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  color: var(--fg-muted);
+  line-height: 32px;
 }
 </style>
