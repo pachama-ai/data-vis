@@ -1943,3 +1943,42 @@ Der Scatterplot lagerte **alle 85.000 Datenpunkte** in den DOM (via `allPoints`-
 | Datei | Änderung |
 |---|---|
 | `components/viz/ScatterAnalysis.vue` | `allPoints` computed entfernt, `allPts`-Referenz entfernt, `timeRangeChanged` auf Data-Join umgestellt, `performance.mark`/`measure` eingeführt, `console.table`-Kontrolle hinzugefügt, doppelten `explain`-Block entfernt |
+- - -  
+ 2 0 2 6 - 0 7 - 1 2   1 5 : 5 2  
+  
+ ## 12. Intro-Landingpage (Barbell-Chart) + Nuxt 4 Migration (12.07.2026)
+
+### Nuxt-Update
+- Nuxt von 3.21.8 → **4.4.8** aktualisiert (Vite-7-Kompatibilitätsproblem)
+- `nuxt.config.ts`: `components`-Konfiguration mit `pathPrefix: false` für Prefix-freie Komponenten
+- Dashboard-Komponenten (`DashboardFilterBar`, `DashboardKpiCard`, `VizStackedArea`) explizit importiert
+
+### Neue Landingpage (ersetzt Timeline-Version)
+- **`pages/index.vue`** – komplett neu: Intro-Seite mit 5 Abschnitten
+- **`components/intro/IntroHero.vue`** – Eyebrow, Headline, Subline (linksbündig)
+- **`components/intro/IntroTrustLine.vue`** – 3-spaltige Datenherkunft (Datenquellen, Zeitraum, Auflösung)
+- **`components/intro/IntroBarbellChart.vue`** – D3-Barbell-Chart mit 9 Energieträgern, 2015 vs. 2024
+  - Sortiert nach Veränderungsstärke (Kernenergie -16,8 pp bis Biomasse +0,4 pp)
+  - Animation via IntersectionObserver (1,6 s Wachstum, 120 ms Staffelung)
+  - Replay-Button (⟲ Animation) in der Legende
+  - Kollisionserkennung: kombinierte Labels bei < 40 px Abstand
+  - Hover hebt Zeile hervor
+- **`components/intro/IntroMethodology.vue`** – Aufklappbare Methodik (`<details>`)
+- **`components/intro/IntroCTA.vue`** – Textbasierter Dashboard-Link (redaktionell, kein Button)
+
+### Daten
+- **`public/data/energy_mix_yearly.json`** – 9 Energieträger mit share2015/share2024 (aus yearly_mix.json berechnet)
+- **`composables/useEnergyMixData.ts`** – Loader mit Modul-Cache
+
+### Bereinigt
+- `components/landing/` (RecordTimeline, MilestoneCard, TimelineFilters, AnimatedStreamgraph, RacingBarChart)
+- `composables/useLandingData.ts`, `useDashboardPreload.ts`
+- `public/data/landing.json`, `scripts/build_landing.mjs`
+- `package.json` build:landing-Script entfernt
+
+### Bugs gefixt
+1. **0,0%-Bug**: Konkurrierende D3-Transitions auf SVG-Text gefixt – einheitlicher `.transition()`-Call + `on('end')`-Callback
+2. **Capsule-Wachstum**: Kapsel wächst jetzt immer vom 2015-Punkt (auch bei schrumpfenden Trägern)
+3. **Kollidierende Labels**: Bei < 40 px Abstand kombiniertes Format „7,9 % → 8,3 %"
+4. **CTA-Redesign**: Von Button zu redaktionellem Text-Link
+5. **Reihenfolge**: CTA vor Methodology (Chart → CTA → Methodik)

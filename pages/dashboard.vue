@@ -4,6 +4,11 @@ import { useData } from '~/composables/useData'
 import { useFilters } from '~/composables/useFilters'
 import type { HourlyRow, YearlyRow } from '~/composables/useData'
 
+// Explizite Imports (Auto-Import ohne Directory-Prefix)
+import DashboardFilterBar from '~/components/dashboard/FilterBar.vue'
+import DashboardKpiCard from '~/components/dashboard/KpiCard.vue'
+import VizStackedArea from '~/components/viz/StackedArea.vue'
+
 const { loadHourly, loadYearly } = useData()
 const { state, filteredKpiData } = useFilters()
 
@@ -345,6 +350,7 @@ const kpis = computed(() => {
   letter-spacing: -0.03em;
   color: var(--fg);
   margin-bottom: 0;
+  white-space: nowrap;
 }
 
 .dashboard-subtitle {

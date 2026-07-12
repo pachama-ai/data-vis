@@ -15,6 +15,14 @@ export default defineNuxtConfig({
     '~/assets/css/main.css'
   ],
 
+  // Komponenten-Scan:
+  // Alle Unterordner werden rekursiv gescannt.
+  // Kein Directory-Prefix (RecordTimeline statt LandingRecordTimeline).
+  // Dashboard/Viz-Komponenten importieren wir explizit via defineAsyncComponent.
+  components: [
+    { path: '~/components', pathPrefix: false },
+  ],
+
   app: {
     head: {
       charset: 'utf-8',

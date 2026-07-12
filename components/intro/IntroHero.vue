@@ -1,0 +1,54 @@
+<script setup lang="ts">
+/**
+ * components/intro/IntroHero.vue
+ * ===============================
+ * Hero-Bereich der Intro-Landingpage.
+ * Linksbündig mit Eyebrow, Headline, Subline.
+ */
+</script>
+
+<template>
+  <section class="intro-hero">
+    <span class="eyebrow">Datenprojekt · SMARD &amp; ENTSO-E</span>
+    <h1 class="hero-headline">Wie sich der deutsche Strom verändert hat</h1>
+    <p class="hero-subline">Zehn Jahre Nettostromerzeugung Deutschlands im direkten Vergleich – 2015 und 2024, gemessen aus den öffentlichen Daten der Bundesnetzagentur (SMARD) und der ENTSO-E Transparency Platform.</p>
+  </section>
+</template>
+
+<style scoped>
+.intro-hero {
+  margin-bottom: 64px;
+}
+
+.eyebrow {
+  display: block;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin-bottom: 16px;
+}
+
+.hero-headline {
+  font-family: var(--font-serif);
+  font-size: 44px;
+  font-weight: 500;
+  color: var(--fg);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0 0 20px;
+  max-width: 800px;
+  white-space: nowrap;
+}
+
+.hero-subline {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  color: var(--fg-muted);
+  line-height: 1.5;
+  max-width: 640px;
+  margin: 0;
+}
+</style>
