@@ -48,32 +48,7 @@ export interface Factors {
   [source: string]: number
 }
 
-// ----------------------------------------------------------------
-// Rohdaten für Landingpage-Timeline und Meilensteine
-// ----------------------------------------------------------------
-export interface SmardRow {
-  timestamp: number
-  braunkohle?: number | null
-  kernenergie?: number | null
-  windOffshore?: number | null
-  wasserkraft?: number | null
-  sonstigeKonventionelle?: number | null
-  sonstigeErneuerbare?: number | null
-  biomasse?: number | null
-  windOnshore?: number | null
-  solar?: number | null
-  steinkohle?: number | null
-  pumpspeicher?: number | null
-  erdgas?: number | null
-  last?: number | null
-  residuallast?: number | null
-  pumpspeicherVerbrauch?: number | null
-}
 
-export interface PriceRow {
-  timestamp: number
-  price: number
-}
 
 // ----------------------------------------------------------------
 // Cache — Modul-Variablen, leben nach erstem Fetch weiter
@@ -86,11 +61,6 @@ let factorsCache: Factors | null = null
 let hourlyPromise: Promise<HourlyRow[]> | null = null
 let yearlyPromise: Promise<YearlyRow[]> | null = null
 let factorsPromise: Promise<Factors> | null = null
-
-let smardCache: SmardRow[] | null = null
-let pricesCache: PriceRow[] | null = null
-let smardPromise: Promise<SmardRow[]> | null = null
-let pricesPromise: Promise<PriceRow[]> | null = null
 
 // ----------------------------------------------------------------
 // useData — von Komponenten aufgerufen
@@ -110,7 +80,6 @@ export function useData() {
         const res = await fetch('/data/hourly_2015_2024.json')
         if (!res.ok) throw new Error(`Fehler beim Laden der Stunden-Daten: ${res.status}`)
         hourlyCache = await res.json() as HourlyRow[]
-        console.log(`useData: ${hourlyCache.length} Stunden geladen`)
         return hourlyCache
       } finally {
         hourlyPromise = null
@@ -134,7 +103,6 @@ export function useData() {
         const res = await fetch('/data/yearly_mix.json')
         if (!res.ok) throw new Error(`Fehler beim Laden der Jahres-Daten: ${res.status}`)
         yearlyCache = await res.json() as YearlyRow[]
-        console.log(`useData: ${yearlyCache.length} Jahre geladen`)
         return yearlyCache
       } finally {
         yearlyPromise = null
@@ -170,51 +138,9 @@ export function useData() {
    * Laedt die rohen SMARD-Erzeugungsdaten (smard.json).
    * Teilt die Promise zwischen Aufrufern.
    */
-  async function loadSmard(): Promise<SmardRow[]> {
-    if (smardCache) return smardCache
-    if (smardPromise) return smardPromise
-
-    smardPromise = (async () => {
-      try {
-        const res = await fetch('/data/smard.json')
-        if (!res.ok) throw new Error(`Fehler beim Laden der SMARD-Daten: ${res.status}`)
-        smardCache = await res.json() as SmardRow[]
-        return smardCache
-      } finally {
-        smardPromise = null
-      }
-    })()
-
-    return smardPromise
-  }
-
-  /**
-   * Laedt die rohen Preis-Daten (preise.json).
-   * Teilt die Promise zwischen Aufrufern.
-   */
-  async function loadPrices(): Promise<PriceRow[]> {
-    if (pricesCache) return pricesCache
-    if (pricesPromise) return pricesPromise
-
-    pricesPromise = (async () => {
-      try {
-        const res = await fetch('/data/preise.json')
-        if (!res.ok) throw new Error(`Fehler beim Laden der Preis-Daten: ${res.status}`)
-        pricesCache = await res.json() as PriceRow[]
-        return pricesCache
-      } finally {
-        pricesPromise = null
-      }
-    })()
-
-    return pricesPromise
-  }
-
   return {
     loadHourly,
     loadYearly,
     loadFactors,
-    loadSmard,
-    loadPrices,
   }
 }

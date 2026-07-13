@@ -52,10 +52,25 @@ function parseXML(xml) {
 }
 
 async function fetchYear(year) {
+  // Fix 2018: Marktgebietswechsel am 1.10.2018
+  // Jan-Sep: alte Domain (DE-AT-LU), Okt-Dez: neue Domain (DE)
+  if (year === 2018) {
+    const h1 = await fetchRange(year, 1, 9, DOMAIN_ALT)
+    console.log(`  Jan-Sep: ${h1.length} Punkte`)
+    await wait(5000)
+    const h2 = await fetchRange(year, 10, 12, DOMAIN_NEU)
+    console.log(`  Okt-Dez: ${h2.length} Punkte`)
+    return [...h1, ...h2]
+  }
   const domain = year <= 2018 ? DOMAIN_ALT : DOMAIN_NEU
+  return fetchRange(year, 1, 12, domain)
+}
 
-  const start = new Date(Date.UTC(year, 0, 1))
-  const end   = new Date(Date.UTC(year + 1, 0, 1))
+async function fetchRange(year, startMonth, endMonth, domain) {
+  const start = new Date(Date.UTC(year, startMonth - 1, 1))
+  const end   = endMonth < 12
+    ? new Date(Date.UTC(year, endMonth, 1))
+    : new Date(Date.UTC(year + 1, 0, 1))
 
   const url =
     `${BASE}?documentType=A44` +
@@ -68,16 +83,16 @@ async function fetchYear(year) {
   const res = await fetch(url)
 
   if (res.status === 429) {
-    console.warn('  Rate-Limit. Warte 30 Sekunden...')
+    console.warn('    Rate-Limit. Warte 30 Sekunden...')
     await wait(30000)
-    return fetchYear(year)
+    return fetchRange(year, startMonth, endMonth, domain)
   }
 
   const xml = await res.text()
 
   if (!res.ok || xml.includes('No matching data found') || xml.includes('<code>999</code>')) {
     const reason = xml.match(/<text>(.*?)<\/text>/)?.[1] || res.status
-    console.warn(`  Fehler: ${reason}`)
+    console.warn(`    Fehler: ${reason}`)
     return []
   }
 

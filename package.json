@@ -7,13 +7,20 @@
     "build": "nuxt build",
     "generate": "nuxt generate",
     "preview": "nuxt preview",
+    "typecheck": "npx nuxi typecheck",
+    "test": "vitest run",
+    "check": "npx nuxi typecheck && vitest run && nuxt build",
     "pipeline:hourly": "bun run scripts/build_hourly.mjs",
     "pipeline:yearly": "bun run scripts/build_yearly.mjs",
     "pipeline": "bun run scripts/build_hourly.mjs; bun run scripts/build_yearly.mjs",
     "download:prices": "bun run scripts/download-prices.js",
     "download:smard": "bun run scripts/download-smard.js",
     "validate": "bun run scripts/validate-data.mjs",
-    "check:data": "node scripts/check-dashboard-data.mjs"
+    "check:data": "node scripts/check-dashboard-data.mjs",
+    "audit:level1": "bun run scripts/audit/level1-integrity.mjs",
+    "audit:level2": "vitest run",
+    "audit:level3": "bun run scripts/audit/level3-consistency.mjs",
+    "audit": "bun run scripts/audit/level1-integrity.mjs && vitest run && bun run scripts/audit/level3-consistency.mjs"
   },
   "dependencies": {
     "d3": "^7.9.0",
@@ -21,6 +28,7 @@
     "nuxt": "^4.4.8"
   },
   "devDependencies": {
-    "@types/d3": "^7.4.3"
+    "@types/d3": "^7.4.3",
+    "vitest": "^4.1.10"
   }
 }

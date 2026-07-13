@@ -35,39 +35,61 @@ function toggleKey(key: string) {
 function resetZoom() { zoomDomain.value = null; hasZoomed.value = true; emit('visibleRangeChange', null) }
 
 function aggregate(rows: HourlyRow[], level: string) {
-  const map = new Map<string, any>()
+  // Monats-Akkumulator mit Index-Signatur für dynamische Source-Keys
+  interface Accum {
+    date: Date; total: number; co2Sum: number; co2Count: number; hours: number
+    [key: string]: number | Date
+    biomass: number; hydro: number; wind_onshore: number; wind_offshore: number
+    pv: number; nuclear: number; gas: number; hardcoal: number; lignite: number; other: number
+  }
+  const map = new Map<string, Accum>()
   const HOURS_EXPECTED: Record<string, number> = { tag: 1, woche: 168, monat: 730, quartal: 2190 }
   const minFrac = 0.1
-  function getKey(d: Date): string {
-    if (level === 'tag') return d.toISOString().slice(0, 10)
-    if (level === 'woche') {
-      const do4 = new Date(d); do4.setUTCDate(d.getUTCDate() + (4 - (d.getUTCDay() || 7)))
-      return do4.getUTCFullYear() + '-W' + String(Math.ceil(((do4.getTime() - Date.UTC(do4.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7)).padStart(2, '0')
-    }
-    if (level === 'monat') return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0')
-    return d.getUTCFullYear() + '-Q' + (Math.floor(d.getUTCMonth() / 3) + 1)
+
+  // Konfiguration: pro Aggregationsebene eine Schlüssel-Funktion und eine Datums-Funktion
+  const levelConfig: Record<string, { makeKey: (d: Date) => string; parseDate: (key: string) => Date }> = {
+    tag: {
+      makeKey: (d) => d.toISOString().slice(0, 10),
+      parseDate: (key) => new Date(key),
+    },
+    woche: {
+      makeKey: (d) => {
+        const do4 = new Date(d); do4.setUTCDate(d.getUTCDate() + (4 - (d.getUTCDay() || 7)))
+        const weekNum = Math.ceil(((do4.getTime() - Date.UTC(do4.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7)
+        return do4.getUTCFullYear() + '-W' + String(weekNum).padStart(2, '0')
+      },
+      parseDate: (key) => { const [y, w] = key.split('-W'); return new Date(Date.UTC(+y, 0, 1 + (+w - 1) * 7)) },
+    },
+    monat: {
+      makeKey: (d) => d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'),
+      parseDate: (key) => { const [y, m] = key.split('-'); return new Date(Date.UTC(+y, +m - 1, 1)) },
+    },
+    quartal: {
+      makeKey: (d) => d.getUTCFullYear() + '-Q' + (Math.floor(d.getUTCMonth() / 3) + 1),
+      parseDate: (key) => { const [y, q] = key.split('-Q'); return new Date(Date.UTC(+y, (+q - 1) * 3, 1)) },
+    },
   }
-  function getDate(key: string): Date {
-    if (level === 'tag') return new Date(key)
-    if (level === 'woche') { const [y, w] = key.split('-W'); return new Date(Date.UTC(+y, 0, 1 + (+w - 1) * 7)) }
-    if (level === 'monat') { const [y, m] = key.split('-'); return new Date(Date.UTC(+y, +m - 1, 1)) }
-    const [y, q] = key.split('-Q'); return new Date(Date.UTC(+y, (+q - 1) * 3, 1))
-  }
+  const cfg = levelConfig[level] || levelConfig.monat
+
   for (const row of rows) {
-    const d = new Date(row.timestamp), key = getKey(d)
+    const d = new Date(row.timestamp), key = cfg.makeKey(d)
     if (!map.has(key)) {
-      const init: any = { date: getDate(key), total: 0, co2Sum: 0, co2Count: 0, hours: 0 }
+      const init = { date: cfg.parseDate(key), total: 0, co2Sum: 0, co2Count: 0, hours: 0 } as Accum
       for (const k of ALL_KEYS) init[k] = 0
       map.set(key, init)
     }
-    const b = map.get(key)!, g = row.generation_by_source
-    b.hours++; b.hydro += g.hydro ?? 0; b.biomass += g.biomass ?? 0
-    b.wind_onshore += g.wind_onshore ?? 0; b.wind_offshore += g.wind_offshore ?? 0
-    b.pv += g.pv ?? 0; b.nuclear += g.nuclear ?? 0; b.gas += g.gas ?? 0
-    b.hardcoal += g.hardcoal ?? 0; b.lignite += g.lignite ?? 0
-    b.other += (g.other_renewables ?? 0) + (g.other_fossil ?? 0) + (g.pumped_storage ?? 0)
-    b.total += Object.values(g).reduce((a: number, v: any) => a + (v ?? 0), 0)
-    b.co2Sum += row.co2_g_per_kwh; b.co2Count++
+    const bucket = map.get(key)!, gen = row.generation_by_source
+    bucket.hours++
+    // Alle Energieträger aufsummieren
+    for (const source of ALL_KEYS) {
+      if (source === 'other') {
+        bucket.other += (gen.other_renewables ?? 0) + (gen.other_fossil ?? 0) + (gen.pumped_storage ?? 0)
+      } else {
+        bucket[source] = (bucket[source] as number) + (gen[source as keyof typeof gen] ?? 0)
+      }
+    }
+    bucket.total += Object.values(gen).reduce((a: number, v) => a + (v ?? 0), 0)
+    bucket.co2Sum += row.co2_g_per_kwh; bucket.co2Count++
   }
   const expected = HOURS_EXPECTED[level] || 730
   return [...map.values()].sort((a, b) => a.date.getTime() - b.date.getTime())

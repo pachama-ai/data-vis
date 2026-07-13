@@ -25,7 +25,7 @@ interface MetricConfig {
 
 const METRICS: MetricConfig[] = [
   { key: 'co2',    label: 'CO₂-Intensität',   unit: 'g/kWh',   value: (r) => r.co2_g_per_kwh,      colorLo: '#F5F5F0', colorHi: '#6B4423', legendLo: 'niedrige', legendHi: 'hohe CO₂-Intensität' },
-  { key: 'ee',     label: 'EE-Anteil',         unit: '%',       value: (r) => r.ee_share,           colorLo: '#F5F5F0', colorHi: '#4A90A4', legendLo: 'niedriger', legendHi: 'hoher EE-Anteil' },
+  { key: 'ee',     label: 'EE-Anteil',         unit: '%',       value: (r) => r.ee_share,           colorLo: '#F5F5F0', colorHi: '#2D6A4F', legendLo: 'niedriger', legendHi: 'hoher EE-Anteil' },
   { key: 'fossil', label: 'Fossiler Anteil',   unit: '%',       value: (r) => r.fossil_share,        colorLo: '#F5F5F0', colorHi: '#3A3A3A', legendLo: 'niedriger', legendHi: 'hoher fossiler Anteil' },
   { key: 'price',  label: 'Day-Ahead-Preis',   unit: 'EUR/MWh', value: (r) => r.price_eur_mwh,       colorLo: '#F5F5F0', colorHi: '#D97742', diverging: true, legendLo: 'negativ', legendHi: 'hoher Preis' },
 ]
@@ -38,6 +38,7 @@ const currentMetric = computed(() => METRICS.find((m) => m.key === activeMetric.
 // ----------------------------------------------------------------
 const YEAR_OPTIONS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
 const selectedYear = ref(2024)
+const scaleMode = ref<'einheitlich' | 'jaehrlich'>('einheitlich')
 
 // ----------------------------------------------------------------
 // Aggregierte Daten: 24×12 Matrix
@@ -80,10 +81,28 @@ function getFlatData(matrix: number[][]): { month: number; hour: number; value: 
 // ----------------------------------------------------------------
 // Farb-Skala pro Metrik
 // ----------------------------------------------------------------
-function makeColorScale(metric: MetricConfig, dataMin: number, dataMax: number) {
+function makeColorScale(metric: MetricConfig, dataMin: number, dataMax: number, useFixedScale: boolean) {
   if (metric.diverging) {
+    if (useFixedScale) {
+      // Feste inhaltliche Skala für Jahresvergleich: −50 bis 300 EUR/MWh
+      const domain = [-50, 0, 50, 100, 200, 300]
+      const colors = ['#4A90A4', '#F5F5F0', '#FDE8D0', '#F5C6A0', '#D97742', '#B85C3A']
+      return d3.scaleLinear<string>().domain(domain).range(colors).clamp(true)
+    }
+    // Muster im Jahr: Skala an Datenbereich anpassen, 0 bleibt Bedeutungsschwelle
     const absMax = Math.max(Math.abs(dataMin), Math.abs(dataMax), 1)
-    return d3.scaleDiverging(d3.interpolateRgb('#4A90A4', '#F5F5F0', '#D97742')).domain([-absMax, 0, absMax])
+    const cLo = dataMin < 0 ? '#4A90A4' : '#F5F5F0' // Blau nur wenn negative Werte existieren
+    const cHi = dataMax > 0 ? '#D97742' : '#F5F5F0' // Orange nur wenn positive Werte existieren
+    if (dataMin >= 0) {
+      // Nur positive Werte: weiß → orange
+      return d3.scaleLinear<string>().domain([0, dataMax]).range(['#F5F5F0', '#B85C3A']).clamp(true)
+    }
+    if (dataMax <= 0) {
+      // Nur negative Werte: blau → weiß
+      return d3.scaleLinear<string>().domain([dataMin, 0]).range(['#4A90A4', '#F5F5F0']).clamp(true)
+    }
+    // Gemischt: blau → weiß → orange
+    return d3.scaleLinear<string>().domain([dataMin, 0, dataMax]).range(['#4A90A4', '#F5F5F0', '#D97742']).clamp(true)
   }
   return d3.scaleSequential(d3.interpolateRgb(metric.colorLo, metric.colorHi)).domain([dataMin, dataMax])
 }
@@ -148,8 +167,27 @@ const MONTH_LABELS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Ok
 // ----------------------------------------------------------------
 // Zeichnen
 // ----------------------------------------------------------------
-watch([() => activeMetric.value, () => selectedYear.value, containerWidth], () => { drawHeatmap() }, { deep: false })
+watch([() => activeMetric.value, () => selectedYear.value, scaleMode, containerWidth], () => { drawHeatmap() }, { deep: false })
 onMounted(() => { drawHeatmap() })
+
+function globalMinMax(metric: MetricConfig): [number, number] {
+  if (metric.diverging) {
+    // Feste Skala für Preise: −50 bis 300 EUR/MWh
+    return [-50, 300]
+  }
+  let gMin = Infinity; let gMax = -Infinity
+  for (let y = 2015; y <= 2024; y++) {
+    const m = computeMonthlyHeatmap(props.data, y, metric, ALL_MONTHS)
+    const flat = getFlatData(m)
+    if (!flat.length) continue
+    const vals = flat.map(d => d.value)
+    gMin = Math.min(gMin, d3.min(vals) ?? Infinity)
+    gMax = Math.max(gMax, d3.max(vals) ?? -Infinity)
+  }
+  if (!Number.isFinite(gMin)) return [0, 1]
+  const pad = (gMax - gMin) * 0.02 || 1
+  return [gMin - pad, gMax + pad]
+}
 
 function drawHeatmap() {
   if (!svgRef.value || containerWidth.value < 100) return
@@ -160,7 +198,13 @@ function drawHeatmap() {
   const matrix = computeMonthlyHeatmap(rows, selectedYear.value, metric, ALL_MONTHS)
   const flat = getFlatData(matrix)
   const allVals = flat.map(d => d.value)
-  const dataMin = d3.min(allVals) ?? 0; const dataMax = d3.max(allVals) ?? 1
+  let dataMin: number; let dataMax: number
+  if (scaleMode.value === 'einheitlich') {
+    const [gMin, gMax] = globalMinMax(metric)
+    dataMin = gMin; dataMax = gMax
+  } else {
+    dataMin = d3.min(allVals) ?? 0; dataMax = d3.max(allVals) ?? 1
+  }
 
   drawSingle(svgRef.value, matrix, flat, metric, dataMin, dataMax, selectedYear.value, containerWidth.value)
 }
@@ -183,7 +227,7 @@ function drawSingle(
 
   svg.attr('width', width).attr('height', svgH)
 
-  const colorScale = makeColorScale(metric, dataMin, dataMax)
+  const colorScale = makeColorScale(metric, dataMin, dataMax, scaleMode.value === 'einheitlich')
 
   if (!tooltipEl) {
     tooltipEl = d3.select('body').append('div')
@@ -279,12 +323,12 @@ function drawSingle(
     .attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
     .attr('fill', 'var(--fg-muted)')
     .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
-    .text(metric.key === 'co2' ? Math.round(dataMax) + '' : dataMax.toFixed(1))
+    .text(metric.key === 'co2' || metric.key === 'price' ? Math.round(dataMax) + '' : dataMax.toFixed(1))
   legG.append('text').attr('x', 16).attr('y', 142).attr('dominant-baseline', 'auto')
     .attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
     .attr('fill', 'var(--fg-muted)')
     .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
-    .text(metric.key === 'co2' ? Math.round(dataMin) + '' : dataMin.toFixed(1))
+    .text(metric.key === 'co2' || metric.key === 'price' ? Math.round(dataMin) + '' : dataMin.toFixed(1))
   legG.append('text').attr('x', 0).attr('y', 152)
     .attr('font-size', '10px').attr('font-family', 'var(--font-sans)')
     .attr('fill', 'var(--fg-muted)').text(metric.unit)
@@ -323,6 +367,11 @@ function drawSingle(
           class="segment-btn" :class="{ active: selectedYear === y }"
           @click="selectedYear = y">{{ y }}</button>
       </div>
+      <span class="control-label" style="margin-left:24px">Skala:</span>
+      <div class="segment-group scale-chips">
+        <button class="segment-btn" :class="{ active: scaleMode === 'einheitlich' }" @click="scaleMode = 'einheitlich'">Jahresvergleich</button>
+        <button class="segment-btn" :class="{ active: scaleMode === 'jaehrlich' }" @click="scaleMode = 'jaehrlich'">Muster im Jahr</button>
+      </div>
     </div>
 
     <div class="heatmap-layout">
@@ -331,8 +380,9 @@ function drawSingle(
           <svg ref="svgRef"></svg>
         </div>
         <p class="heatmap-legend-text">
-          <template v-if="currentMetric.key === 'price'">Blau = negativ / hell = 0 / orange = hoher Preis</template>
+          <template v-if="currentMetric.key === 'price'">Negativ ← 0 EUR/MWh → hoher Preis</template>
           <template v-else>Hell = {{ currentMetric.legendLo }} / dunkel = {{ currentMetric.legendHi }}</template>
+          <span class="scale-hint"> · {{ scaleMode === 'einheitlich' ? 'gleiche Preisgrenzen für alle Jahre' : 'Farben relativ zum gewählten Jahr' }}</span>
         </p>
       </div>
       <aside class="heatmap-sidebar">

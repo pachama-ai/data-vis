@@ -5,7 +5,7 @@
  * Scatterplot und Panels haben eigene Zeitsteuerung.
  */
 
-import { reactive, computed } from 'vue'
+import { reactive } from 'vue'
 import type { HourlyRow } from './useData'
 
 export type FilterMode = 'gesamt' | 'jahr' | 'vergleich'
@@ -36,15 +36,9 @@ export function useFilters() {
     return hours.filter((r) => new Date(r.timestamp).getUTCFullYear() === y)
   }
 
-  const compareData = computed(() => {
-    const { mode, baseYear, compareYear } = state
-    return { mode, baseYear, compareYear }
-  })
-
   return {
     state,
     filteredKpiData,
     dataForYear,
-    compareData,
   }
 }

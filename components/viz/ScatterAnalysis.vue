@@ -30,7 +30,8 @@ const X_OPTIONS: AxisOption[] = [
 const xAxis = ref<AxisOption>(X_OPTIONS[0])
 
 // Semantische Farben pro X-Achse
-const AXIS_COLORS: Record<string, { fill: string; outline: string; trend: string; label: string; btnBg: string; opacity: number }> = {
+type AxisColorSet = { fill: string; outline: string; trend: string; label: string; btnBg: string; opacity: number }
+const AXIS_COLORS: Record<string, AxisColorSet> = {
   ee_share:     { fill: '#4A8A5F', outline: '#2D5A38', trend: '#1E3D26', label: '#4A8A5F', btnBg: '#2D6A4F', opacity: 0.40 },
   fossil_share: { fill: '#4A4A4A', outline: '#2A2A2A', trend: '#1A1A1A', label: '#4A4A4A', btnBg: '#3A3A3A', opacity: 0.40 },
   load:         { fill: '#3E7A9E', outline: '#2A5870', trend: '#1E4058', label: '#3E7A9E', btnBg: '#4A90A4', opacity: 0.30 },
@@ -486,9 +487,8 @@ function scheduleRender(reason: RenderReason) {
 const TRANS_DURATION = 0
 
 function updateChart(reason: RenderReason) {
-  console.time(`⏱ updateChart [${reason}]`)
   const svgEl = svgRef.value
-  if (!svgEl) { console.timeEnd(`⏱ updateChart [${reason}]`); return }
+  if (!svgEl) return
 
   const pts = rangePoints.value
   const { xDomain, yDomain } = fixedDomains.value
@@ -523,15 +523,7 @@ function updateChart(reason: RenderReason) {
 
     // Hintergrund – entfernt, Chart schwebt auf var(--bg)
 
-    // Chart-Rahmen (vier Hairline-Seiten)
-    let frameRect = svg.selectChild<SVGRectElement>('rect.chart-frame')
-    if (frameRect.empty()) {
-      frameRect = svg.insert('rect', ':first-child').attr('class', 'chart-frame')
-        .attr('x', MARGIN.left).attr('y', MARGIN.top)
-        .attr('width', INNER_W).attr('height', INNER_H)
-        .attr('fill', 'none').attr('stroke', 'var(--hairline)').attr('stroke-width', 1)
-        .attr('pointer-events', 'none')
-    }
+    // Chart-Rahmen — entfernt (Fix 6), Chart schwebt auf var(--bg)
 
     // Grid
     gridGroup = chart.selectChild<SVGGElement>('g.grid-group')
@@ -592,6 +584,7 @@ function updateChart(reason: RenderReason) {
   gridGroup.append('g').attr('class', 'y-grid').call(yAxisGen)
     .selectAll('.tick line').attr('stroke', '#DCDCDC').attr('stroke-width', 1)
   gridGroup.selectAll('.tick text').remove()
+  gridGroup.selectAll('.domain').remove() // Fix 4: Grid-Domain entfernen
   baselineGroup.selectAll('line').remove()
   baselineGroup.append('line')
     .attr('x1', 0).attr('x2', INNER_W).attr('y1', INNER_H).attr('y2', INNER_H)
@@ -599,7 +592,7 @@ function updateChart(reason: RenderReason) {
 
   // 2. Achsen (immer) — Strommix-Stil: Inter 11px uppercase
   axisGroup.select('.x-axis')
-    .call(d3.axisBottom(ux).ticks(6).tickSize(0).tickFormat((d: any) => String(d)) as any)
+    .call(d3.axisBottom(ux).ticks(6).tickSize(0).tickFormat((d) => String(d)) as any)
     .call(g => g.select('.domain').remove())
   axisGroup.select('.x-axis .tick text')
     .attr('fill', 'var(--fg-muted)').attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
@@ -612,6 +605,9 @@ function updateChart(reason: RenderReason) {
     .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
 
   // X-Label
+  // Domain-Linien der Achsen entfernen — alle Pfade mit Klasse .domain
+  svg.selectAll('.domain').remove()
+
   svg.select<SVGTextElement>('.x-label').text(`${xAxis.value.label} (${xAxis.value.unit})`)
   svg.select<SVGTextElement>('.x-label').attr('fill', 'var(--fg-muted)')
   console.timeEnd(`  grids+axes`)
@@ -668,12 +664,11 @@ function updateChart(reason: RenderReason) {
       // Vergleichs-Punkte (zweiter Zeitraum) im Punkte-Modus
       if (compareMode.value === 'vergleich') {
         const cmpB = compareBPoints.value.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
-        pg.selectAll('circle.point-compare').remove()
-        pg.selectAll('circle.point-compare')
-          .data(cmpB, (d: any) => String(d.id))
+        pg.selectAll<SVGCircleElement, Point>('circle.point-compare')
+          .data(cmpB, (d) => String(d.id))
           .join('circle')
           .attr('class', 'point-compare')
-          .attr('cx', (d: any) => ux(d.x)).attr('cy', (d: any) => uy(d.y))
+          .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
           .attr('fill', '#D97742').attr('stroke', 'none').attr('r', POINT_R)
           .attr('opacity', 0.4).attr('pointer-events', 'none')
       }
@@ -689,16 +684,20 @@ function updateChart(reason: RenderReason) {
     updateTrendline(ux, uy, ac)
     console.timeEnd(`  trendline`)
 
-    // Hover-Overlay (brute-force nearest point, kein Delaunay/Voronoi)
-    console.time(`  hover-overlay`)
-    updateHoverOverlay(ux, uy, pts, ac)
-    console.timeEnd(`  hover-overlay`)
+    // Hover-Overlay — nur im Punkte-Modus (Fix 4)
+    if (viewMode.value === 'points') {
+      console.time(`  hover-overlay`)
+      updateHoverOverlay(ux, uy, pts, ac)
+      console.timeEnd(`  hover-overlay`)
+    }
 
   } else if (reason === 'timeRangeChanged') {
     // Data-Join passiert bereits im ersten if-Zweig
 
-    // Hover-Overlay aktualisieren
-    updateHoverOverlay(ux, uy, pts, ac)
+    // Hover-Overlay aktualisieren — nur im Punkte-Modus (Fix 4)
+    if (viewMode.value === 'points') {
+      updateHoverOverlay(ux, uy, pts, ac)
+    }
 
   }
   console.timeEnd(`⏱ updateChart [${reason}]`)
@@ -731,6 +730,27 @@ function renderContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<n
       drawSingleContour(ux, uy, filtered, colorMap[key] || baseColor, 0.1, 0.45)
     }
   }
+
+  // Kontur-Dichte-Legende (Fix 5)
+  chart.selectAll('g.contour-legend').remove()
+  const legG = chart.append('g').attr('class', 'contour-legend')
+    .attr('transform', `translate(${INNER_W - 24}, ${INNER_H - 120})`)
+  const legH = 80; const legW = 8
+  const gradId = 'contour-density-grad'
+  const grad = legG.append('defs').append('linearGradient').attr('id', gradId)
+    .attr('x1', '0').attr('y1', '1').attr('x2', '0').attr('y2', '0')
+  grad.append('stop').attr('offset', '0%').attr('stop-color', baseColor).attr('stop-opacity', 0.08)
+  grad.append('stop').attr('offset', '100%').attr('stop-color', baseColor).attr('stop-opacity', 0.6)
+  legG.append('rect').attr('width', legW).attr('height', legH).attr('rx', 2).style('fill', `url(#${gradId})`)
+  legG.append('text').attr('x', legW + 4).attr('y', 0)
+    .attr('font-size', '9px').attr('font-family', 'var(--font-sans)')
+    .attr('fill', 'var(--fg-muted)').style('text-transform', 'uppercase').style('letter-spacing', '0.03em')
+    .text('VIELE')
+  legG.append('text').attr('x', legW + 4).attr('y', legH)
+    .attr('font-size', '9px').attr('font-family', 'var(--font-sans)')
+    .attr('fill', 'var(--fg-muted)').style('text-transform', 'uppercase').style('letter-spacing', '0.03em')
+    .attr('dominant-baseline', 'auto')
+    .text('WENIGE')
 }
 
 function drawSingleContour(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
@@ -771,7 +791,7 @@ function renderCompareContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleL
   }
 }
 
-function updateTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>, ac: any) {
+function updateTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>, ac: AxisConfig) {
   chart.selectAll('g.reg-group').remove()
   const { a, b, r2, count } = rangeStats.value
   if (!Number.isFinite(a) || !Number.isFinite(b) || count < 3) return
@@ -793,7 +813,7 @@ function updateExplainMode(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinea
 const POINT_R = 2.5
 
 function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
-                             pts: Point[], ac: any) {
+                             pts: Point[], ac: AxisColorSet) {
   chart.selectAll('rect.hover-hit').remove()
   if (pts.length <= 1) return
 
@@ -851,16 +871,22 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
           ? pg.selectAll<SVGCircleElement, Point>('circle.point')
           : null
         if (circles) {
-          circles.attr('opacity', (d: any) => {
+          circles.attr('opacity', (d) => {
             const hk = getHourKey(d.hour)
             if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
             return ac.opacity
           }).attr('r', 3)
-          circles.filter((d: any) => d.id === p.id)
+          circles.filter((d) => d.id === p.id)
             .attr('opacity', 1).attr('r', 6)
             .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
         }
-        tooltip.value = { x: ux(p.x) + MARGIN.left, y: uy(p.y) + MARGIN.top, d: row }
+        // Dynamische Tooltip-Position (Fix 3): nie in ersten 80px (Y-Achse) oder letzten 80px (Rand)
+        let tx = ux(p.x) + MARGIN.left
+        let ty = uy(p.y) + MARGIN.top
+        if (tx < 80) tx = ux(p.x) + MARGIN.left + 60
+        if (tx > INNER_W + MARGIN.left - 80) tx = ux(p.x) + MARGIN.left - 60
+        if (ty < 100) ty = uy(p.y) + MARGIN.top + 40
+        tooltip.value = { x: tx, y: ty, d: row }
       })
     })
     .on('pointerleave', () => {
@@ -872,7 +898,7 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
       }
       if (!selectedHour.value) {
         pg.selectAll<SVGCircleElement, Point>('circle.point')
-          .attr('opacity', (d: any) => {
+          .attr('opacity', (d) => {
             const hk = getHourKey(d.hour)
             if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
             return ac.opacity

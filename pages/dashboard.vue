@@ -2,7 +2,7 @@
 import { ref, shallowRef, computed, defineAsyncComponent } from 'vue'
 import { useData } from '~/composables/useData'
 import { useFilters } from '~/composables/useFilters'
-import type { HourlyRow, YearlyRow } from '~/composables/useData'
+import type { HourlyRow } from '~/composables/useData'
 
 // Explizite Imports (Auto-Import ohne Directory-Prefix)
 import DashboardFilterBar from '~/components/dashboard/FilterBar.vue'
@@ -34,11 +34,18 @@ function onVisibleRangeChange(range: { start: Date; end: Date } | null) {
   visibleRange.value = range
 }
 
-// Aggregat-Funktion (identisch zu StackedArea)
-const ALL_KEYS = ['biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
+// Hilfstyp für die Monats-Aggregation
+interface MonthAccumulator {
+  date: Date; total: number; hours: number
+  [key: string]: number | Date
+  biomass: number; hydro: number; wind_onshore: number; wind_offshore: number
+  pv: number; nuclear: number; gas: number; hardcoal: number; lignite: number; other: number
+}
+
+const ALL_KEYS: (keyof MonthAccumulator)[] = ['biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
   'nuclear', 'gas', 'hardcoal', 'lignite', 'other']
-function aggregateMonths(rows: import('~/composables/useData').HourlyRow[]): MonthlyDataPoint[] {
-  const map = new Map<string, any>()
+function aggregateMonths(rows: HourlyRow[]): MonthlyDataPoint[] {
+  const map = new Map<string, MonthAccumulator>()
   function getKey(d: Date): string {
     return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0')
   }
@@ -49,7 +56,7 @@ function aggregateMonths(rows: import('~/composables/useData').HourlyRow[]): Mon
   for (const row of rows) {
     const d = new Date(row.timestamp), key = getKey(d)
     if (!map.has(key)) {
-      const init: any = { date: getDate(key), total: 0, hours: 0 }
+      const init = { date: getDate(key), total: 0, hours: 0 } as MonthAccumulator
       for (const k of ALL_KEYS) init[k] = 0
       map.set(key, init)
     }
@@ -65,7 +72,7 @@ function aggregateMonths(rows: import('~/composables/useData').HourlyRow[]): Mon
     b.hardcoal += row.generation_by_source.hardcoal ?? 0
     b.lignite += row.generation_by_source.lignite ?? 0
     b.other += (row.generation_by_source.other_renewables ?? 0) + (row.generation_by_source.other_fossil ?? 0) + (row.generation_by_source.pumped_storage ?? 0)
-    b.total += Object.values(row.generation_by_source).reduce((a: number, v: any) => a + (v ?? 0), 0)
+    b.total += Object.values(row.generation_by_source).reduce((a: number, v) => a + (v ?? 0), 0)
   }
   return [...map.values()].sort((a, b) => a.date.getTime() - b.date.getTime())
 }
@@ -88,8 +95,8 @@ async function loadData() {
     loading.value = true
     hourly.value = await loadHourly()
     yearly.value = await loadYearly()
-  } catch (e: any) {
-    error.value = e.message ?? 'Fehler beim Laden der Daten'
+  } catch (e: unknown) {
+    error.value = e instanceof Error ? e.message : 'Fehler beim Laden der Daten'
   } finally {
     loading.value = false
   }
@@ -149,7 +156,9 @@ const kpis = computed(() => {
       for (const r of hourly.value) {
         if (r.price_eur_mwh < 0) { const y = new Date(r.timestamp).getUTCFullYear(); byY[y] = (byY[y] ?? 0) + 1 }
       }
-      return Object.keys(byY).sort().map((y) => byY[Number(y)] ?? 0)
+      // Alle 10 Jahre sicherstellen, auch Jahre mit 0 Negativstunden
+      const years = [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024]
+      return years.map((y) => byY[y] ?? 0)
     }
     return yearly.value.map((y) => field === 'ee' ? y.avg_ee_share : y.avg_co2)
   }
@@ -166,6 +175,10 @@ const kpis = computed(() => {
       else v = r.price_eur_mwh < 0 ? 1 : 0
       byM[m]!.push(v)
     }
+    // Negativ: absolute Summe statt Mittelwert (Fix 1)
+    if (field === 'neg') {
+      return byM.map((arr) => arr.reduce((a, b) => a + b, 0))
+    }
     return Object.values(byM).map((arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
   }
 
@@ -178,15 +191,12 @@ const kpis = computed(() => {
     return yd.filter((r) => r.price_eur_mwh < 0).length
   }
 
-  function sparkMinMax(arr: number[], dec = 1) {
-    const mn = Math.min(...arr); const mx = Math.max(...arr)
-    return { min: mn.toFixed(dec), max: mx.toFixed(dec) }
-  }
-
   function buildDeltaStr(diff: number, unit: string, label: string): { label: string | null; positive: boolean; tooltip: string } | null {
     if (Math.abs(diff) < 0.05) return null
     const sign = diff > 0 ? '+' : ''
-    return { label: `${sign}${diff.toFixed(1).replace('.', ',')} ${unit} ${label}`, positive: diff > 0, tooltip: label }
+    const fmtDiff = Math.abs(diff).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+    const unitLower = unit === 'PP' ? 'pp' : unit
+    return { label: `${label}: ${sign}${fmtDiff} ${unitLower}`, positive: diff > 0, tooltip: label }
   }
 
   function prevYear(y: number): number {
@@ -197,8 +207,9 @@ const kpis = computed(() => {
   interface KpiResult {
     value: string; unit: string; spark: number[]; sparkLabels: string[]
     deltaLabel: string | null; deltaPositive: boolean; deltaTooltip: string
-    aggLabel: string; minMax: { min: string; max: string }
+    aggLabel: string
   }
+
 
   function buildResult(
     field: 'ee' | 'co2' | 'price' | 'neg',
@@ -210,13 +221,11 @@ const kpis = computed(() => {
     deltaLabel: string | null,
     deltaPositive: boolean,
     deltaTooltip: string,
-    mn: string, mx: string,
   ): KpiResult {
     return {
-      value: displayValue.toFixed(field === 'co2' || field === 'neg' ? 0 : 1),
+      value: field === 'co2' || field === 'neg' ? Math.round(displayValue).toLocaleString('de-DE') : displayValue.toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
       unit, spark, sparkLabels,
       deltaLabel, deltaPositive, deltaTooltip, aggLabel,
-      minMax: { min: mn, max: mx },
     }
   }
 
@@ -249,10 +258,9 @@ const kpis = computed(() => {
       const baseV = singleYearValue(baseY, f.key)
       const compV = singleYearValue(compY, f.key)
       const sv = compareSpark(f.key)
-      const mm = sparkMinMax(sv.spark, f.key === 'co2' || f.key === 'neg' ? 0 : 1)
-      const delta = buildDeltaStr(compV - baseV, f.deltaUnit, `${compY} vs. ${baseY}`) ?? { label: null, positive: true, tooltip: '' }
+      const delta = buildDeltaStr(compV - baseV, f.deltaUnit, `${baseY} → ${compY}`) ?? { label: null, positive: true, tooltip: '' }
       result[f.key] = buildResult(f.key, compV, f.unit, sv.spark, sv.labels, String(compY),
-        delta.label, delta.positive, delta.tooltip, mm.min, mm.max)
+        delta.label, delta.positive, delta.tooltip)
     }
     return result as any
   }
@@ -301,13 +309,13 @@ const kpis = computed(() => {
       const first = all[0]; const last = all[all.length - 1]
       if (first === undefined || last === undefined) return { label: null, positive: true, tooltip: '' }
       const diff = last - first
-      return buildDeltaStr(diff, cfg.deltaUnit, 'Trend 2015 → 2024') ?? { label: null, positive: true, tooltip: '' }
+      return buildDeltaStr(diff, cfg.deltaUnit, '2015 → 2024') ?? { label: null, positive: true, tooltip: '' }
     }
     if (year) {
       if (year === 2015) return { label: null, positive: true, tooltip: '' }
       const prevV = singleYearValue(prevYear(year), cfg.key)
       const diff = displayVal - prevV
-      return buildDeltaStr(diff, cfg.deltaUnit, `vs. Vorjahr (${prevYear(year)})`) ?? { label: null, positive: true, tooltip: '' }
+      return buildDeltaStr(diff, cfg.deltaUnit, 'vs. Vorjahr') ?? { label: null, positive: true, tooltip: '' }
     }
     return { label: null, positive: true, tooltip: '' }
   }
@@ -315,10 +323,9 @@ const kpis = computed(() => {
   const result: Record<string, KpiResult> = {}
   for (const cfg of cfgs) {
     const { spark, labels, aggLabel, displayVal } = getSparkline(cfg)
-    const mm = sparkMinMax(spark, cfg.key === 'co2' || cfg.key === 'neg' ? 0 : 1)
     const delta = getDelta(cfg, displayVal)
     result[cfg.key] = buildResult(cfg.key, displayVal, cfg.unit, spark, labels, aggLabel,
-      delta.label, delta.positive, delta.tooltip, mm.min, mm.max)
+      delta.label, delta.positive, delta.tooltip)
   }
   return result as any
 })
@@ -350,7 +357,6 @@ const kpis = computed(() => {
             :delta-label="kpis.ee.deltaLabel" :delta-positive="kpis.ee.deltaPositive" :delta-tooltip="kpis.ee.deltaTooltip"
             :spark-color="'#4A90A4'" :show-divider="true"
             :hovered-index="hoveredIndex" :selected-index="selectedYearIndex"
-            :min-label="kpis.ee.minMax.min" :max-label="kpis.ee.minMax.max"
             @hover="hoveredIndex = $event" @leave="hoveredIndex = null"
           />
           <DashboardKpiCard
@@ -360,7 +366,6 @@ const kpis = computed(() => {
             :delta-label="kpis.co2.deltaLabel" :delta-positive="kpis.co2.deltaPositive" :delta-tooltip="kpis.co2.deltaTooltip"
             :spark-color="'#6B4423'" :show-divider="true"
             :hovered-index="hoveredIndex" :selected-index="selectedYearIndex"
-            :min-label="kpis.co2.minMax.min" :max-label="kpis.co2.minMax.max"
             @hover="hoveredIndex = $event" @leave="hoveredIndex = null"
           />
           <DashboardKpiCard
@@ -370,7 +375,6 @@ const kpis = computed(() => {
             :delta-label="kpis.price.deltaLabel" :delta-positive="kpis.price.deltaPositive" :delta-tooltip="kpis.price.deltaTooltip"
             :spark-color="'#D97742'" :show-divider="true"
             :hovered-index="hoveredIndex" :selected-index="selectedYearIndex"
-            :min-label="kpis.price.minMax.min" :max-label="kpis.price.minMax.max"
             @hover="hoveredIndex = $event" @leave="hoveredIndex = null"
           />
           <DashboardKpiCard
@@ -380,7 +384,6 @@ const kpis = computed(() => {
             :delta-label="kpis.neg.deltaLabel" :delta-positive="kpis.neg.deltaPositive" :delta-tooltip="kpis.neg.deltaTooltip"
             :spark-color="'#E8B547'" :show-divider="false"
             :hovered-index="hoveredIndex" :selected-index="selectedYearIndex"
-            :min-label="kpis.neg.minMax.min" :max-label="kpis.neg.minMax.max"
             @hover="hoveredIndex = $event" @leave="hoveredIndex = null"
           />
         </section>
