@@ -133,186 +133,194 @@ const selectedYearIndex = computed(() => {
 })
 
 const kpis = computed(() => {
-  // Vergleichsmodus
-  if (state.mode === 'vergleich') {
-    const baseY = state.baseYear
-    const compY = state.compareYear
-    const baseData = dataForYear(hourly.value, baseY)
-    const compData = dataForYear(hourly.value, compY)
-    if (!baseData.length || !compData.length) return null
-
-    const baseEE = baseData.reduce((s, r) => s + r.ee_share, 0) / baseData.length
-    const compEE = compData.reduce((s, r) => s + r.ee_share, 0) / compData.length
-    const baseCO2 = baseData.reduce((s, r) => s + r.co2_g_per_kwh, 0) / baseData.length
-    const compCO2 = compData.reduce((s, r) => s + r.co2_g_per_kwh, 0) / compData.length
-    const basePrice = baseData.reduce((s, r) => s + r.price_eur_mwh, 0) / baseData.length
-    const compPrice = compData.reduce((s, r) => s + r.price_eur_mwh, 0) / compData.length
-    const baseNeg = baseData.filter((r) => r.price_eur_mwh < 0).length
-    const compNeg = compData.filter((r) => r.price_eur_mwh < 0).length
-
-    const sparkLabels = [String(baseY), String(compY)]
-    const sparkEE = [baseEE, compEE]
-    const sparkCO2 = [baseCO2, compCO2]
-    const sparkPrice = [basePrice, compPrice]
-    const sparkNeg = [baseNeg, compNeg]
-
-    function buildDelta(current: number, base: number, unit: string, betterWhenHigher: boolean, isSum: boolean) {
-      const diff = current - base
-      if (Math.abs(diff) < 0.05) return { label: null, positive: true, tooltip: '' }
-      const sign = diff > 0 ? '+' : ''
-      const pos = betterWhenHigher ? diff > 0 : diff < 0
-      return {
-        label: `${sign}${diff.toFixed(1)} ${unit} vs. ${baseY}`,
-        positive: pos,
-        tooltip: `Differenz zwischen ${compY} und ${baseY}`,
+  // Dynamische Sparkline-Hilfsfunktionen
+  function yearlyValues(field: 'ee' | 'co2' | 'price' | 'neg'): number[] {
+    if (field === 'price') {
+      const byY: Record<number, number[]> = {}
+      for (const r of hourly.value) {
+        const y = new Date(r.timestamp).getUTCFullYear()
+        if (!byY[y]) byY[y] = []
+        byY[y].push(r.price_eur_mwh)
       }
+      return Object.keys(byY).sort().map((y) => (byY[Number(y)] ?? [0]).reduce((a, b) => a + b, 0) / (byY[Number(y)] ?? [1]).length)
     }
-
-    function sparkMinMax(arr: number[], decimals = 1): { min: string; max: string } {
-      const mn = Math.min(...arr); const mx = Math.max(...arr)
-      return { min: mn.toFixed(decimals), max: mx.toFixed(decimals) }
+    if (field === 'neg') {
+      const byY: Record<number, number> = {}
+      for (const r of hourly.value) {
+        if (r.price_eur_mwh < 0) { const y = new Date(r.timestamp).getUTCFullYear(); byY[y] = (byY[y] ?? 0) + 1 }
+      }
+      return Object.keys(byY).sort().map((y) => byY[Number(y)] ?? 0)
     }
+    return yearly.value.map((y) => field === 'ee' ? y.avg_ee_share : y.avg_co2)
+  }
 
+  function monthlyValues(year: number, field: 'ee' | 'co2' | 'price' | 'neg'): number[] {
+    const yd = hourly.value.filter((r) => new Date(r.timestamp).getUTCFullYear() === year)
+    const byM: number[][] = [[],[],[],[],[],[],[],[],[],[],[],[]]
+    for (const r of yd) {
+      const m = new Date(r.timestamp).getUTCMonth()
+      let v: number
+      if (field === 'ee') v = r.ee_share
+      else if (field === 'co2') v = r.co2_g_per_kwh
+      else if (field === 'price') v = r.price_eur_mwh
+      else v = r.price_eur_mwh < 0 ? 1 : 0
+      byM[m]!.push(v)
+    }
+    return Object.values(byM).map((arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0)
+  }
+
+  function singleYearValue(year: number, field: 'ee' | 'co2' | 'price' | 'neg'): number {
+    const yd = hourly.value.filter((r) => new Date(r.timestamp).getUTCFullYear() === year)
+    if (!yd.length) return 0
+    if (field === 'ee') return yd.reduce((s, r) => s + r.ee_share, 0) / yd.length
+    if (field === 'co2') return yd.reduce((s, r) => s + r.co2_g_per_kwh, 0) / yd.length
+    if (field === 'price') return yd.reduce((s, r) => s + r.price_eur_mwh, 0) / yd.length
+    return yd.filter((r) => r.price_eur_mwh < 0).length
+  }
+
+  function sparkMinMax(arr: number[], dec = 1) {
+    const mn = Math.min(...arr); const mx = Math.max(...arr)
+    return { min: mn.toFixed(dec), max: mx.toFixed(dec) }
+  }
+
+  function buildDeltaStr(diff: number, unit: string, label: string): { label: string | null; positive: boolean; tooltip: string } | null {
+    if (Math.abs(diff) < 0.05) return null
+    const sign = diff > 0 ? '+' : ''
+    return { label: `${sign}${diff.toFixed(1).replace('.', ',')} ${unit} ${label}`, positive: diff > 0, tooltip: label }
+  }
+
+  function prevYear(y: number): number {
+    const first = Math.min(...hourly.value.map((r) => new Date(r.timestamp).getUTCFullYear()))
+    return y > first ? y - 1 : y
+  }
+
+  interface KpiResult {
+    value: string; unit: string; spark: number[]; sparkLabels: string[]
+    deltaLabel: string | null; deltaPositive: boolean; deltaTooltip: string
+    aggLabel: string; minMax: { min: string; max: string }
+  }
+
+  function buildResult(
+    field: 'ee' | 'co2' | 'price' | 'neg',
+    displayValue: number,
+    unit: string,
+    spark: number[],
+    sparkLabels: string[],
+    aggLabel: string,
+    deltaLabel: string | null,
+    deltaPositive: boolean,
+    deltaTooltip: string,
+    mn: string, mx: string,
+  ): KpiResult {
     return {
-      ee: {
-        value: compEE.toFixed(1), unit: '%', spark: sparkEE, sparkLabels,
-        deltaLabel: buildDelta(compEE, baseEE, 'PP', true, false).label,
-        deltaPositive: buildDelta(compEE, baseEE, 'PP', true, false).positive,
-        deltaTooltip: buildDelta(compEE, baseEE, 'PP', true, false).tooltip,
-        aggLabel: String(compY), minMax: sparkMinMax(sparkEE),
-      },
-      co2: {
-        value: compCO2.toFixed(0), unit: 'g/kWh', spark: sparkCO2, sparkLabels,
-        deltaLabel: buildDelta(compCO2, baseCO2, 'g/kWh', false, false).label,
-        deltaPositive: buildDelta(compCO2, baseCO2, 'g/kWh', false, false).positive,
-        deltaTooltip: buildDelta(compCO2, baseCO2, 'g/kWh', false, false).tooltip,
-        aggLabel: String(compY), minMax: sparkMinMax(sparkCO2, 0),
-      },
-      price: {
-        value: compPrice.toFixed(1), unit: 'EUR/MWh', spark: sparkPrice, sparkLabels,
-        deltaLabel: buildDelta(compPrice, basePrice, 'EUR/MWh', false, false).label,
-        deltaPositive: buildDelta(compPrice, basePrice, 'EUR/MWh', false, false).positive,
-        deltaTooltip: buildDelta(compPrice, basePrice, 'EUR/MWh', false, false).tooltip,
-        aggLabel: String(compY), minMax: sparkMinMax(sparkPrice),
-      },
-      neg: {
-        value: compNeg.toLocaleString('de-DE'), unit: 'h', spark: sparkNeg, sparkLabels,
-        deltaLabel: buildDelta(compNeg, baseNeg, 'h', false, true).label,
-        deltaPositive: buildDelta(compNeg, baseNeg, 'h', false, true).positive,
-        deltaTooltip: buildDelta(compNeg, baseNeg, 'h', false, true).tooltip,
-        aggLabel: String(compY), minMax: sparkMinMax(sparkNeg, 0),
-      },
+      value: displayValue.toFixed(field === 'co2' || field === 'neg' ? 0 : 1),
+      unit, spark, sparkLabels,
+      deltaLabel, deltaPositive, deltaTooltip, aggLabel,
+      minMax: { min: mn, max: mx },
     }
   }
 
+  // ----------------------------------------------------------------
+  // Vergleichsmodus
+  // ----------------------------------------------------------------
+  if (state.mode === 'vergleich') {
+    const baseY = state.baseYear; const compY = state.compareYear
+    const start = Math.min(baseY, compY); const end = Math.max(baseY, compY)
+
+    function compareSpark(field: 'ee' | 'co2' | 'price' | 'neg'): { spark: number[]; labels: string[] } {
+      const vals: number[] = []
+      const labs: string[] = []
+      for (let y = start; y <= end; y++) {
+        vals.push(singleYearValue(y, field))
+        labs.push(String(y))
+      }
+      return { spark: vals, labels: labs }
+    }
+
+    const fields: { key: 'ee' | 'co2' | 'price' | 'neg'; unit: string; deltaUnit: string; betterHigher: boolean; isSum: boolean }[] = [
+      { key: 'ee', unit: '%', deltaUnit: 'PP', betterHigher: true, isSum: false },
+      { key: 'co2', unit: 'g/kWh', deltaUnit: 'g/kWh', betterHigher: false, isSum: false },
+      { key: 'price', unit: 'EUR/MWh', deltaUnit: 'EUR/MWh', betterHigher: false, isSum: false },
+      { key: 'neg', unit: 'h', deltaUnit: 'h', betterHigher: false, isSum: true },
+    ]
+
+    const result: Record<string, KpiResult> = {}
+    for (const f of fields) {
+      const baseV = singleYearValue(baseY, f.key)
+      const compV = singleYearValue(compY, f.key)
+      const sv = compareSpark(f.key)
+      const mm = sparkMinMax(sv.spark, f.key === 'co2' || f.key === 'neg' ? 0 : 1)
+      const delta = buildDeltaStr(compV - baseV, f.deltaUnit, `${compY} vs. ${baseY}`) ?? { label: null, positive: true, tooltip: '' }
+      result[f.key] = buildResult(f.key, compV, f.unit, sv.spark, sv.labels, String(compY),
+        delta.label, delta.positive, delta.tooltip, mm.min, mm.max)
+    }
+    return result as any
+  }
+
+  // ----------------------------------------------------------------
+  // Einzel-Modus: Gesamt oder Jahr
+  // ----------------------------------------------------------------
   const data = filteredKpiData(hourly.value)
   if (!data.length) return null
-  const avgEE = data.reduce((s, r) => s + r.ee_share, 0) / data.length
-  const avgCO2 = data.reduce((s, r) => s + r.co2_g_per_kwh, 0) / data.length
-  const avgPrice = data.reduce((s, r) => s + r.price_eur_mwh, 0) / data.length
-  const negHours = data.filter((r) => r.price_eur_mwh < 0).length
 
-  // Sparklines: 10-Jahres-Trend
-  const sparkLabels = [...Array(10).keys()].map((i) => String(2015 + i))
-  const sparkEE: number[] = yearly.value.map((y) => y.avg_ee_share)
-  const sparkCO2: number[] = yearly.value.map((y) => y.avg_co2)
-
-  // Preis-Sparkline pro Jahr
-  const priceByYear: Record<number, number[]> = {}
-  for (const r of hourly.value) {
-    const y = new Date(r.timestamp).getUTCFullYear()
-    if (!priceByYear[y]) priceByYear[y] = []
-    priceByYear[y].push(r.price_eur_mwh)
-  }
-  const sparkPrice = Object.keys(priceByYear).sort()
-    .map((y) => (priceByYear[Number(y)] ?? [0]).reduce((a, b) => a + b, 0) / (priceByYear[Number(y)] ?? [1]).length)
-
-  // Negativ-Sparkline pro Jahr
-  const negByYearAll: Record<number, number> = {}
-  for (const r of hourly.value) {
-    if (r.price_eur_mwh < 0) {
-      const y = new Date(r.timestamp).getUTCFullYear()
-      negByYearAll[y] = (negByYearAll[y] ?? 0) + 1
-    }
-  }
-  const sparkNeg: number[] = Object.keys(negByYearAll).sort().map((y) => negByYearAll[Number(y)] ?? 0)
-
-  // Aggregations-Label
   const isAll = state.year === null
-  const yearLabel = isAll ? '2015–2024' : String(state.year)
-  const aggLabel = (isSum: boolean) => isAll
-    ? (isSum ? `Σ ${yearLabel}` : `Ø ${yearLabel}`)
-    : yearLabel
+  const year = state.year
 
-  // Delta / Trend-Logik
-  function buildDelta(
-    current: number,
-    spark: number[],
-    unit: string,
-    betterWhenHigher: boolean,
-    isSum: boolean,
-  ): { label: string | null; positive: boolean; tooltip: string } {
-    if (state.year === 2015) {
-      return { label: null, positive: true, tooltip: '' }
+  const ees = yearlyValues('ee'); const co2s = yearlyValues('co2'); const ps = yearlyValues('price'); const ns = yearlyValues('neg')
+  const fullLabels = [...Array(10).keys()].map((i) => String(2015 + i))
+
+  // Sparkline + Labels je nach Modus
+  type FieldConfig = { key: 'ee' | 'co2' | 'price' | 'neg'; unit: string; deltaUnit: string; betterHigher: boolean; isSum: boolean }
+  const cfgs: FieldConfig[] = [
+    { key: 'ee', unit: '%', deltaUnit: 'PP', betterHigher: true, isSum: false },
+    { key: 'co2', unit: 'g/kWh', deltaUnit: 'g/kWh', betterHigher: false, isSum: false },
+    { key: 'price', unit: 'EUR/MWh', deltaUnit: 'EUR/MWh', betterHigher: false, isSum: false },
+    { key: 'neg', unit: 'h', deltaUnit: 'h', betterHigher: false, isSum: true },
+  ]
+
+  function getSparkline(cfg: FieldConfig): { spark: number[]; labels: string[]; aggLabel: string; displayVal: number } {
+    const yearlyData = cfg.key === 'ee' ? ees : cfg.key === 'co2' ? co2s : cfg.key === 'price' ? ps : ns
+    if (isAll) {
+      const avg = yearlyData.reduce((a, b) => a + b, 0) / yearlyData.length
+      return { spark: yearlyData, labels: fullLabels, aggLabel: cfg.isSum ? 'Σ 2015–2024' : 'Ø 2015–2024', displayVal: avg }
     }
-    if (state.year !== null) {
-      const base = yearValue(2015, isSum ? 'neg' : betterWhenHigher ? 'ee' : 'co2')
-      if (base === null) return { label: null, positive: true, tooltip: '' }
-      const diff = current - base
-      if (Math.abs(diff) < 0.05) return { label: null, positive: true, tooltip: '' }
-      const sign = diff > 0 ? '+' : ''
-      const pos = betterWhenHigher ? diff > 0 : diff < 0
-      const tip = unit === 'PP' ? 'Differenz in Prozentpunkten gegenüber 2015' : `Differenz gegenüber 2015`
-      return { label: `${sign}${diff.toFixed(1)} ${unit} vs. 2015`, positive: pos, tooltip: tip }
+    // Einzeljahr
+    if (year) {
+      const months = monthlyValues(year, cfg.key)
+      const val = singleYearValue(year, cfg.key)
+      const monthLabs = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
+      return { spark: months, labels: monthLabs, aggLabel: String(year), displayVal: val }
     }
-    // Gesamtzeitraum
-    if (spark.length < 2) return { label: null, positive: true, tooltip: '' }
-    const startVal = spark[0] as number
-    const endVal = spark[spark.length - 1] as number
-    const trend = endVal - startVal
-    if (Math.abs(trend) < 0.05) return { label: null, positive: true, tooltip: '' }
-    const sign = trend > 0 ? '+' : ''
-    const pos = betterWhenHigher ? trend > 0 : trend < 0
-    const tip = unit === 'PP'
-      ? 'Trend: Differenz in Prozentpunkten zwischen 2015 und 2024'
-      : 'Trend: Differenz zwischen 2015 und 2024'
-    return { label: `Trend 2015→2024: ${sign}${trend.toFixed(1)} ${unit}`, positive: pos, tooltip: tip }
+    return { spark: yearlyData, labels: fullLabels, aggLabel: '', displayVal: 0 }
   }
 
-  // Min/Max für Sparklines
-  function sparkMinMax(arr: number[], decimals = 1): { min: string; max: string } {
-    const mn = Math.min(...arr)
-    const mx = Math.max(...arr)
-    return { min: mn.toFixed(decimals), max: mx.toFixed(decimals) }
+  function getDelta(cfg: FieldConfig, displayVal: number): { label: string | null; positive: boolean; tooltip: string } {
+    if (isAll) {
+      const all = cfg.key === 'ee' ? ees : cfg.key === 'co2' ? co2s : cfg.key === 'price' ? ps : ns
+      if (all.length < 2) return { label: null, positive: true, tooltip: '' }
+      const first = all[0]; const last = all[all.length - 1]
+      if (first === undefined || last === undefined) return { label: null, positive: true, tooltip: '' }
+      const diff = last - first
+      return buildDeltaStr(diff, cfg.deltaUnit, 'Trend 2015 → 2024') ?? { label: null, positive: true, tooltip: '' }
+    }
+    if (year) {
+      if (year === 2015) return { label: null, positive: true, tooltip: '' }
+      const prevV = singleYearValue(prevYear(year), cfg.key)
+      const diff = displayVal - prevV
+      return buildDeltaStr(diff, cfg.deltaUnit, `vs. Vorjahr (${prevYear(year)})`) ?? { label: null, positive: true, tooltip: '' }
+    }
+    return { label: null, positive: true, tooltip: '' }
   }
 
-  const eeDelta = buildDelta(avgEE, sparkEE, 'PP', true, false)
-  const co2Delta = buildDelta(avgCO2, sparkCO2, 'g/kWh', false, false)
-  const priceDelta = buildDelta(avgPrice, sparkPrice, 'EUR/MWh', false, false)
-  const negDelta = buildDelta(negHours, sparkNeg, 'h', false, true)
-
-  return {
-    ee: {
-      value: avgEE.toFixed(1), unit: '%', spark: sparkEE, sparkLabels,
-      deltaLabel: eeDelta.label, deltaPositive: eeDelta.positive, deltaTooltip: eeDelta.tooltip,
-      aggLabel: aggLabel(false), minMax: sparkMinMax(sparkEE),
-    },
-    co2: {
-      value: avgCO2.toFixed(0), unit: 'g/kWh', spark: sparkCO2, sparkLabels,
-      deltaLabel: co2Delta.label, deltaPositive: co2Delta.positive, deltaTooltip: co2Delta.tooltip,
-      aggLabel: aggLabel(false), minMax: sparkMinMax(sparkCO2, 0),
-    },
-    price: {
-      value: avgPrice.toFixed(1), unit: 'EUR/MWh', spark: sparkPrice, sparkLabels,
-      deltaLabel: priceDelta.label, deltaPositive: priceDelta.positive, deltaTooltip: priceDelta.tooltip,
-      aggLabel: aggLabel(false), minMax: sparkMinMax(sparkPrice),
-    },
-    neg: {
-      value: negHours.toLocaleString('de-DE'), unit: 'h', spark: sparkNeg, sparkLabels,
-      deltaLabel: negDelta.label, deltaPositive: negDelta.positive, deltaTooltip: negDelta.tooltip,
-      aggLabel: aggLabel(true), minMax: sparkMinMax(sparkNeg, 0),
-    },
+  const result: Record<string, KpiResult> = {}
+  for (const cfg of cfgs) {
+    const { spark, labels, aggLabel, displayVal } = getSparkline(cfg)
+    const mm = sparkMinMax(spark, cfg.key === 'co2' || cfg.key === 'neg' ? 0 : 1)
+    const delta = getDelta(cfg, displayVal)
+    result[cfg.key] = buildResult(cfg.key, displayVal, cfg.unit, spark, labels, aggLabel,
+      delta.label, delta.positive, delta.tooltip, mm.min, mm.max)
   }
+  return result as any
 })
 </script>
 
@@ -512,7 +520,18 @@ const kpis = computed(() => {
 }
 
 .kpi-section {
-  margin-bottom: 48px;
+  margin-bottom: 80px;
+  position: relative;
+}
+.kpi-section::after {
+  content: '';
+  position: absolute;
+  bottom: 40px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--hairline);
+  pointer-events: none;
 }
 
 .kpi-grid {

@@ -37,6 +37,8 @@ const AXIS_COLORS: Record<string, { fill: string; outline: string; trend: string
   price:        { fill: '#B8935A', outline: '#8A6A35', trend: '#6A5030', label: '#B8935A', btnBg: '#D97742', opacity: 0.35 },
 }
 const axisColor = computed(() => AXIS_COLORS[xAxis.value.key] || AXIS_COLORS.ee_share)
+const xLabelKurz = computed(() => xAxis.value.label)
+const viewColor = computed(() => axisColor.value.fill)
 
 // ----------------------------------------------------------------
 // Zeitraum-Auswahl (Monats-Range-Slider)
@@ -137,13 +139,31 @@ const visibleTimes = ref<Set<string>>(new Set(HOUR_LABELS.map(h => h.key)))
 const hoveredTime = ref<string | null>(null)
 
 function toggleTime(key: string) {
-  if (visibleTimes.value.has(key)) {
-    visibleTimes.value.delete(key)
-    if (visibleTimes.value.size === 0) visibleTimes.value.add(key)
+  if (viewMode.value === 'contour') {
+    // Single-Select: Klick isoliert eine Tageszeit, zweiter Klick auf selbe setzt zurück
+    const wasActive = visibleTimes.value.has(key)
+    const isOnly = visibleTimes.value.size === 1 && wasActive
+    if (isOnly) {
+      // Zurücksetzen auf alle vier
+      visibleTimes.value = new Set(HOUR_LABELS.map(h => h.key))
+    } else {
+      visibleTimes.value = new Set([key])
+    }
   } else {
-    visibleTimes.value.add(key)
+    // Punkte-Modus: Multi-Select (wie bisher)
+    if (visibleTimes.value.has(key)) {
+      visibleTimes.value.delete(key)
+      if (visibleTimes.value.size === 0) visibleTimes.value.add(key)
+    } else {
+      visibleTimes.value.add(key)
+    }
+    visibleTimes.value = new Set(visibleTimes.value)
   }
-  visibleTimes.value = new Set(visibleTimes.value)
+  scheduleRender('metricChanged')
+}
+
+function resetAllTimes() {
+  visibleTimes.value = new Set(HOUR_LABELS.map(h => h.key))
   scheduleRender('metricChanged')
 }
 
@@ -208,11 +228,11 @@ const rangePoints = computed<Point[]>(() => {
 })
 
 // ----------------------------------------------------------------
-// Regression
+// Regression (für Trendlinie im Chart)
 // ----------------------------------------------------------------
 const rangeStats = computed(() => {
   const pts = rangePoints.value; const n = pts.length
-  if (n < 3) return { r: 0, r2: 0, a: 0, b: 0, count: n, direction: '—', strength: '—' }
+  if (n < 3) return { r: 0, r2: 0, a: 0, b: 0, count: n }
   let sx = 0, sy = 0, sxy = 0, sx2 = 0, sy2 = 0
   for (const p of pts) { sx += p.x; sy += p.y; sxy += p.x * p.y; sx2 += p.x * p.x; sy2 += p.y * p.y }
   const rNum = n * sxy - sx * sy
@@ -221,53 +241,182 @@ const rangeStats = computed(() => {
   const aD = n * sx2 - sx * sx
   const a = aD === 0 ? 0 : rNum / aD
   const b = (sy - a * sx) / n
-  return { r: Math.round(r * 100) / 100, r2: Math.round(r * r * 100) / 100, a, b, count: n }
+  return { r, r2: r * r, a, b, count: n }
 })
 
 // ----------------------------------------------------------------
-// Sidebar-Metriken
+// Extreme-Werte-Berechnung (10 % niedrigste / höchste X-Werte)
+// ----------------------------------------------------------------
+interface ExtremeGroup {
+  avgX: number
+  avgY: number
+  n: number
+}
+interface ScatterExtremes {
+  lowGroup: ExtremeGroup
+  highGroup: ExtremeGroup
+  absDiff: number
+  relDiff: number
+}
+
+function calcExtremes(pts: Point[]): ScatterExtremes | null {
+  if (pts.length < 200) return null
+  const sorted = [...pts].sort((a, b) => a.x - b.x)
+  const cutoff = Math.floor(sorted.length * 0.1)
+  const low = sorted.slice(0, cutoff)
+  const high = sorted.slice(-cutoff)
+  const avg = (arr: Point[], field: 'x' | 'y') => arr.reduce((s, d) => s + d[field], 0) / arr.length
+  const avgXLow = avg(low, 'x'); const avgYLow = avg(low, 'y')
+  const avgXHigh = avg(high, 'x'); const avgYHigh = avg(high, 'y')
+  return {
+    lowGroup: { avgX: avgXLow, avgY: avgYLow, n: low.length },
+    highGroup: { avgX: avgXHigh, avgY: avgYHigh, n: high.length },
+    absDiff: avgYHigh - avgYLow,
+    relDiff: avgYLow === 0 ? 0 : ((avgYHigh - avgYLow) / avgYLow) * 100,
+  }
+}
+
+// Beschriftungs-Hilfen
+const xAxisMeta = computed(() => {
+  const key = xAxis.value.key
+  if (key === 'ee_share')     return { label: 'EE-Anteil', unit: '%', dec: 1, niedrig: 'niedrigem EE-Anteil', hoch: 'hohem EE-Anteil', niedrigUpper: 'NIEDRIGER EE-ANTEIL', hochUpper: 'HOHER EE-ANTEIL' }
+  if (key === 'fossil_share') return { label: 'Fossil-Anteil', unit: '%', dec: 1, niedrig: 'niedrigem Fossil-Anteil', hoch: 'hohem Fossil-Anteil', niedrigUpper: 'NIEDRIGER FOSSIL-ANTEIL', hochUpper: 'HOHER FOSSIL-ANTEIL' }
+  if (key === 'load')         return { label: 'Stromnachfrage', unit: 'GW', dec: 1, niedrig: 'niedriger Stromnachfrage', hoch: 'hoher Stromnachfrage', niedrigUpper: 'NIEDRIGE STROMNACHFRAGE', hochUpper: 'HOHE STROMNACHFRAGE' }
+  if (key === 'price')        return { label: 'Strompreis', unit: 'EUR/MWh', dec: 1, niedrig: 'niedrigem Strompreis', hoch: 'hohem Strompreis', niedrigUpper: 'NIEDRIGER STROMPREIS', hochUpper: 'HOHER STROMPREIS' }
+  return { label: 'X', unit: '', dec: 1, niedrig: 'niedrigem X', hoch: 'hohem X', niedrigUpper: 'NIEDRIGER X', hochUpper: 'HOHER X' }
+})
+
+function fmtVal(v: number, unit: string, dec: number): string {
+  return v.toFixed(dec).replace('.', ',') + ' ' + unit
+}
+function fmtInt(v: number, unit: string): string {
+  return Math.round(v).toLocaleString('de-DE') + ' ' + unit
+}
+
+// ----------------------------------------------------------------
+// Sidebar-Metriken (Extremwert-Kacheln)
 // ----------------------------------------------------------------
 const sidebarMetrics = computed(() => {
-  const stats = rangeStats.value
   const pts = rangePoints.value
-  const n = stats.count
 
-  // Korrelationsstärke
-  const absR = Math.abs(stats.r)
-  let strength = 'keine'
-  if (absR >= 0.7) strength = 'starke'
-  else if (absR >= 0.5) strength = 'mittlere'
-  else if (absR >= 0.3) strength = 'schwache'
-  const direction = stats.r < 0 ? 'negative' : 'positive'
-  const correlationLabel = stats.r < 0
-    ? (absR >= 0.7 ? 'starke negative Korrelation' : absR >= 0.5 ? 'mittlere negative Korrelation' : 'schwache negative Korrelation')
-    : (absR >= 0.7 ? 'starke positive Korrelation' : absR >= 0.5 ? 'mittlere positive Korrelation' : 'schwache positive Korrelation')
+  if (compareMode.value === 'vergleich') {
+    const ptsA = compareAPoints.value
+    const ptsB = compareBPoints.value
+    const meta = xAxisMeta.value
+    const eA = calcExtremes(ptsA)
+    const eB = calcExtremes(ptsB)
+    const labelA = RANGE_PRESETS[compareRangeA.value]?.label || ''
+    const labelB = RANGE_PRESETS[compareRangeB.value]?.label || ''
+    const yUnit = 'g CO₂/kWh'
 
-  // Steigung
-  const slopeLabel = Number.isFinite(stats.a)
-    ? (stats.a < 0 ? '' : '+') + stats.a.toFixed(1) + ' g/kWh pro %-Punkt'
-    : '—'
+    return {
+      mode: 'vergleich' as const,
+      tile1: {
+        eyebrow: meta.niedrigUpper,
+        valueA: eA ? fmtInt(eA.lowGroup.avgY, yUnit) : '—',
+        ctxA: eA ? `Ø ${meta.label}: ${eA.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        valueB: eB ? fmtInt(eB.lowGroup.avgY, yUnit) : '—',
+        ctxB: eB ? `Ø ${meta.label}: ${eB.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        labelA, labelB,
+      },
+      tile2: {
+        eyebrow: meta.hochUpper,
+        valueA: eA ? fmtInt(eA.highGroup.avgY, yUnit) : '—',
+        ctxA: eA ? `Ø ${meta.label}: ${eA.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        valueB: eB ? fmtInt(eB.highGroup.avgY, yUnit) : '—',
+        ctxB: eB ? `Ø ${meta.label}: ${eB.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        labelA, labelB,
+      },
+      tile3: {
+        eyebrow: 'CO₂-UNTERSCHIED',
+        valueA: eA ? fmtInt(eA.absDiff, yUnit) : '—',
+        subA: eA ? `${Math.round(eA.relDiff) >= 0 ? '+' : ''}${Math.round(eA.relDiff)} %` : '',
+        valueB: eB ? fmtInt(eB.absDiff, yUnit) : '—',
+        subB: eB ? `${Math.round(eB.relDiff) >= 0 ? '+' : ''}${Math.round(eB.relDiff)} %` : '',
+        labelA, labelB,
+      },
+    }
+  }
 
-  // Datumsbereich – Ende: letzter Tag des Monats, nicht erster Tag des Folgemonats
-  const startLabel = selectedStartDate.value.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
-  const endMonthEnd = new Date(selectedEndDate.value)
-  endMonthEnd.setDate(0) // letzter Tag des Vormonats = letzter Tag des gewählten Monats
-  const endLabel = endMonthEnd.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  // Einzel-Modus
+  const e = calcExtremes(pts)
+  const meta = xAxisMeta.value
+  const yUnit = 'g CO₂/kWh'
+
+  if (!e) {
+    return {
+      mode: 'einzel' as const,
+      tile1: { eyebrow: meta.niedrigUpper, value: '—', context: 'zu wenig Daten (< 200 Std.)' },
+      tile2: { eyebrow: meta.hochUpper, value: '—', context: 'zu wenig Daten (< 200 Std.)' },
+      tile3: { eyebrow: 'CO₂-UNTERSCHIED', value: '—', context: 'zu wenig Daten (< 200 Std.)' },
+    }
+  }
+
+  const diffWord = e.absDiff < 0 ? `niedrigem ${meta.label}` : `niedrigem ${meta.label}`
 
   return {
-    correlation: { value: stats.r.toFixed(2).replace('.', ','), context: correlationLabel },
-    slope: { value: slopeLabel, context: 'je zusätzlichem Prozentpunkt EE-Anteil' },
-    count: { value: n.toLocaleString('de-DE') + ' Stunden', context: startLabel + ' bis ' + endLabel },
+    mode: 'einzel' as const,
+    tile1: {
+      eyebrow: meta.niedrigUpper,
+      value: fmtInt(e.lowGroup.avgY, yUnit),
+      context: `Unterste 10 % der Stunden · Ø ${meta.label}: ${e.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}`,
+    },
+    tile2: {
+      eyebrow: meta.hochUpper,
+      value: fmtInt(e.highGroup.avgY, yUnit),
+      context: `Oberste 10 % der Stunden · Ø ${meta.label}: ${e.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}`,
+    },
+    tile3: {
+      eyebrow: 'CO₂-UNTERSCHIED',
+      value: fmtInt(e.absDiff, yUnit),
+      sub: `${Math.round(e.relDiff) >= 0 ? '+' : ''}${Math.round(e.relDiff)} %`,
+      context: `gegenüber Stunden mit ${diffWord}`,
+    },
   }
 })
 
 // ----------------------------------------------------------------
 // Toggle States
 // ----------------------------------------------------------------
-const showTrendline = ref(false)
-const explainMode = ref(false)
-const highlightOutliers = ref(false)
+const viewMode = ref<'points' | 'contour'>('points')
+const compareMode = ref<'einzel' | 'vergleich'>('einzel')
+const compareRangeA = ref(0) // Index in RANGE_PRESETS
+const compareRangeB = ref(5) // Index in RANGE_PRESETS
 
+const compareAPoints = computed<Point[]>(() => {
+  const pr = RANGE_PRESETS[compareRangeA.value]
+  if (!pr) return []
+  const start = monthToDate(pr.start).getTime()
+  const end = monthToDate(pr.end + 1).getTime()
+  const xFn = xAxis.value.value
+  return props.data.filter((r) => {
+    const t = new Date(r.timestamp).getTime()
+    return t >= start && t < end
+  }).map((r) => ({
+    id: r.timestamp,
+    x: xFn(r),
+    y: r.co2_g_per_kwh,
+    hour: new Date(r.timestamp).getUTCHours(),
+  })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+})
+
+const compareBPoints = computed<Point[]>(() => {
+  const pr = RANGE_PRESETS[compareRangeB.value]
+  if (!pr) return []
+  const start = monthToDate(pr.start).getTime()
+  const end = monthToDate(pr.end + 1).getTime()
+  const xFn = xAxis.value.value
+  return props.data.filter((r) => {
+    const t = new Date(r.timestamp).getTime()
+    return t >= start && t < end
+  }).map((r) => ({
+    id: r.timestamp,
+    x: xFn(r),
+    y: r.co2_g_per_kwh,
+    hour: new Date(r.timestamp).getUTCHours(),
+  })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
+})
+// ----------------------------------------------------------------
 // ----------------------------------------------------------------
 // Refs
 // ----------------------------------------------------------------
@@ -287,17 +436,10 @@ const rowLookup = computed(() => {
 })
 
 // ----------------------------------------------------------------
-// Zoom State + Selection
+// Selection
 // ----------------------------------------------------------------
 let xScale: d3.ScaleLinear<number, number> | null = null
 let yScale: d3.ScaleLinear<number, number> | null = null
-let zoomBehavior: d3.ZoomBehavior<SVGSVGElement, unknown> | null = null
-const currentZoom = ref<d3.ZoomTransform | null>(null)
-let zoomInitialized = false
-const baseXScale = ref<d3.ScaleLinear<number, number> | null>(null)
-const baseYScale = ref<d3.ScaleLinear<number, number> | null>(null)
-
-const zoomEnabled = true
 const selectedHour = ref<{ point: Point; row: HourlyRow } | null>(null)
 
 // ----------------------------------------------------------------
@@ -313,23 +455,11 @@ function formatTimestamp(ts: number): string {
 }
 
 // ----------------------------------------------------------------
-// Zoom zurücksetzen
-// ----------------------------------------------------------------
-function resetZoom() {
-  const svgEl = svgRef.value
-  if (!svgEl || !zoomBehavior) return
-  currentZoom.value = null
-  const svg = d3.select(svgEl)
-  svg.transition().duration(300).call(zoomBehavior.transform, d3.zoomIdentity)
-}
-
-// ----------------------------------------------------------------
 // Render-Scheduler (rAF-basiert)
 // ----------------------------------------------------------------
-type RenderReason = 'init' | 'metricChanged' | 'timeRangeChanged' | 'trendToggleChanged' | 'explainToggleChanged' | 'zoom'
+type RenderReason = 'init' | 'metricChanged' | 'timeRangeChanged'
 let renderRaf: number | null = null
 let pendingReason: RenderReason | null = null
-let trendlineTimer: ReturnType<typeof setTimeout> | null = null
 let hoverRaf: number | null = null
 let lastHoverId: number | null = null
 // Module-level D3-Selections (nach Init)
@@ -366,10 +496,8 @@ function updateChart(reason: RenderReason) {
   console.time(`  scales`)
   xScale = d3.scaleLinear().domain(xDomain).range([0, INNER_W])
   yScale = d3.scaleLinear().domain(yDomain).range([INNER_H, 0])
-  baseXScale.value = xScale
-  baseYScale.value = yScale
-  const ux = currentZoom.value ? currentZoom.value.rescaleX(xScale) : xScale
-  const uy = currentZoom.value ? currentZoom.value.rescaleY(yScale) : yScale
+  const ux = xScale
+  const uy = yScale
   console.timeEnd(`  scales`)
 
   const svg = d3.select(svgEl)
@@ -393,11 +521,17 @@ function updateChart(reason: RenderReason) {
       clipPath.append('rect').attr('width', INNER_W).attr('height', INNER_H)
     }
 
-    // Hintergrund
-    if (chart.selectChild<SVGRectElement>('rect.chart-bg').empty())
-      chart.insert('rect', ':first-child').attr('class', 'chart-bg')
+    // Hintergrund – entfernt, Chart schwebt auf var(--bg)
+
+    // Chart-Rahmen (vier Hairline-Seiten)
+    let frameRect = svg.selectChild<SVGRectElement>('rect.chart-frame')
+    if (frameRect.empty()) {
+      frameRect = svg.insert('rect', ':first-child').attr('class', 'chart-frame')
+        .attr('x', MARGIN.left).attr('y', MARGIN.top)
         .attr('width', INNER_W).attr('height', INNER_H)
-        .attr('fill', '#F0F0F0').attr('rx', 2)
+        .attr('fill', 'none').attr('stroke', 'var(--hairline)').attr('stroke-width', 1)
+        .attr('pointer-events', 'none')
+    }
 
     // Grid
     gridGroup = chart.selectChild<SVGGElement>('g.grid-group')
@@ -446,27 +580,6 @@ function updateChart(reason: RenderReason) {
     if (pg.empty()) pg = chart.append('g').attr('class', 'point-group')
       .attr('clip-path', 'url(#chart-clip)')
 
-    // Zoom einmalig (nur Mausrad, kein Klick)
-    if (!zoomInitialized) {
-      zoomBehavior = d3.zoom<SVGSVGElement, unknown>()
-        .scaleExtent([1, 20])
-        .translateExtent([[0, 0], [WIDTH, HEIGHT]])
-        .extent([[0, 0], [WIDTH, HEIGHT]])
-        .filter((event) => event.type === 'wheel')
-        .on('zoom', (event) => {
-          currentZoom.value = event.transform
-          const bx = baseXScale.value
-          const by = baseYScale.value
-          if (!bx || !by) return
-          const zx = event.transform.rescaleX(bx)
-          const zy = event.transform.rescaleY(by)
-          updateVisuals(zx, zy)
-        })
-      svg.call(zoomBehavior)
-      zoomInitialized = true
-    }
-    svg.call(zoomBehavior)
-    svg.style('cursor', 'crosshair')
     console.timeEnd(`  init-structure`)
   }
 
@@ -482,7 +595,7 @@ function updateChart(reason: RenderReason) {
   baselineGroup.selectAll('line').remove()
   baselineGroup.append('line')
     .attr('x1', 0).attr('x2', INNER_W).attr('y1', INNER_H).attr('y2', INNER_H)
-    .attr('stroke', '#AAAAAA').attr('stroke-width', 1.5)
+    .attr('stroke', 'var(--hairline)').attr('stroke-width', 1)
 
   // 2. Achsen (immer) — Strommix-Stil: Inter 11px uppercase
   axisGroup.select('.x-axis')
@@ -503,87 +616,78 @@ function updateChart(reason: RenderReason) {
   svg.select<SVGTextElement>('.x-label').attr('fill', 'var(--fg-muted)')
   console.timeEnd(`  grids+axes`)
 
-  // 3. Punkte — Data-Join NUR bei init, metricChanged oder timeRangeChanged
+  // 3. Darstellung je nach Modus
   if (reason === 'init' || reason === 'metricChanged' || reason === 'timeRangeChanged') {
-    const markId = `${reason}_${Date.now()}`
-    performance.mark(`${markId}-start`)
+    // Bestehende Gruppen leeren
+    pg.selectAll('*').remove()
+    chart.selectAll('g.contour-group').remove()
+    chart.selectAll('g.contour-compare').remove()
+    chart.selectAll('g.reg-group').remove()
+    chart.selectAll('rect.hover-hit').remove()
+    chart.selectAll('g.compare-legend').remove()
 
-    console.time(`  data-join (${pts.length} pts)`)
-    const POINT_R = 2.5
-    const filteredPts = pts.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
+    if (viewMode.value === 'contour') {
+      if (compareMode.value === 'vergleich') {
+        renderCompareContours(ux, uy)
+      } else {
+        renderContours(ux, uy)
+      }
+    } else {
+      // Punkte-Modus
+      const filteredPts = pts.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
 
-    const circles = pg.selectAll<SVGCircleElement, Point>('circle.point')
-      .data(filteredPts, (d) => String(d.id))
+      const circles = pg.selectAll<SVGCircleElement, Point>('circle.point')
+        .data(filteredPts, (d) => String(d.id))
+      circles.exit().remove()
+      circles.enter().append('circle')
+        .attr('class', 'point').attr('cursor', 'crosshair')
+        .merge(circles)
+        .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
+        .attr('fill', (d) => compareMode.value === 'vergleich' ? ( '#4A90A4') : getHourColor(d.hour))
+        .attr('stroke', 'none').attr('r', POINT_R)
+        .attr('opacity', (d) => {
+          if (compareMode.value === 'vergleich') return 0.4
+          const hk = getHourKey(d.hour)
+          if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
+          if (selectedHour.value && selectedHour.value.point.id !== d.id) return ac.opacity * 0.5
+          return ac.opacity
+        })
 
-    circles.exit().remove()
+      // Unsichtbare Treffer-Kreise für Hover (nur im Einzelmodus)
+      if (compareMode.value !== 'vergleich') {
+        const hitCircles = pg.selectAll<SVGCircleElement, Point>('circle.point-hit')
+          .data(filteredPts, (d) => String(d.id))
+        hitCircles.exit().remove()
+        hitCircles.enter().append('circle')
+          .attr('class', 'point-hit').attr('fill', 'transparent').attr('stroke', 'none')
+          .attr('cursor', 'pointer').attr('pointer-events', 'all')
+          .merge(hitCircles)
+          .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y)).attr('r', 8)
+      }
 
-    const enter = circles.enter().append('circle')
-      .attr('class', 'point').attr('cursor', 'crosshair')
-
-    const merged = enter.merge(circles)
-      .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
-      .attr('fill', (d) => getHourColor(d.hour))
-      .attr('stroke', 'none')
-      .attr('r', POINT_R)
-      .attr('opacity', (d) => {
-        const hk = getHourKey(d.hour)
-        if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
-        if (selectedHour.value && selectedHour.value.point.id !== d.id) return ac.opacity * 0.5
-        return ac.opacity
-      })
-
-    // Unsichtbare Treffer-Kreise für Klick (r=8, transparent)
-    const hitCircles = pg.selectAll<SVGCircleElement, Point>('circle.point-hit')
-      .data(filteredPts, (d) => String(d.id))
-
-    hitCircles.exit().remove()
-
-    hitCircles.enter().append('circle')
-      .attr('class', 'point-hit')
-      .attr('fill', 'transparent').attr('stroke', 'none')
-      .attr('cursor', 'pointer').attr('pointer-events', 'all')
-      .merge(hitCircles)
-      .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
-      .attr('r', 8)
-      .on('click', function (event: MouseEvent, d: Point) {
-        event.stopPropagation()
-        const row = rowLookup.value.get(d.id)
-        if (!row) return
-        if (selectedHour.value?.point.id === d.id) {
-          selectedHour.value = null
-          pg.selectAll('circle.point').attr('opacity', (p: any) => {
-            const hk = getHourKey(p.hour)
-            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
-            return ac.opacity
-          }).attr('r', POINT_R).attr('stroke', 'none')
-          return
-        }
-        selectedHour.value = { point: d, row }
-        // Hervorhebung
-        pg.selectAll('circle.point')
-          .attr('opacity', (p: any) => p.id === d.id ? 1 : ac.opacity * 0.5)
-          .attr('r', (p: any) => p.id === d.id ? 5 : POINT_R)
-          .attr('stroke', (p: any) => p.id === d.id ? '#333' : 'none')
-          .attr('stroke-width', (p: any) => p.id === d.id ? 1.5 : 0)
-      })
+      // Vergleichs-Punkte (zweiter Zeitraum) im Punkte-Modus
+      if (compareMode.value === 'vergleich') {
+        const cmpB = compareBPoints.value.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
+        pg.selectAll('circle.point-compare').remove()
+        pg.selectAll('circle.point-compare')
+          .data(cmpB, (d: any) => String(d.id))
+          .join('circle')
+          .attr('class', 'point-compare')
+          .attr('cx', (d: any) => ux(d.x)).attr('cy', (d: any) => uy(d.y))
+          .attr('fill', '#D97742').attr('stroke', 'none').attr('r', POINT_R)
+          .attr('opacity', 0.4).attr('pointer-events', 'none')
+      }
+    }
 
     console.timeEnd(`  data-join (${pts.length} pts)`)
 
     const circlesInDom = pg.selectAll('circle.point').size()
     console.table({ selectedPeriod: `${selectedStartIdx.value * 2 + 2015}-${selectedEndIdx.value * 2 + 2015}`, filteredPoints: pts.length, circlesInDom })
 
-    performance.mark(`${markId}-end`)
-    performance.measure(`data-join [${markId}]`, `${markId}-start`, `${markId}-end`)
-
     // Trendlinie (komplett)
     console.time(`  trendline`)
     updateTrendline(ux, uy, ac)
     console.timeEnd(`  trendline`)
-
-    // Erklärmodus (komplett)
-    console.time(`  explain`)
-    updateExplainMode(ux, uy)
-    console.timeEnd(`  explain`)
 
     // Hover-Overlay (brute-force nearest point, kein Delaunay/Voronoi)
     console.time(`  hover-overlay`)
@@ -591,27 +695,11 @@ function updateChart(reason: RenderReason) {
     console.timeEnd(`  hover-overlay`)
 
   } else if (reason === 'timeRangeChanged') {
-    // Data-Join passiert bereits im ersten if-Zweig (init | metricChanged | timeRangeChanged)
-
-    // Trendline debounced
-    scheduleTrendline(ux, uy)
+    // Data-Join passiert bereits im ersten if-Zweig
 
     // Hover-Overlay aktualisieren
     updateHoverOverlay(ux, uy, pts, ac)
 
-    // Toggles neuzeichnen (Erklärmodus)
-    chart.selectAll('g.explain-zone').remove()
-    if (explainMode.value) {
-      updateExplainMode(ux, uy)
-    }
-
-  } else if (reason === 'trendToggleChanged') {
-    chart.selectAll('g.reg-group').remove()
-    if (showTrendline.value) updateTrendline(ux, uy, ac)
-
-  } else if (reason === 'explainToggleChanged') {
-    chart.selectAll('g.explain-zone').remove()
-    if (explainMode.value) updateExplainMode(ux, uy)
   }
   console.timeEnd(`⏱ updateChart [${reason}]`)
 }
@@ -619,6 +707,70 @@ function updateChart(reason: RenderReason) {
 // ----------------------------------------------------------------
 // Sub-Funktionen
 // ----------------------------------------------------------------
+// ----------------------------------------------------------------
+// Kontur-Rendering (2D-Density) – 6 Level, Tageszeit-Filter aktiv
+// ----------------------------------------------------------------
+function renderContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
+  chart.selectAll('g.contour-group').remove()
+  const pts = rangePoints.value
+  if (!pts.length) return
+
+  const activeKeys = [...visibleTimes.value]
+  const isAllActive = activeKeys.length === 4
+  const baseColor = viewColor.value
+  const colorMap: Record<string, string> = { nacht: '#2C3E50', morgen: '#D97742', tag: '#E8B547', abend: '#B85C8E' }
+
+  if (isAllActive) {
+    // Einzige Kontur in X-Achsen-Farbe
+    drawSingleContour(ux, uy, pts, baseColor, 0.08, 0.6)
+  } else {
+    // Mehrere Tageszeiten → je eine Kontur in eigener Farbe
+    for (const key of activeKeys) {
+      const filtered = pts.filter((p) => getHourKey(p.hour) === key)
+      if (filtered.length < 50) continue
+      drawSingleContour(ux, uy, filtered, colorMap[key] || baseColor, 0.1, 0.45)
+    }
+  }
+}
+
+function drawSingleContour(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
+                           data: Point[], color: string, opacityMin: number, opacityMax: number) {
+  const pixelPts = data.map((p) => [ux(p.x), uy(p.y)])
+  const density = d3.contourDensity()
+    .x((d) => d[0]).y((d) => d[1])
+    .size([INNER_W, INNER_H]).bandwidth(20).thresholds(6)(pixelPts as any)
+  const cg = chart.append('g').attr('class', 'contour-group')
+  const maxV = d3.max(density, (d) => d.value) || 1
+  for (const d of density) {
+    const t = d.value / maxV
+    const opacity = opacityMin + (opacityMax - opacityMin) * t
+    cg.append('path').datum(d).attr('d', d3.geoPath() as any)
+      .attr('fill', color).attr('opacity', opacity)
+      .attr('stroke', color).attr('stroke-width', 0.5).attr('stroke-opacity', 0.4)
+  }
+}
+
+function renderCompareContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
+  chart.selectAll('g.contour-compare').remove()
+  if (compareMode.value !== 'vergleich') return
+  const ptsA = compareAPoints.value; const ptsB = compareBPoints.value
+  if (!ptsA.length || !ptsB.length) return
+  const cg = chart.append('g').attr('class', 'contour-compare')
+  for (const [pts, c] of [[ptsA, '#4A90A4'], [ptsB, '#D97742']] as const) {
+    const pixelPts = pts.map((p) => [ux(p.x), uy(p.y)])
+    const density = d3.contourDensity()
+      .x((d) => d[0]).y((d) => d[1]).size([INNER_W, INNER_H]).bandwidth(20).thresholds(4)(pixelPts as any)
+    const maxV = d3.max(density, (d) => d.value) || 1
+    for (const d of density) {
+      const t = d.value / maxV
+      const opacity = 0.08 + (0.45 - 0.08) * t
+      cg.append('path').datum(d).attr('d', d3.geoPath() as any)
+        .attr('fill', c).attr('opacity', opacity)
+        .attr('stroke', c).attr('stroke-width', 0.5).attr('stroke-opacity', 0.5)
+    }
+  }
+}
+
 function updateTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>, ac: any) {
   chart.selectAll('g.reg-group').remove()
   const { a, b, r2, count } = rangeStats.value
@@ -629,69 +781,16 @@ function updateTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<
   rg.append('path').attr('d', d3.line()(ld)!).attr('fill', 'none')
     .attr('stroke', ac.trend).attr('stroke-width', 1).attr('opacity', 0.6).attr('stroke-dasharray', '4,4')
   rg.append('text').attr('x', ld[1][0] + 4).attr('y', ld[1][1] - 4)
-    .attr('font-size', '8px').attr('fill', '#666').attr('opacity', 0.7).text(`R² = ${r2}`)
+    .attr('font-size', '8px').attr('fill', '#666').attr('opacity', 0.7).text(`R² = ${(Math.round(r2 * 100) / 100).toFixed(2)}`)
 }
 
-function scheduleTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
-  if (trendlineTimer !== null) clearTimeout(trendlineTimer)
-  trendlineTimer = setTimeout(() => {
-    trendlineTimer = null
-    if (showTrendline.value) updateTrendline(ux, uy, axisColor.value)
-  }, 150)
-}
+
 
 function updateExplainMode(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
-  chart.selectAll('g.explain-zone').remove()
-  if (!explainMode.value) return
-  const key = xAxis.value.key
-  const zg = chart.append('g').attr('class', 'explain-zone').attr('pointer-events', 'none')
-
-  // Helper: Eck-Label mit zwei Zeilen (16px Abstand zur Kante, in Pixel-Koordinaten)
-  function cornerLabel(side: 'topleft' | 'topright' | 'bottomleft' | 'bottomright', line1: string, line2: string) {
-    const pad = 16
-    let x: number, y: number, anchor: string
-    if (side === 'topleft') {
-      x = pad; y = pad
-      anchor = 'start'
-    } else if (side === 'topright') {
-      x = INNER_W - pad; y = pad
-      anchor = 'end'
-    } else if (side === 'bottomleft') {
-      x = pad; y = INNER_H - pad
-      anchor = 'start'
-    } else {
-      x = INNER_W - pad; y = INNER_H - pad
-      anchor = 'end'
-    }
-    zg.append('text')
-      .attr('x', x).attr('y', y)
-      .attr('text-anchor', anchor)
-      .attr('font-size', '12px').attr('font-weight', '500').attr('fill', 'var(--fg-muted)').attr('opacity', 0.8)
-      .attr('font-family', 'var(--font-sans)')
-      .each(function () {
-        const el = d3.select(this)
-        el.append('tspan').attr('x', x).attr('dy', '0em')
-          .text(line1)
-        el.append('tspan').attr('x', x).attr('dy', '1.4em')
-          .attr('font-size', '11px').attr('font-weight', '400')
-          .text(line2)
-      })
-  }
-
-  if (key === 'ee_share') {
-    cornerLabel('topleft', 'Wenig EE', 'hohe CO₂-Intensität')
-    cornerLabel('bottomright', 'Viel EE', 'niedrige CO₂-Intensität')
-  } else if (key === 'fossil_share') {
-    cornerLabel('topright', 'Viel Fossil', 'hohe CO₂-Intensität')
-    cornerLabel('bottomleft', 'Wenig Fossil', 'niedrige CO₂-Intensität')
-  } else if (key === 'load') {
-    cornerLabel('topleft', 'Niedrige Last', 'meist EE-dominiert')
-    cornerLabel('topright', 'Hohe Last', 'oft fossil-dominiert')
-  } else if (key === 'price') {
-    cornerLabel('topleft', 'Negativpreise', 'EE-Überschuss')
-    cornerLabel('topright', 'Spitzenlast', 'oft Gas als Puffer')
-  }
+  // Entfernt – Einordnung-Modus wurde gestrichen
 }
+
+const POINT_R = 2.5
 
 function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
                              pts: Point[], ac: any) {
@@ -784,57 +883,25 @@ function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLine
 }
 
 // ----------------------------------------------------------------
-// updateVisuals (für Zoom-Handler, KEIN Data-Join)
-// ----------------------------------------------------------------
-function updateVisuals(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
-  pg.selectAll('circle.point')
-    .attr('cx', (d: any) => ux(d.x)).attr('cy', (d: any) => uy(d.y))
-
-  axisGroup.select('.x-axis')
-    .call(d3.axisBottom(ux).ticks(6).tickSize(0).tickFormat((d: any) => d.toFixed(d < 1 ? 1 : 0)) as any)
-    .call(g => g.select('.domain').remove())
-  axisGroup.select('.y-axis')
-    .call(d3.axisLeft(uy).ticks(5).tickSize(0).tickFormat((d: any) => d.toFixed(0)) as any)
-    .call(g => g.select('.domain').remove())
-
-  gridGroup.selectAll('*').remove()
-  const yTicks = uy.ticks(5)
-  gridGroup.selectAll('line.y-grid').data(yTicks).join('line')
-    .attr('x1', 0).attr('x2', INNER_W).attr('y1', d => uy(d)).attr('y2', d => uy(d))
-    .attr('stroke', '#DCDCDC').attr('stroke-width', 1)
-  baselineGroup.selectAll('line').remove()
-  baselineGroup.append('line')
-    .attr('x1', 0).attr('x2', INNER_W).attr('y1', INNER_H).attr('y2', INNER_H)
-    .attr('stroke', '#AAAAAA').attr('stroke-width', 1.5)
-
-  chart.selectAll('g.reg-group').remove()
-  if (showTrendline.value) {
-    const { a, b, r2 } = rangeStats.value
-    if (Number.isFinite(a) && Number.isFinite(b)) {
-      const rg = chart.append('g').attr('class', 'reg-group').attr('clip-path', 'url(#chart-clip)')
-      const x0 = ux.domain()[0], x1 = ux.domain()[1]
-      const ld: [number, number][] = [[ux(x0), uy(a * x0 + b)], [ux(x1), uy(a * x1 + b)]]
-      rg.append('path').attr('d', d3.line()(ld)!).attr('fill', 'none')
-        .attr('stroke', axisColor.value.trend).attr('stroke-width', 1)
-        .attr('opacity', 0.6).attr('stroke-dasharray', '4,3')
-      rg.append('text').attr('x', ld[1][0] + 4).attr('y', ld[1][1] - 4)
-        .attr('font-size', '8px').attr('fill', '#666').attr('opacity', 0.7).text(`R² = ${r2}`)
-    }
-  }
-
-  chart.selectAll('g.explain-zone').remove()
-  if (explainMode.value) {
-    updateExplainMode(ux, uy)
-  }
-}
-
-// ----------------------------------------------------------------
 // Gezielte Watches statt watchEffect
 // ----------------------------------------------------------------
 watch(xAxis, () => { scheduleRender('metricChanged') })
 watch([selectedStartIdx, selectedEndIdx], () => { scheduleRender('timeRangeChanged') })
-watch(showTrendline, () => { scheduleRender('trendToggleChanged') })
-watch(explainMode, () => { scheduleRender('explainToggleChanged') })
+
+watch(compareMode, () => {
+  // Bei Wechsel zu Vergleich: Tageszeit-Filter zurücksetzen
+  if (compareMode.value === 'vergleich') {
+    visibleTimes.value = new Set(HOUR_LABELS.map(h => h.key))
+  }
+  scheduleRender('timeRangeChanged')
+})
+watch([compareRangeA, compareRangeB], () => { scheduleRender('timeRangeChanged') })
+watch(viewMode, () => {
+  if (viewMode.value === 'points' && compareMode.value === 'vergleich') {
+    compareMode.value = 'einzel'
+  }
+  scheduleRender('metricChanged')
+})
 
 // Initialer Render
 watch(svgRef, (el) => { if (el) scheduleRender('init') }, { once: true })
@@ -843,19 +910,8 @@ watch(svgRef, (el) => { if (el) scheduleRender('init') }, { once: true })
 // Cleanup
 // ----------------------------------------------------------------
 onUnmounted(() => {
-  // Ausstehende rAFs und Timeouts aufräumen
   if (renderRaf !== null) { cancelAnimationFrame(renderRaf); renderRaf = null }
-  if (trendlineTimer !== null) { clearTimeout(trendlineTimer); trendlineTimer = null }
   if (hoverRaf !== null) { cancelAnimationFrame(hoverRaf); hoverRaf = null }
-
-  const svgEl = svgRef.value
-  if (svgEl) {
-    const svg = d3.select(svgEl)
-    svg.on('.zoom', null)
-  }
-  zoomInitialized = false
-  zoomBehavior = null
-  currentZoom.value = null
 })
 </script>
 
@@ -863,7 +919,6 @@ onUnmounted(() => {
   <div class="scatter-card">
     <!-- Header mit Kicker + Titel + Untertitel (wie Strommix) -->
     <div class="scatter-header">
-      <span class="scatter-kicker">KAPITEL 2</span>
       <h3 class="scatter-heading">Einflussfaktoren der CO₂-Intensität</h3>
     </div>
     <p class="scatter-subtitle">Wie verändern Strommix, Nachfrage, Preis und Tageszeit die Klimabilanz des Stroms?</p>
@@ -880,45 +935,65 @@ onUnmounted(() => {
         <span class="control-label" style="margin-left:12px">Y:</span>
         <span class="segment-static" :style="{ color: axisColor.label }">CO₂ g/kWh</span>
       </div>
-      <div class="control-row control-row-secondary">
+
+      <div class="control-row control-row-tertiary">
+        <span class="control-label">Darstellung:</span>
         <div class="segment-group">
-          <button class="segment-btn-sm" :class="{ active: showTrendline }" @click="showTrendline = true; explainMode = false; highlightOutliers = false">Trendlinie</button>
-          <button class="segment-btn-sm" :class="{ active: explainMode }" @click="explainMode = true; showTrendline = false; highlightOutliers = false">Einordnung</button>
-          <button class="segment-btn-sm" :class="{ active: highlightOutliers }" @click="highlightOutliers = true; showTrendline = false; explainMode = false">Besondere Stunden</button>
+          <button class="segment-btn-sm" :class="{ active: viewMode === 'points' }" @click="viewMode = 'points'">Punkte</button>
+          <button class="segment-btn-sm" :class="{ active: viewMode === 'contour' }" @click="viewMode = 'contour'">Konturen</button>
         </div>
-        <button v-if="currentZoom && currentZoom.k !== 1" class="reset-chip-inline" @click="resetZoom">× Zoom</button>
       </div>
     </div>
 
-    <!-- Tageszeit-Legende (wie Strommix-Legende) -->
+    <!-- Tageszeit-Legende -->
     <div class="tod-legend-bar">
       <button v-for="hl in HOUR_LABELS" :key="hl.key"
-        class="tod-item" :class="{ dimmed: !visibleTimes.has(hl.key) }"
-        @mouseenter="hoveredTime = hl.key" @mouseleave="hoveredTime = null"
-        @click="toggleTime(hl.key)">
+        class="tod-item" :class="{ dimmed: !visibleTimes.has(hl.key) || compareMode === 'vergleich', 'tod-disabled': compareMode === 'vergleich' }"
+        :disabled="compareMode === 'vergleich'"
+        @mouseenter="compareMode !== 'vergleich' && (hoveredTime = hl.key)" @mouseleave="hoveredTime = null"
+        @click="compareMode !== 'vergleich' && toggleTime(hl.key)">
         <span class="tod-dot" :style="{ background: hl.color }"></span>
         <span class="tod-label" :class="{ struck: !visibleTimes.has(hl.key) }">{{ hl.label }}</span>
       </button>
+      <button v-if="viewMode === 'contour' && visibleTimes.size === 1 && compareMode !== 'vergleich'" class="tod-item tod-item-all" @click="resetAllTimes">
+        <span class="tod-dot" style="background:var(--fg-muted);opacity:0.5"></span>
+        <span class="tod-label">Alle Tageszeiten</span>
+      </button>
     </div>
-    <div class="tod-hint">Klicken zum Ausblenden · Hovern zum Hervorheben</div>
-    <span class="zoom-hint">Mausrad zum Zoomen · Ziehen zum Verschieben</span>
+    <div class="tod-hint">{{ compareMode === 'vergleich' ? 'Tageszeit-Filter nur im Einzelmodus verfügbar' : viewMode === 'points' ? 'Klicken zum Ausblenden · Hovern zum Hervorheben' : 'Klicken isoliert eine Tageszeit' }}</div>
 
-    <!-- Erklärung: Besondere Stunden -->
-    <div v-if="highlightOutliers" class="outlier-hint">
-      <span class="oh-icon">ⓘ</span>
-      <span class="oh-text"><strong>Besondere Stunden</strong> sind Stunden, in denen EE-Anteil oder CO₂-Intensität mehr als <strong>2 Standardabweichungen</strong> vom Mittelwert des gewählten Zeitraums entfernt liegen – z.&thinsp;B. extrem windreiche oder windarme Stunden, Stromimporte oder Netzengpässe.</span>
-    </div>
 
-    <!-- Zeitraum-Chips (wie Strommix-Segment-Toggle) -->
+
+    <!-- Zeitraum-Chips + Vergleichsmodus -->
     <div class="range-section">
-      <div class="range-presets">
-        <button v-for="pr in RANGE_PRESETS" :key="pr.label"
+      <div v-if="viewMode === 'contour'" class="compare-toggle-row">
+        <div class="segment-group compare-toggle-group">
+          <button class="segment-btn-sm" :class="{ active: compareMode === 'einzel' }" @click="compareMode = 'einzel'">Einzel</button>
+          <button class="segment-btn-sm" :class="{ active: compareMode === 'vergleich' }" @click="compareMode = 'vergleich'">Vergleich</button>
+        </div>
+      </div>
+      <div v-if="compareMode === 'einzel'" class="range-presets">
+        <button v-for="(pr, pi) in RANGE_PRESETS" :key="pr.label"
           class="segment-btn range-btn"
           :class="{ active: selectedStartIdx === pr.start && selectedEndIdx === pr.end }"
           @click="applyPreset(pr.start, pr.end)">
           {{ pr.label }}
         </button>
         <span class="range-label">{{ dateLabel }}</span>
+      </div>
+      <div v-if="compareMode === 'vergleich'" class="range-presets-stacked">
+        <div class="compare-row"><span class="compare-row-label">A</span>
+          <button v-for="(pr, pi) in RANGE_PRESETS" :key="'a'+pi"
+            class="segment-btn range-btn"
+            :class="{ active: compareRangeA === pi }"
+            @click="compareRangeA = pi">{{ pr.label }}</button>
+        </div>
+        <div class="compare-row"><span class="compare-row-label">B</span>
+          <button v-for="(pr, pi) in RANGE_PRESETS" :key="'b'+pi"
+            class="segment-btn range-btn"
+            :class="{ active: compareRangeB === pi }"
+            @click="compareRangeB = pi">{{ pr.label }}</button>
+        </div>
       </div>
     </div>
 
@@ -946,27 +1021,80 @@ onUnmounted(() => {
             <div class="tt-row"><span class="tt-label">Preis</span><span class="tt-val">{{ selectedHour.row.price_eur_mwh.toFixed(1) }} €/MWh</span></div>
           </div>
         </div>
+        <!-- Vergleich-Legende -->
+        <div v-if="compareMode === 'vergleich' && compareRangeA !== null && compareRangeB !== null" class="compare-legend">
+          <span class="compare-legend-dot" style="background:#4A90A4"></span> {{ RANGE_PRESETS[compareRangeA]?.label }}
+          <span class="compare-legend-dot compare-legend-dot-b" style="background:#D97742"></span> {{ RANGE_PRESETS[compareRangeB]?.label }}
+        </div>
       </div>
       <aside class="scatter-sidebar">
-        <div class="metric-tile">
-          <div class="tile-eyebrow">Korrelation</div>
-          <div class="tile-value">{{ sidebarMetrics.correlation.value }}</div>
-          <div class="tile-context">{{ sidebarMetrics.correlation.context }}</div>
-        </div>
-        <div class="metric-divider"></div>
-        <div class="metric-tile">
-          <div class="tile-eyebrow">Steigung Trendlinie</div>
-          <div class="tile-value">{{ sidebarMetrics.slope.value }}</div>
-          <div class="tile-context">{{ sidebarMetrics.slope.context }}</div>
-        </div>
-        <div class="metric-divider"></div>
-        <div class="metric-tile">
-          <div class="tile-eyebrow">Datenpunkte</div>
-          <div class="tile-value">{{ sidebarMetrics.count.value }}</div>
-          <div class="tile-context">{{ sidebarMetrics.count.context }}</div>
-        </div>
+        <!-- Einzelmodus -->
+        <template v-if="sidebarMetrics.mode === 'einzel'">
+          <div class="metric-tile">
+            <div class="tile-eyebrow">{{ sidebarMetrics.tile1.eyebrow }}</div>
+            <div class="tile-value">{{ sidebarMetrics.tile1.value }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile1.context }}</div>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="metric-tile">
+            <div class="tile-eyebrow">{{ sidebarMetrics.tile2.eyebrow }}</div>
+            <div class="tile-value">{{ sidebarMetrics.tile2.value }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile2.context }}</div>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="metric-tile">
+            <div class="tile-eyebrow">{{ sidebarMetrics.tile3.eyebrow }}</div>
+            <div class="tile-value">{{ sidebarMetrics.tile3.value }}</div>
+            <div v-if="sidebarMetrics.tile3.sub" class="tile-sub-value">{{ sidebarMetrics.tile3.sub }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile3.context }}</div>
+          </div>
+        </template>
+        <!-- Vergleichsmodus -->
+        <template v-if="sidebarMetrics.mode === 'vergleich'">
+          <div class="metric-tile">
+            <div class="tile-eyebrow">{{ sidebarMetrics.tile1.eyebrow }}</div>
+            <div class="tile-subhead"><span class="color-dot" style="background:#4A90A4"></span> Zeitraum A ({{ sidebarMetrics.tile1.labelA }})</div>
+            <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile1.valueA }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile1.ctxA }}</div>
+            <div class="tile-comp-spacer"></div>
+            <div class="tile-subhead tile-subhead-b"><span class="color-dot" style="background:#D97742"></span> Zeitraum B ({{ sidebarMetrics.tile1.labelB }})</div>
+            <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile1.valueB }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile1.ctxB }}</div>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="metric-tile">
+            <div class="tile-eyebrow">{{ sidebarMetrics.tile2.eyebrow }}</div>
+            <div class="tile-subhead"><span class="color-dot" style="background:#4A90A4"></span> Zeitraum A ({{ sidebarMetrics.tile2.labelA }})</div>
+            <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile2.valueA }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile2.ctxA }}</div>
+            <div class="tile-comp-spacer"></div>
+            <div class="tile-subhead tile-subhead-b"><span class="color-dot" style="background:#D97742"></span> Zeitraum B ({{ sidebarMetrics.tile2.labelB }})</div>
+            <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile2.valueB }}</div>
+            <div class="tile-context">{{ sidebarMetrics.tile2.ctxB }}</div>
+          </div>
+          <div class="metric-divider"></div>
+          <div class="metric-tile">
+            <div class="tile-eyebrow">{{ sidebarMetrics.tile3.eyebrow }}</div>
+            <div class="tile-subhead"><span class="color-dot" style="background:#4A90A4"></span> Zeitraum A ({{ sidebarMetrics.tile3.labelA }})</div>
+            <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile3.valueA }}</div>
+            <div v-if="sidebarMetrics.tile3.subA" class="tile-context">{{ sidebarMetrics.tile3.subA }}</div>
+            <div class="tile-comp-spacer"></div>
+            <div class="tile-subhead tile-subhead-b"><span class="color-dot" style="background:#D97742"></span> Zeitraum B ({{ sidebarMetrics.tile3.labelB }})</div>
+            <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile3.valueB }}</div>
+            <div v-if="sidebarMetrics.tile3.subB" class="tile-context">{{ sidebarMetrics.tile3.subB }}</div>
+          </div>
+        </template>
       </aside>
     </div>
+
+    <!-- Methodik-Fußnote -->
+    <details class="methodik-footnote">
+      <summary class="methodik-summary">Methodik &amp; Berechnungsgrundlage</summary>
+      <div class="methodik-body">
+        <p><strong>Extremwert-Kacheln:</strong> Für die Kacheln in der Seitenleiste werden die Stunden im gewählten Zeitraum nach dem X-Wert sortiert. Die untersten 10 % (Stunden mit dem niedrigsten X-Wert) und die obersten 10 % (Stunden mit dem höchsten X-Wert) bilden die zwei Vergleichsgruppen. Für jede Gruppe wird der Durchschnitt des X- und Y-Wertes berechnet. Bei 17.500 Stunden im Zeitraum entspricht dies je ca. 1.750 Stunden pro Gruppe. Der CO₂-Unterschied ist die Differenz der Y-Durchschnitte, absolut und relativ zum Durchschnitt der niedrigen Gruppe.</p>
+        <p><strong>Datenbasis:</strong> Anzahl der Stundenwerte im gewählten Zeitraum. Bei Datenlücken (2018) fehlen ca. 25 % der Stunden.</p>
+      </div>
+    </details>
   </div>
 </template>
 
@@ -975,12 +1103,6 @@ onUnmounted(() => {
 
 /* ---- Header (wie Strommix) ---- */
 .scatter-header { margin-bottom:2px; }
-.scatter-kicker {
-  display:block;
-  font-family:var(--font-sans); font-size:11px; font-weight:600;
-  letter-spacing:0.06em; text-transform:uppercase;
-  color:var(--fg-muted); margin-bottom:8px;
-}
 .scatter-heading {
   font-family:var(--font-serif); font-size:22px; font-weight:500;
   color:var(--fg); margin:0;
@@ -1026,22 +1148,20 @@ onUnmounted(() => {
 .segment-btn-sm.active { background:var(--accent); color:#fff; }
 
 .control-row-secondary { gap:4px; }
+.control-row-tertiary { gap:4px; }
 
-.reset-chip-inline {
-  font-family:var(--font-sans); font-size:11px; font-weight:500;
-  color:var(--fg); padding:3px 8px;
-  border:1px solid var(--hairline); border-radius:4px;
-  background:var(--bg); cursor:pointer; white-space:nowrap;
-}
-.reset-chip-inline:hover { border-color:var(--accent); color:var(--accent); }
 .segment-static {
   font-family:var(--font-sans); font-size:11px; font-weight:500;
   padding:4px 10px; border:1px solid var(--hairline); border-radius:6px;
   text-transform:uppercase; letter-spacing:.04em;
 }
-.zoom-hint {
-  font-family:var(--font-sans); font-size:11px; color:var(--fg-muted);
-  opacity:0.5;
+
+/* ---- Vergleichs-Modus ---- */
+.range-btn.compare {
+  background: var(--bg);
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* ---- Tageszeit-Legende (wie Strommix-Legenden-Bar) ---- */
@@ -1055,6 +1175,8 @@ onUnmounted(() => {
 }
 .tod-item:hover { background:#f0f0f0; }
 .tod-item.dimmed { opacity:.5; }
+.tod-item.tod-disabled { opacity:0.3; cursor:not-allowed; }
+.tod-item-all { margin-left:8px; opacity:0.7; }
 .tod-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
 .tod-label { font-size:13px; color:var(--fg); transition:all .2s; }
 .tod-label.struck { text-decoration:line-through; color:var(--fg-muted); }
@@ -1062,17 +1184,34 @@ onUnmounted(() => {
   font-family:var(--font-sans); font-size:10px; color:var(--fg-muted);
   opacity:0.6; margin-bottom:12px;
 }
+.tod-dimmed { opacity:0.4; pointer-events:none; }
 
-/* ---- Bereich Ausreißer-Hinweis ---- */
-.outlier-hint {
-  display:flex; align-items:flex-start; gap:6px;
-  margin:0 0 10px; padding:6px 10px;
-  background:#F8F8F8; border-radius:4px;
-  font-family:var(--font-sans); font-size:0.7rem;
-  color:var(--fg-muted); line-height:1.5;
+/* ---- Vergleichsmodus-Toggle + gestapelte Chip-Reihen ---- */
+.compare-toggle-row {
+  display:flex; gap:8px; align-items:center; margin-bottom:8px;
 }
-.oh-icon { font-size:0.75rem; flex-shrink:0; margin-top:1px; }
-.oh-text { flex:1; }
+.compare-toggle-group .segment-btn-sm {
+  font-size:11px !important;
+}
+.range-presets-stacked {
+  display:flex; flex-direction:column; gap:6px;
+}
+.compare-row {
+  display:flex; gap:4px; align-items:center; flex-wrap:wrap;
+}
+.compare-row-label {
+  font-family:var(--font-sans); font-size:10px; font-weight:600;
+  color:var(--fg-muted); width:14px; text-align:center; flex-shrink:0;
+}
+.compare-legend {
+  display:flex; align-items:center; gap:8px;
+  font-family:var(--font-sans); font-size:12px; color:var(--fg);
+  margin-top:10px; padding-top:10px; border-top:1px solid var(--hairline);
+}
+.compare-legend-dot {
+  display:inline-block; width:10px; height:10px; border-radius:50%;
+}
+.compare-legend-dot-b { margin-left:4px; }
 
 /* ---- Zeitraum-Chips (Segment-Toggle-Stil) ---- */
 .range-section { margin-bottom:16px; }
@@ -1127,12 +1266,30 @@ onUnmounted(() => {
   margin-bottom:6px;
 }
 .tile-value {
-  font-family:var(--font-serif); font-size:32px; font-weight:500;
+  font-family:var(--font-serif); font-size:28px; font-weight:500;
   color:var(--fg); line-height:1.1; margin-bottom:4px;
+}
+.tile-sub-value {
+  font-family:var(--font-serif); font-size:22px; font-weight:500;
+  color:var(--fg-muted); line-height:1.2; margin-bottom:4px;
 }
 .tile-context {
   font-family:var(--font-sans); font-size:12px; color:var(--fg-muted);
 }
+.tile-value-sm { font-size:22px; color:var(--fg); }
+.tile-subhead { font-family:var(--font-sans); font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted); margin-bottom:4px; display:flex; align-items:center; gap:4px; }
+.tile-subhead-b { color:var(--fg); }
+.color-dot { display:inline-block; width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.tile-comp-spacer { height:12px; }
+.tile-diff { font-weight:600; margin-top:4px; }
+
+/* ---- Methodik-Fußnote ---- */
+.methodik-footnote { margin:40px 0 0; border-top:1px solid var(--hairline); padding-top:16px; }
+.methodik-summary { font-family:var(--font-sans); font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted); cursor:pointer; user-select:none; }
+.methodik-summary:hover { color:var(--fg); }
+.methodik-body { font-family:var(--font-sans); font-size:13px; color:var(--fg-muted); line-height:1.7; margin-top:12px; }
+.methodik-body p { margin:0 0 8px; }
+.methodik-body p:last-child { margin-bottom:0; }
 
 /* ---- Tooltip ---- */
 .scatter-tooltip {
