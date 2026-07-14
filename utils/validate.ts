@@ -1,8 +1,8 @@
 /**
- * utils/validate.ts
- * ==================
- * Einfache Laufzeit-Prüfung für JSON-Daten.
- * Verhindert, dass NaN-Werte unbemerkt durch die Pipeline rutschen.
+ * validate.ts – Laufzeit-Prüfung für JSON-Daten.
+ *
+ * Stellt sicher, dass NaN-Werte nicht unbemerkt durch die Pipeline rutschen.
+ * Wird vor allem nach dem Daten-Loading und in Tests verwendet.
  */
 
 import type { HourlyRow, YearlyRow } from '~/composables/useData'

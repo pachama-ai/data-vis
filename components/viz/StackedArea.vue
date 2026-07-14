@@ -1,12 +1,28 @@
 ﻿<script setup lang="ts">
-import { ref, watchEffect, onUnmounted } from 'vue'
+/**
+ * StackedArea.vue – Gestapelte Flächendarstellung des deutschen Stromerzeugungsmix.
+ *
+ * Zeigt die Entwicklung der Stromerzeugung nach Energieträgern über die Zeit.
+ * Unterstützt absolute und prozentuale Darstellung, verschiedene Aggregations-Level
+ * (Tag, Woche, Monat, Quartal) sowie interaktiven Zoom und Zeitmarker.
+ *
+ * @example
+ * <StackedArea :data="hourlyData" @visible-range-change="onRangeChange" />
+ */
+
+import { ref, watch, watchEffect, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 import type { HourlyRow } from '~/composables/useData'
 import { aggregate } from '~/utils/aggregate'
 
 const props = defineProps<{ data: HourlyRow[] }>()
-const emit = defineEmits<{ visibleRangeChange: [range: { start: Date; end: Date } | null] }>()
+const emit = defineEmits<{
+  visibleRangeChange: [range: { start: Date; end: Date } | null]
+  aggLevelChange: [level: 'tag' | 'woche' | 'monat' | 'quartal']
+  modeChange: [mode: 'absolute' | 'percent']
+}>()
 
+// TODO: irgendwann in shared file, kommt in 3 dateien vor
 const COLORS: Record<string, string> = {
   biomass: '#7A9B4E', hydro: '#C4B8A0', wind_onshore: '#4A90A4',
   wind_offshore: '#1A4A5A', pv: '#E8B547', nuclear: '#B85C8E',
@@ -24,20 +40,35 @@ const ALL_KEYS = STACK_ORDER
 const visibleKeys = ref<Set<string>>(new Set(ALL_KEYS))
 const mode = ref<'absolute' | 'percent'>('percent')
 const aggLevel = ref<'tag' | 'woche' | 'monat' | 'quartal'>('monat')
-const hoveredKey = ref<string | null>(null)
 const zoomDomain = ref<[Date, Date] | null>(null)
 const hasZoomed = ref(false)
 
-/** Blendet einen Energieträger in der Legende ein oder aus */
+watch(aggLevel, (v) => emit('aggLevelChange', v))
+watch(mode, (v) => emit('modeChange', v))
+
+/**
+ * Schaltet einen Energieträger in der Legende ein oder aus.
+ * Es bleibt immer mindestens einer aktiv.
+ * @param key Der Energieträger-Schlüssel.
+ */
 function toggleKey(key: string) {
   if (visibleKeys.value.has(key)) { visibleKeys.value.delete(key); if (visibleKeys.value.size === 0) visibleKeys.value.add(key) }
   else { visibleKeys.value.add(key) }
   visibleKeys.value = new Set(visibleKeys.value)
 }
-/** Setzt den Zoom auf den Gesamtzeitraum zurück */
+/**
+ * Setzt den Zoom auf den vollen Zeitraum zurück und benachrichtigt die Parent-Komponente.
+ */
 function resetZoom() { zoomDomain.value = null; hasZoomed.value = true; emit('visibleRangeChange', null) }
 
-/** Kurzform: aggregiert Stunden mit CO₂-Tracking auf gewünschtem Level */
+/**
+ * Kurzform zum Aggregieren von Stunden-Daten.
+ * Leitet an die zentrale aggregate()-Funktion aus utils/ weiter.
+ *
+ * @param rows Stunden-Daten.
+ * @param level Aggregations-Level (tag, woche, monat, quartal).
+ * @returns Aggregierte Daten mit CO₂-Tracking.
+ */
 function aggregateHours(rows: HourlyRow[], level: string) {
   return aggregate(rows, { level: level as any, trackCo2: true })
 }
@@ -47,7 +78,7 @@ let tooltipDiv: d3.Selection<HTMLDivElement, unknown, null, undefined> | null = 
 let eventTooltipDiv: d3.Selection<HTMLDivElement, unknown, null, undefined> | null = null
 onUnmounted(() => { tooltipDiv?.remove(); eventTooltipDiv?.remove() })
 
-const MARGIN = { top: 20, right: 16, bottom: 80, left: 60 }
+const MARGIN = { top: 20, right: 16, bottom: 80, left: 80 }
 const WIDTH = 900, MAIN_H = 400
 const MAIN_H_ACT = MAIN_H - MARGIN.top - MARGIN.bottom
 
@@ -72,7 +103,12 @@ const EVENTS = [
   { date: new Date('2023-11-17'), label: 'BVerfG-Urteil zum Klimafonds' },
 ]
 
-/** Formatiert ein Datum nach Aggregations-Level (Monatname, KW, Quartal) */
+/**
+ * Formatiert ein Datum abhängig vom Aggregations-Level.
+ * @param d Das Datum.
+ * @param level 'monat', 'woche' oder 'quartal'.
+ * @returns Formatierter String, z. B. "Januar 2020", "KW 23/2020" oder "Q3 2021".
+ */
 function fmtDate(d: Date, level: string): string {
   if (level === 'monat') return d.toLocaleDateString('de-DE', { year: 'numeric', month: 'long' })
   if (level === 'woche') return 'KW ' + Math.ceil(((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7) + '/' + d.getUTCFullYear()
@@ -128,7 +164,6 @@ watchEffect(() => {
     g.append('path').datum(stacked[i]).attr('d', area as any)
       .attr('fill', COLORS[key]).attr('opacity', 0.85)
       .attr('stroke', COLORS[key]).attr('stroke-width', 0.5).attr('stroke-opacity', 1)
-    if (hoveredKey.value && hoveredKey.value !== key) g.selectAll('path').attr('opacity', 0.25)
   }
 
   // Gap-Overlay entfernt – keine Markierung fehlender Daten
@@ -194,7 +229,7 @@ watchEffect(() => {
   chart.append('g').attr('transform', 'translate(0,' + X_AXIS_Y + ')')
     .call(d3.axisBottom(xScale).ticks(d3.timeYear.every(1)).tickFormat(d3.timeFormat('%Y') as any))
     .attr('font-size', '11px').attr('color', 'var(--fg-muted)').attr('font-family', 'var(--font-sans)')
-    .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
+    .style('letter-spacing', '0.04em')
     .call((g: any) => g.select('.domain').attr('stroke', 'var(--hairline)'))
     .call((g: any) => g.selectAll('.tick text').attr('fill', 'var(--fg-muted)'))
 
@@ -203,7 +238,7 @@ watchEffect(() => {
   const yFormat: any = mode.value === 'percent' ? (d: number) => Math.round(d * 100) + '%' : (d: number) => d3.format('.1f')(d) + ' TWh'
   chart.append('g').call(d3.axisLeft(yScale).tickValues(yTicks).tickFormat(yFormat) as any)
     .attr('font-size', '11px').attr('color', 'var(--fg-muted)').attr('font-family', 'var(--font-sans)')
-    .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
+    .style('letter-spacing', '0.04em')
     .call((g: any) => g.select('.domain').attr('stroke', 'var(--hairline)'))
     .call((g: any) => g.selectAll('.tick text').attr('fill', 'var(--fg-muted)'))
     .call((g: any) => g.selectAll('.tick text').attr('x', -4))
@@ -294,12 +329,12 @@ watchEffect(() => {
     <div class="legend-bar">
       <button v-for="key in ALL_KEYS" :key="key"
         class="legend-item" :class="{dimmed:!visibleKeys.has(key)}"
-        @mouseenter="hoveredKey=key" @mouseleave="hoveredKey=null" @click="toggleKey(key)">
+        @click="toggleKey(key)">
         <span class="legend-dot" :style="{background:COLORS[key]}"></span>
         <span class="legend-label" :class="{struck:!visibleKeys.has(key)}">{{ LABELS[key] }}</span>
       </button>
     </div>
-    <div class="legend-hint">Klicken zum Ausblenden · Hovern zum Hervorheben</div>
+    <div class="legend-hint">Klicken zum Ausblenden</div>
     <div class="chart-wrap"><svg ref="svgRef"></svg></div>
     <div class="event-legend">1 Paris · 2 EEG-Reform · 3 Corona · 4 Kohleausstieg · 5 Ukraine-Krieg · 6 Gaspreis · 7 Atomausstieg · 8 BVerfG-Urteil</div>
     <div v-if="!zoomDomain||(zoomDomain[0]<=new Date('2018-12-31')&&zoomDomain[1]>=new Date('2018-01-01'))" class="data-warning">

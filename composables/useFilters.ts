@@ -1,8 +1,11 @@
 /**
- * composables/useFilters.ts — KPI-Jahrfilter mit Gesamt/Jahr/Vergleich
- * ====================================================================
- * Der Filter wirkt ausschließlich auf die KPI-Werte und -Sparklines.
- * Scatterplot und Panels haben eigene Zeitsteuerung.
+ * useFilters.ts – KPI-Jahrfilter mit drei Modi: Gesamt, Einzeljahr, Vergleich.
+ *
+ * Der Filter wirkt ausschließlich auf die KPI-Werte und Sparklines.
+ * Andere Charts (Scatterplot, Panels) haben eine eigene Zeitsteuerung.
+ *
+ * @example
+ * const { state, filteredKpiData } = useFilters()
  */
 
 import { reactive } from 'vue'

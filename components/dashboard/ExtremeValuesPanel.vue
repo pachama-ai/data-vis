@@ -1,22 +1,29 @@
 <script setup lang="ts">
 /**
- * components/dashboard/ExtremeValuesPanel.vue
- * ============================================
- * Drei Kacheln mit datenbasierten Extremwerten aus dem sichtbaren Zeitraum.
- * Enthält D3-interpolierte Zahlen-Animation bei Zoom-Änderung.
+ * ExtremeValuesPanel.vue – Kacheln mit animierten Extremwerten.
+ *
+ * Zeigt die drei Extreme aus useExtremeValues mit D3-interpolierten
+ * Zahlen-Animationen bei Datenänderungen.
+ *
+ * @example
+ * <ExtremeValuesPanel :monthlyData="monthlyData" />
  */
 
 import { ref, computed, watch, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 import { useExtremeValues } from '~/composables/useExtremeValues'
-import type { MonthlyDataPoint, ExtremeValueResult } from '~/composables/useExtremeValues'
+import type { MonthlyDataPoint, ExtremeValueResult, ValueType } from '~/composables/useExtremeValues'
 
 const props = defineProps<{
   monthlyData: MonthlyDataPoint[]
+  aggLevel?: 'tag' | 'woche' | 'monat' | 'quartal'
+  mode?: 'absolute' | 'percent'
 }>()
 
 const { highestRenewableShare, highestFossilGeneration, largestChange } = useExtremeValues(
-  computed(() => props.monthlyData)
+  computed(() => props.monthlyData),
+  computed(() => props.aggLevel ?? 'monat'),
+  computed(() => props.mode ?? 'percent')
 )
 
 interface DisplayTile {
@@ -25,13 +32,14 @@ interface DisplayTile {
   dateLabel: string
   context: string
   rawValue: number
+  valueType: ValueType
 }
 
 const tiles = computed<DisplayTile[]>(() => {
   const out: DisplayTile[] = []
   const add = (r: ExtremeValueResult | null) => {
-    if (r) out.push({ label: r.label, displayValue: r.value, dateLabel: r.dateLabel, context: r.context, rawValue: r.rawValue })
-    else out.push({ label: '', displayValue: '—', dateLabel: '', context: '', rawValue: 0 })
+    if (r) out.push({ label: r.label, displayValue: r.value, dateLabel: r.dateLabel, context: r.context, rawValue: r.rawValue, valueType: r.valueType })
+    else out.push({ label: '', displayValue: '—', dateLabel: '', context: '', rawValue: 0, valueType: 'average' })
   }
   add(highestRenewableShare.value)
   add(highestFossilGeneration.value)
@@ -49,6 +57,7 @@ const prefersReduced = typeof window !== 'undefined'
   ? window.matchMedia('(prefers-reduced-motion: reduce)').matches
   : false
 
+// keine ahnung ob das threadsafe ist, läuft aber
 watch(tiles, (newTiles) => {
   if (prefersReduced || !prevTiles.value.length) {
     animatedValues.value = newTiles.map((t) => t.displayValue)

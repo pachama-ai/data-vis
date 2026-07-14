@@ -1,8 +1,13 @@
 ﻿<script setup lang="ts">
 /**
- * components/viz/DuckCurve.vue
- * ============================
- * Interaktiver Zeitregler: Ein durchschnittlicher Tag im deutschen Strommarkt.
+ * DuckCurve.vue – Interaktiver Tagesvergleich für den deutschen Strommarkt.
+ *
+ * Zeigt Durchschnittsprofile für PV-Erzeugung, Residuallast, Preis und
+ * CO₂-Intensität über 24 Stunden. Unterstützt verschiedene Modi (Sommer,
+ * Winter, Werktag, etc.) und einen Zeitraum-Vergleich zwischen zwei Stunden.
+ *
+ * @example
+ * <DuckCurve :data="hourlyData" />
  */
 
 import { ref, computed, watch, nextTick } from 'vue'
@@ -17,28 +22,67 @@ const profileMode = ref<ProfileMode>('durchschnitt')
 
 interface HourPoint { hour: number; pv: number; residuallast: number; price: number; co2: number }
 
-/** Prüft, ob ein Datum in die Sommermonate Juni–August fällt */
+/**
+ * Prüft, ob ein Datum in den meteorologischen Sommer fällt (Juni–August).
+ * Wird gebraucht, weil PV im Sommer halt am meisten bringt.
+ *
+ * @param d Das zu prüfende Datum (Berlin-Zeit).
+ * @returns true bei Sommer.
+ */
 function inSummer(d: Date): boolean { const m = getBerlinMonth(d.getTime()); return m >= 5 && m <= 7 }
-/** Prüft, ob ein Datum in die Wintermonate Dezember–Februar fällt */
+/**
+ * Prüft auf meteorologischen Winter (Dezember–Februar).
+ *
+ * @param d Datum in Berlin-Zeit.
+ * @returns true bei Winter.
+ */
 function inWinter(d: Date): boolean { const m = getBerlinMonth(d.getTime()); return m <= 2 || m >= 11 }
-/** Prüft, ob ein Datum auf ein Wochenende fällt (Samstag oder Sonntag) */
+/**
+ * Wochenende-Check (Samstag oder Sonntag).
+ *
+ * @param d Das Datum.
+ * @returns true am Wochenende.
+ */
 function isWeekend(d: Date): boolean { return isBerlinWeekend(d.getTime()) }
 
-/** Berechnet die Residuallast in GW: (Last − EE-Erzeugung) / 1000 */
+/**
+ * Berechnet die Residuallast in GW (Last minus EE-Erzeugung).
+ * Alle EE-Quellen (Wind, PV, Biomasse, Hydro, Other) werden addiert.
+ *
+ * @param row Ein Datensatz aus dem SMARD-Datensatz.
+ * @returns Residuallast in Gigawatt.
+ */
 function residuallastGW(row: HourlyRow): number {
   const g = row.generation_by_source
   const ee = (g.wind_onshore ?? 0) + (g.wind_offshore ?? 0) + (g.pv ?? 0) + (g.biomass ?? 0) + (g.hydro ?? 0) + (g.other_renewables ?? 0)
   return (row.load_mwh - ee) / 1000
 }
-/** PV-Erzeugung in GW aus dem Rohwert in MWh */
+/**
+ * Extrahiert die PV-Erzeugung in GW aus einer Zeile.
+ *
+ * @param row Stündlicher Datensatz.
+ * @returns PV in Gigawatt.
+ */
 function pvGW(row: HourlyRow): number { return (row.generation_by_source.pv ?? 0) / 1000 }
 
-/** Dezimaltrennzeichen: Punkt → Komma (deutsches Format) */
+/**
+ * Formatiert eine Zahl mit einem Dezimaltrennzeichen (deutsches Format, Komma statt Punkt).
+ *
+ * @param n Die zu formatierende Zahl.
+ * @returns Formatierter String, z. B. "3,5".
+ */
 function fmtNum(n: number): string {
   return n.toFixed(1).replace('.', ',')
 }
 
-/** Formatiert eine Differenz als HTML-String mit CSS-Klasse und Einheit */
+/**
+ * Baut einen HTML-String für eine Differenzanzeige mit CSS-Klasse.
+ * Positive Differenzen werden grün dargestellt, negative rot.
+ *
+ * @param diff Die Differenz oder null (wenn keine Angabe).
+ * @param unit Die Einheit (z. B. "GW", "EUR/MWh").
+ * @returns HTML-String oder leerer String bei null.
+ */
 function diffStr(diff: number | null, unit: string): string {
   if (diff === null) return ''
   const sign = diff >= 0 ? '+' : ''
@@ -107,7 +151,14 @@ function setSparkRef(i: number) { return (el: SVGSVGElement | null) => { sparkRe
 watch(() => props.data, (rows) => { if (rows.length) profile.value = computeProfile(rows, profileMode.value) }, { immediate: true })
 watch(profileMode, () => { if (props.data.length) profile.value = computeProfile(props.data, profileMode.value) })
 
-/** Ordnet einen Wert im Tagesverlauf ein (nahe Max, Min oder Mitte) */
+/**
+ * Ordnet einen Wert im Tagesverlauf ein: nahe Maximum, Minimum oder im mittleren Bereich.
+ * @param v Aktueller Wert.
+ * @param mx Maximum des Tages.
+ * @param mn Minimum des Tages.
+ * @param av Durchschnitt des Tages.
+ * @returns Beschreibung der Position im Tagesverlauf.
+ */
 function dayContext(v: number, mx: number, mn: number, av: number): string {
   const range = mx - mn
   if (range === 0) return `Ø ${fmtNum(av)}`
@@ -120,7 +171,12 @@ function dayContext(v: number, mx: number, mn: number, av: number): string {
   return `${pos} (Ø ${fmtNum(av)})`
 }
 
-/** Berechnet max, min und avg für eine Metrik aus den 24 Stunden */
+/**
+ * Berechnet Maximum, Minimum und Durchschnitt für eine Metrik über alle 24 Stunden.
+ * @param data Array mit 24 HourPoint-Einträgen.
+ * @param key Welche Metrik (pv, residuallast, price, co2).
+ * @returns Objekt mit vals, max, min, avg.
+ */
 function cardStats(data: HourPoint[], key: keyof HourPoint) {
   const vals = data.map((d) => d[key] as number)
   return {
@@ -172,7 +228,11 @@ watch(currentHour, () => { nextTick(() => { drawSparklines() }) })
 watch(rangeStart, () => { nextTick(() => { drawSparklines() }) })
 watch(rangeEnd, () => { nextTick(() => { drawSparklines() }) })
 
-/** Zeichnet alle vier KPI-Sparklines unter dem DuckCurve-Diagramm */
+/**
+ * Hauptfunktion zum Zeichnen aller vier Sparklines.
+ * Wird durch Watches auf profile, currentHour, rangeStart und rangeEnd getriggert.
+ * Nutzt nextTick, damit die SVG-Refs im DOM existieren.
+ */
 function drawSparklines() {
   const profile = profile.value; if (!profile.length) return
   const currentH = currentHour.value; const startH = rangeStart.value; const endH = rangeEnd.value
@@ -183,7 +243,17 @@ function drawSparklines() {
   }
 }
 
-/** Zeichnet eine einzelne Sparkline (D3) für eine KPI-Karte */
+/**
+ * Zeichnet eine einzelne Sparkline mit D3.
+ * Enthält die gesamte Logik für Linie, Marker und Vergleichs-Marker.
+ *
+ * @param index Index in der KPI-Reihe (0–3).
+ * @param key Metrik-Schlüssel (pv, residuallast, price, co2).
+ * @param profile Die 24-Stunden-Daten.
+ * @param currentH Aktuelle Stunde (Einzelmodus).
+ * @param startH Start-Stunde (Vergleichsmodus).
+ * @param endH End-Stunde (Vergleichsmodus).
+ */
 function drawSingleSparkline(
   index: number, key: keyof HourPoint,
   profile: HourPoint[], currentH: number, startH: number, endH: number
@@ -233,7 +303,11 @@ const presets = [
   { hour: 3, label: '03 Uhr Nacht' }, { hour: 8, label: '08 Uhr Morgen' },
   { hour: 13, label: '13 Uhr PV-Peak' }, { hour: 18, label: '18 Uhr Abendrampe' }, { hour: 22, label: '22 Uhr Abend' },
 ]
-/** Prüft für eine Preset-Stunde, ob A, B, beide oder keiner aktiv ist */
+/**
+ * Prüft, ob ein Preset-Marker gerade aktiv ist und in welchem Modus.
+ * @param prHour Die Stunde des Presets (0–23).
+ * @returns 'A', 'B', 'both' oder 'none'.
+ */
 function presetMarkerState(prHour: number): 'A' | 'B' | 'both' | 'none' {
   if (!compareTimeEnabled.value) {
     return currentHour.value === prHour ? 'A' : 'none'
@@ -245,7 +319,11 @@ function presetMarkerState(prHour: number): 'A' | 'B' | 'both' | 'none' {
   if (bMatch) return 'B'
   return 'none'
 }
-/** Springt zu einer bestimmten Stunde (Preset-Klick) */
+/**
+ * Setzt die ausgewählte Stunde (per Preset-Button).
+ * Im Vergleichsmodus wird je nach activeTimepoint rangeStart oder rangeEnd gesetzt.
+ * @param h Die Ziel-Stunde (0–23).
+ */
 function goToHour(h: number) {
   if (compareTimeEnabled.value) {
     if (activeTimepoint.value === 'A') rangeStart.value = Math.max(0, Math.min(23, h))

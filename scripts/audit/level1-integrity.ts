@@ -1,18 +1,11 @@
 /**
- * scripts/audit/level1-integrity.mjs
- * ===================================
- * Level 1 — Rohdaten-Integrität
- * Alle JSON-Dateien unter /public/data/ werden geprüft.
+ * level1-integrity.ts – Prüft die Rohdaten-Integrität aller JSON-Dateien.
  *
- * Checks pro Datei:
- *   - Stundenanzahl pro Jahr (8760/8784)
- *   - Zeitreihen-Kontinuität (Lücken)
- *   - Sommer-/Winterzeit (23h/25h-Tage)
- *   - Null-Werte pro Energieträger
- *   - Wertebereich pro Träger
- *   - Summen-Konsistenz (Σ Erzeugung ≈ Last)
+ * Führt folgende Checks pro Datei durch: Stundenanzahl pro Jahr,
+ * Zeitreihen-Kontinuität, Sommer-/Winterzeit, Null-Werte pro
+ * Energieträger, Wertebereich und Summen-Konsistenz.
  *
- * Aufruf: bun run scripts/audit/level1-integrity.mjs
+ * Aufruf: bun run scripts/audit/level1-integrity.ts
  */
 
 import fs from 'fs'
@@ -26,15 +19,30 @@ let passed = 0
 let warned = 0
 let failed = 0
 
+/**
+ * Erfasst einen bestandenen Check.
+ * @param msg Beschreibung des Checks.
+ */
 function ok(msg) { console.log(`  [OK]  ${msg}`); passed++ }
+/**
+ * Erfasst eine Warnung (nicht kritisch).
+ * @param msg Beschreibung.
+ */
 function warn(msg) { console.log(`  [WARN] ${msg}`); warned++ }
+/**
+ * Erfasst einen fehlgeschlagenen Check.
+ * @param msg Beschreibung des Fehlers.
+ */
 function fail(msg) { console.log(`  [FEHLER] ${msg}`); failed++ }
 
+/**
+ * Formatiert eine Zahl mit deutschem Tausendertrennzeichen.
+ * @param n Die Zahl.
+ * @param d Anzahl Nachkommastellen.
+ */
 function fmt(n, d = 1) { return Number(n).toLocaleString('de-DE', { minimumFractionDigits: d, maximumFractionDigits: d }) }
 
-// ===========================================================================
-// 1. hourly_2015_2024.json
-// ===========================================================================
+// --- hourly_2015_2024.json ---
 console.log('\n' + '='.repeat(72))
 console.log('  LEVEL 1: ROHDATEN-INTEGRITÄT')
 console.log('='.repeat(72))

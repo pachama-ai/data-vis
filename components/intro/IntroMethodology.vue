@@ -15,22 +15,17 @@
     <div class="method-content">
       <p>
         <strong>Datenverarbeitung.</strong>
-        SMARD liefert die realisierte Erzeugung in stündlicher Auflösung nach Energieträger.
-        ENTSO-E ergänzt die grenzüberschreitenden physischen Flüsse und Day-Ahead-Preise,
-        in dieser Grafik nicht dargestellt, aber im Dashboard nutzbar.
-        Aus den Stundenwerten wurden Jahressummen gebildet und daraus der prozentuale Anteil
-        an der gesamten Nettostromerzeugung berechnet.
+        Die stündlichen Daten zur Stromerzeugung stammen von SMARD und sind nach Energieträgern aufgeteilt.
+        Die Day-Ahead-Preise wurden über die ENTSO-E API ergänzt.
+        Für die Landingpage wurden die Stundenwerte zu Jahreswerten zusammengefasst und in prozentuale Anteile umgerechnet.
+        Im Dashboard werden die Daten je nach Ansicht monatlich oder quartalsweise ausgewertet.
       </p>
       <p>
-        <strong>Datenlücken.</strong>
-        Für 2018 fehlen im ENTSO-E-Datensatz einige Wochen. Da für die Jahresaggregate
-        in dieser Grafik nur SMARD verwendet wird, ist die Lücke hier nicht sichtbar.
-        Im Dashboard wird sie markiert.
-      </p>
-      <p>
-        <strong>Reproduzierbarkeit.</strong>
-        Der Berechnungscode liegt in <code>composables/useEnergyMixData.ts</code>.
-        Rohdaten und Aggregate sind unter <code>/public/data/</code> versioniert.
+        <strong>Marktgebietswechsel 2018.</strong>
+        Im Oktober 2018 wurde das gemeinsame Marktgebiet Deutschland–Österreich–Luxemburg neu zugeschnitten.
+        Dieser Wechsel wurde bei der Aufbereitung der Preisdaten berücksichtigt.
+        Die SMARD-Erzeugungsdaten sind vollständig; im zusammengeführten Datensatz mit ENTSO-E-Preisen
+        fehlen ab Oktober jedoch rund 25 % der Stunden.
       </p>
     </div>
   </details>

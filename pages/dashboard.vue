@@ -1,11 +1,19 @@
 <script setup lang="ts">
+/**
+ * dashboard.vue – Haupt-Dashboard-Seite der Datenvisualisierung.
+ *
+ * Enthält die Tab-Navigation zwischen Strommix, Einflussfaktoren,
+ * Tagesmustern und Markt & Preisen. Lädt hourly+yearly Daten und
+ * aggregiert sie für die Unterseiten.
+ */
+
 import { ref, shallowRef, computed, defineAsyncComponent } from 'vue'
 import { useData } from '~/composables/useData'
 import { useFilters } from '~/composables/useFilters'
 import { getBerlinYear, getBerlinMonth } from '~/utils/berlin'
 import type { HourlyRow } from '~/composables/useData'
 
-// Explizite Imports (Auto-Import ohne Directory-Prefix)
+// explizite imports weil auto-import manchmal spinnt
 import DashboardFilterBar from '~/components/dashboard/FilterBar.vue'
 import DashboardKpiCard from '~/components/dashboard/KpiCard.vue'
 import VizStackedArea from '~/components/viz/StackedArea.vue'
@@ -21,6 +29,17 @@ const { loadHourly, loadYearly } = useData()
 const hourly = shallowRef<HourlyRow[]>([])
 const yearly = shallowRef<YearlyRow[]>([])
 
+// Aggregation-Level und Modus, gesteuert vom StackedArea-Chart
+const aggLevel = ref<'tag' | 'woche' | 'monat' | 'quartal'>('monat')
+const chartMode = ref<'absolute' | 'percent'>('percent')
+
+function onAggLevelChange(level: 'tag' | 'woche' | 'monat' | 'quartal') {
+  aggLevel.value = level
+}
+function onChartModeChange(mode: 'absolute' | 'percent') {
+  chartMode.value = mode
+}
+
 // Lazy Loading: Nur der direkt sichtbare Tab "Strommix" lädt synchron.
 // Die drei anderen Charts werden asynchron geladen, sobald der Nutzer
 // den entsprechenden Tab anklickt. Spart ~80 kB initiales Bundle.
@@ -34,16 +53,19 @@ const error = ref<string | null>(null)
 // Sichtbarer Zeitraum aus StackedArea-Zoom
 // Zoom-Bereich aus dem StackedArea-Chart
 const visibleRange = ref<{ start: Date; end: Date } | null>(null)
-/** Wird vom StackedArea-Chart aufgerufen, wenn der Zoom-Bereich sich ändert */
+/**
+ * Wird vom StackedArea-Chart aufgerufen, wenn der Zoom-Bereich sich ändert.
+ * @param range Der neue sichtbare Bereich oder null (Reset).
+ */
 function onVisibleRangeChange(range: { start: Date; end: Date } | null) {
   visibleRange.value = range
 }
 
-// Monatliche Daten im sichtbaren Bereich
-/** Monatlich aggregierte Daten, optional auf den Zoom-Bereich gefiltert */
+// Aggregierte Daten im sichtbaren Bereich (level folgt dem StackedArea-Chart)
+/** Nach aggLevel aggregierte Daten, optional auf den Zoom-Bereich gefiltert */
 const monthlyData = computed<MonthlyDataPoint[]>(() => {
   if (!hourly.value.length) return []
-  const all = aggregate(hourly.value)
+  const all = aggregate(hourly.value, { level: aggLevel.value })
   if (!visibleRange.value) return all
   return all.filter((d) => d.date >= visibleRange.value!.start && d.date <= visibleRange.value!.end)
 })
@@ -54,7 +76,10 @@ function onHighlightChange(key: string | null) {
   highlightedKey.value = key
 }
 
-/** Lädt Stunden- und Jahresdaten, setzt Loading-Status */
+/**
+ * Lädt Stunden- und Jahresdaten von der API.
+ * Setzt loading-Status und fängt Fehler (wird im Template angezeigt).
+ */
 async function loadData() {
   try {
     loading.value = true
@@ -96,7 +121,7 @@ const selectedYearIndex = computed(() => {
 })
 
 const kpis = computed(() => {
-  // Dynamische Sparkline-Hilfsfunktionen
+  // TODO: yearlyValues und monthlyValues sind fast gleich, könnte man zusammenlegen
   function yearlyValues(field: 'ee' | 'co2' | 'price' | 'neg'): number[] {
     if (field === 'price') {
       const byY: Record<number, number[]> = {}
@@ -297,9 +322,9 @@ const kpis = computed(() => {
   <div class="dashboard-page">
     <header class="dashboard-header">
       <div>
-        <span class="dashboard-eyebrow">Datenprojekt · SMARD &amp; ENTSO-E</span>
+        <span class="dashboard-eyebrow">Stromerzeugung 2015–2024</span>
         <h1 class="dashboard-title">Die Klimabilanz des deutschen Stroms</h1>
-        <p class="dashboard-subtitle">Eine interaktive Analyse auf Basis von SMARD-, UBA- und ENTSO-E-Daten, 2015–2024.</p>
+        <p class="dashboard-subtitle">Eine interaktive Analyse auf Basis von SMARD- (Erzeugung), UBA- (Emissionsfaktoren) und ENTSO-E-Daten (Preise).</p>
       </div>
       <NuxtLink to="/" class="back-link">← Zurück zur Übersicht</NuxtLink>
     </header>
@@ -362,10 +387,10 @@ const kpis = computed(() => {
       <!-- Überblick -->
       <section v-if="activeTab === 'ueberblick'" class="tab-content overview-layout">
         <div class="overview-chart">
-          <VizStackedArea :data="hourly" @visible-range-change="onVisibleRangeChange" />
+          <VizStackedArea :data="hourly" @visible-range-change="onVisibleRangeChange" @agg-level-change="onAggLevelChange" @mode-change="onChartModeChange" />
         </div>
         <aside class="context-panel context-panel-new">
-          <ExtremeValuesPanel :monthly-data="monthlyData" />
+          <ExtremeValuesPanel :monthly-data="monthlyData" :agg-level="aggLevel" :mode="chartMode" />
           <div class="comp-spacer"></div>
           <StartEndComparison :monthly-data="monthlyData" @highlight-change="onHighlightChange" />
         </aside>
@@ -402,7 +427,7 @@ const kpis = computed(() => {
       </section>
 
       <footer class="dashboard-footer">
-        <span>Quellen: SMARD (Erzeugung) &middot; UBA (Emissionsfaktoren) &middot; ENTSO-E (Preise)</span>
+        <span>API: SMARD (Erzeugung), ENTSO-E (Preise) &middot; Datenquelle: UBA (Emissionsfaktoren)</span>
         <span>Technologiestack: Vue 3 / Nuxt 3 / D3 &middot; Datenstand: Mai 2025</span>
       </footer>
     </template>
@@ -457,6 +482,7 @@ const kpis = computed(() => {
   line-height: 1.5;
   font-family: var(--font-sans);
   margin-top: 0;
+  white-space: nowrap;
 }
 
 .back-link {

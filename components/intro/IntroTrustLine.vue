@@ -19,7 +19,7 @@
     </div>
     <div class="trust-col">
       <span class="trust-label">Auflösung</span>
-      <span class="trust-value">Jahresaggregate, berechnet aus stündlichen Rohdaten</span>
+      <span class="trust-value">Stündliche Daten, zu Jahreswerten zusammengefasst</span>
     </div>
   </div>
 </template>

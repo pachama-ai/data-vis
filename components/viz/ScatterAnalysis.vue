@@ -1,9 +1,14 @@
 <script setup lang="ts">
 /**
- * components/viz/ScatterAnalysis.vue
- * ===================================
- * Scatterplot: Zusammenhang zwischen X und CO₂-Intensität.
- * Mit Play/Pause-Zeitsteuerung über 6-Monats-Phasen (2015-2024, 20 Phasen).
+ * ScatterAnalysis.vue – Streudiagramm für CO₂-Einflussfaktoren.
+ *
+ * Zeigt den Zusammenhang zwischen einer wählbaren X-Achse (EE-Anteil,
+ * Stromnachfrage, Preis, Fossil-Anteil) und der CO₂-Intensität.
+ * Unterstützt Punkte- und Kontur-Darstellung sowie einen Vergleichsmodus
+ * zwischen zwei Zeiträumen.
+ *
+ * @example
+ * <ScatterAnalysis :data="hourlyData" />
  */
 
 import { ref, computed, watch, onUnmounted } from 'vue'
@@ -13,9 +18,7 @@ import { getBerlinHour, getBerlinYear, getBerlinMonth, getBerlinDay } from '~/ut
 
 const props = defineProps<{ data: HourlyRow[] }>()
 
-// ----------------------------------------------------------------
-// Achsen-Optionen
-// ----------------------------------------------------------------
+// achsen die man auswählen kann
 interface AxisOption {
   key: string; label: string; unit: string
   value: (row: HourlyRow) => number
@@ -30,7 +33,10 @@ const X_OPTIONS: AxisOption[] = [
 
 const xAxis = ref<AxisOption>(X_OPTIONS[0])
 
-// Semantische Farben pro X-Achse
+/**
+ * Farbschemata für die verschiedenen X-Achsen-Optionen.
+ * Wird für Punkte, Konturen und Trendlinien verwendet.
+ */
 type AxisColorSet = { fill: string; outline: string; trend: string; label: string; btnBg: string; opacity: number }
 const AXIS_COLORS: Record<string, AxisColorSet> = {
   ee_share:     { fill: '#4A8A5F', outline: '#2D5A38', trend: '#1E3D26', label: '#4A8A5F', btnBg: '#2D6A4F', opacity: 0.40 },
@@ -42,18 +48,28 @@ const axisColor = computed(() => AXIS_COLORS[xAxis.value.key] || AXIS_COLORS.ee_
 const xLabelKurz = computed(() => xAxis.value.label)
 const viewColor = computed(() => axisColor.value.fill)
 
-// ----------------------------------------------------------------
-// Zeitraum-Auswahl (Monats-Range-Slider)
-// ----------------------------------------------------------------
+// zeitraum auswahl mit range slider
 const DATA_START = new Date(Date.UTC(2015, 0, 1))
 const DATA_END = new Date(Date.UTC(2024, 11, 31, 23, 59, 59))
 const TOTAL_MONTHS = 120 // Jan 2015 – Dez 2024
 
-/** Wandelt einen Monats-Index (0–119) in ein UTC-Datum um */
+/**
+ * Rechnet einen Monats-Index (0 bis 119, ab Jan 2015) in ein UTC-Datum um.
+ * Wird für den Range-Slider gebraucht.
+ *
+ * @param m Monats-Index (0 = Januar 2015, 119 = Dezember 2024).
+ * @returns Datumsobjekt, das auf den Ersten des Monats zeigt.
+ */
 function monthToDate(m: number): Date {
   return new Date(Date.UTC(2015 + Math.floor(m / 12), m % 12, 1))
 }
-/** Wandelt ein Datum in einen Monats-Index um (0–119, Berlin-Jahr) */
+
+/**
+ * Bestimmt den Monats-Index (0–119) für ein beliebiges Datum im Berlin-Jahr.
+ *
+ * @param d Das umzurechnende Datum.
+ * @returns Index, 0 = Januar 2015.
+ */
 function dateToMonth(d: Date): number {
   return (getBerlinYear(d.getTime()) - 2015) * 12 + getBerlinMonth(d.getTime()) - 1
 }
@@ -102,9 +118,7 @@ function clampRange() {
   }
 }
 
-// ----------------------------------------------------------------
-// Tageszeit-Farben (aus Träger-Palette abgeleitet)
-// ----------------------------------------------------------------
+// farben für die tageszeit-unterteilung
 const HOUR_COLORS: [number, number, string][] = [
   [0,  5,  '#2C3E50'], // Nacht
   [6,  9,  '#D97742'], // Morgen (Erdgas-Orange)
@@ -130,20 +144,15 @@ function getHourKey(h: number): string {
   return 'abend'
 }
 
-// ----------------------------------------------------------------
-// Chart-Masse (an Strommix angeglichen)
-// ----------------------------------------------------------------
+// chart dimensionen (an strommix angeglichen)
 const MARGIN = { top: 12, right: 16, bottom: 60, left: 60 }
 const WIDTH = 900
 const HEIGHT = 412
 const INNER_W = WIDTH - MARGIN.left - MARGIN.right
 const INNER_H = HEIGHT - MARGIN.top - MARGIN.bottom
 
-// ----------------------------------------------------------------
-// Toggle für sichtbare Tageszeiten
-// ----------------------------------------------------------------
+// tageszeit toggles
 const visibleTimes = ref<Set<string>>(new Set(HOUR_LABELS.map(h => h.key)))
-const hoveredTime = ref<string | null>(null)
 
 function toggleTime(key: string) {
   if (viewMode.value === 'contour') {
@@ -174,13 +183,14 @@ function resetAllTimes() {
   scheduleRender('metricChanged')
 }
 
-// ----------------------------------------------------------------
-// Datenpunkte im gewählten Zeitraum
-// ----------------------------------------------------------------
+/**
+ * Berechnet feste X/Y-Domains über den gesamten Datensatz.
+ * Die Domains bleiben stabil, auch wenn der Nutzer den Zeitraum ändert,
+ * damit die Achsen nicht springen. Padding von 5 % auf jeder Seite.
+ *
+ * Gibt bei leerem Daten-Array auf [0, 1] zurück.
+ */
 
-// ----------------------------------------------------------------
-// Feste Domains
-// ----------------------------------------------------------------
 const fixedDomains = computed(() => {
   const xFn = xAxis.value.value
   const all = props.data
@@ -199,9 +209,10 @@ const fixedDomains = computed(() => {
   }
 })
 
-// ----------------------------------------------------------------
-// Datenpunkte pro Phase
-// ----------------------------------------------------------------
+/**
+ * Ein einzelner Datenpunkt im Chart.
+ * Wird aus den HourlyRow-Daten abgeleitet (gefiltert nach Zeitraum).
+ */
 interface Point { id: number; x: number; y: number; hour: number; isOutlier: boolean }
 
 // Nach Zeitraum gefilterte Punkte — einzige Datenbasis für DOM-Join + Regression
@@ -234,9 +245,7 @@ const rangePoints = computed<Point[]>(() => {
   }))
 })
 
-// ----------------------------------------------------------------
-// Regression (für Trendlinie im Chart)
-// ----------------------------------------------------------------
+// regression für trendlinie
 const rangeStats = computed(() => {
   const pts = rangePoints.value; const n = pts.length
   if (n < 3) return { r: 0, r2: 0, a: 0, b: 0, count: n }
@@ -251,9 +260,12 @@ const rangeStats = computed(() => {
   return { r, r2: r * r, a, b, count: n }
 })
 
-// ----------------------------------------------------------------
-// Extreme-Werte-Berechnung (10 % niedrigste / höchste X-Werte)
-// ----------------------------------------------------------------
+/**
+ * Berechnet die durchschnittliche CO₂-Intensität für die 10 % der Stunden
+ * mit den niedrigsten bzw. höchsten X-Werten. Daraus wird die Spannweite
+ * (absolut und relativ) abgeleitet.
+ * Gibt null zurück, wenn weniger als 200 Datenpunkte vorhanden sind.
+ */
 interface ExtremeGroup {
   avgX: number
   avgY: number
@@ -300,9 +312,7 @@ function fmtInt(v: number, unit: string): string {
   return Math.round(v).toLocaleString('de-DE') + ' ' + unit
 }
 
-// ----------------------------------------------------------------
-// Sidebar-Metriken (Extremwert-Kacheln)
-// ----------------------------------------------------------------
+// sidebar kacheln (extreme werte)
 const sidebarMetrics = computed(() => {
   const pts = rangePoints.value
 
@@ -382,9 +392,7 @@ const sidebarMetrics = computed(() => {
   }
 })
 
-// ----------------------------------------------------------------
-// Toggle States
-// ----------------------------------------------------------------
+// toggle states (ansichtsmodus, vergleich)
 const viewMode = ref<'points' | 'contour'>('points')
 const compareMode = ref<'einzel' | 'vergleich'>('einzel')
 const compareRangeA = ref(0) // Index in RANGE_PRESETS
@@ -423,16 +431,11 @@ const compareBPoints = computed<Point[]>(() => {
     hour: getBerlinHour(r.timestamp),
   })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
 })
-// ----------------------------------------------------------------
-// ----------------------------------------------------------------
-// Refs
-// ----------------------------------------------------------------
+// refs
 const svgRef = ref<SVGSVGElement | null>(null)
 const containerRef = ref<HTMLDivElement | null>(null)
 
-// ----------------------------------------------------------------
-// Tooltip State
-// ----------------------------------------------------------------
+// tooltip state
 interface TooltipState { x: number; y: number; d: HourlyRow }
 const tooltip = ref<TooltipState | null>(null)
 
@@ -442,16 +445,12 @@ const rowLookup = computed(() => {
   return map
 })
 
-// ----------------------------------------------------------------
-// Selection
-// ----------------------------------------------------------------
+// selection state
 let xScale: d3.ScaleLinear<number, number> | null = null
 let yScale: d3.ScaleLinear<number, number> | null = null
 const selectedHour = ref<{ point: Point; row: HourlyRow } | null>(null)
 
-// ----------------------------------------------------------------
-// Datums-Formatierung
-// ----------------------------------------------------------------
+// datum formatieren für tooltip
 function formatTimestamp(ts: number): string {
   const d = new Date(ts)
   const dd = String(getBerlinDay(ts)).padStart(2, '0')
@@ -461,14 +460,14 @@ function formatTimestamp(ts: number): string {
   return `${dd}.${mm}.${yyyy}, ${hh}:00`
 }
 
-// ----------------------------------------------------------------
-// Render-Scheduler (rAF-basiert)
-// ----------------------------------------------------------------
+/**
+ * Scheduler für das Chart-Rendering, basierend auf requestAnimationFrame.
+ * Stellt sicher, dass innerhalb eines Frames nur ein Render-Durchlauf
+ * stattfindet, auch wenn mehrere Watches feuern.
+ */
 type RenderReason = 'init' | 'metricChanged' | 'timeRangeChanged'
 let renderRaf: number | null = null
 let pendingReason: RenderReason | null = null
-let hoverRaf: number | null = null
-let lastHoverId: number | null = null
 // Module-level D3-Selections (nach Init)
 let chart: d3.Selection<SVGGElement, unknown, null, undefined>
 let pg: d3.Selection<SVGGElement, unknown, null, undefined>
@@ -487,14 +486,21 @@ function scheduleRender(reason: RenderReason) {
   })
 }
 
-// ----------------------------------------------------------------
-// updateChart — zentrale Render-Funktion
-// ----------------------------------------------------------------
+/**
+ * updateChart – die zentrale Render-Funktion.
+ *
+ * Baut die SVG-Struktur einmalig auf (bei 'init') und aktualisiert
+ * danach bei Bedarf die Datenpunkte, Achsen und die Trendlinie.
+ * Gibt bei leerem Daten-Array frühzeitig zurück.
+ */
 const TRANS_DURATION = 0
 
 function updateChart(reason: RenderReason) {
   const svgEl = svgRef.value
   if (!svgEl) return
+
+  // TODO: empty state mappen, aktuell passiert dann nix
+  if (!props.data?.length) return
 
   const pts = rangePoints.value
   const { xDomain, yDomain } = fixedDomains.value
@@ -642,30 +648,16 @@ function updateChart(reason: RenderReason) {
         .data(filteredPts, (d) => String(d.id))
       circles.exit().remove()
       circles.enter().append('circle')
-        .attr('class', 'point').attr('cursor', 'crosshair')
+        .attr('class', 'point')
         .merge(circles)
         .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y))
         .attr('fill', (d) => compareMode.value === 'vergleich' ? ( '#4A90A4') : getHourColor(d.hour))
         .attr('stroke', 'none').attr('r', POINT_R)
         .attr('opacity', (d) => {
           if (compareMode.value === 'vergleich') return 0.4
-          const hk = getHourKey(d.hour)
-          if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
           if (selectedHour.value && selectedHour.value.point.id !== d.id) return ac.opacity * 0.5
           return ac.opacity
         })
-
-      // Unsichtbare Treffer-Kreise für Hover (nur im Einzelmodus)
-      if (compareMode.value !== 'vergleich') {
-        const hitCircles = pg.selectAll<SVGCircleElement, Point>('circle.point-hit')
-          .data(filteredPts, (d) => String(d.id))
-        hitCircles.exit().remove()
-        hitCircles.enter().append('circle')
-          .attr('class', 'point-hit').attr('fill', 'transparent').attr('stroke', 'none')
-          .attr('cursor', 'pointer').attr('pointer-events', 'all')
-          .merge(hitCircles)
-          .attr('cx', (d) => ux(d.x)).attr('cy', (d) => uy(d.y)).attr('r', 8)
-      }
 
       // Vergleichs-Punkte (zweiter Zeitraum) im Punkte-Modus
       if (compareMode.value === 'vergleich') {
@@ -690,31 +682,20 @@ function updateChart(reason: RenderReason) {
     updateTrendline(ux, uy, ac)
     console.timeEnd(`  trendline`)
 
-    // Hover-Overlay — nur im Punkte-Modus (Fix 4)
-    if (viewMode.value === 'points') {
-      console.time(`  hover-overlay`)
-      updateHoverOverlay(ux, uy, pts, ac)
-      console.timeEnd(`  hover-overlay`)
-    }
-
-  } else if (reason === 'timeRangeChanged') {
-    // Data-Join passiert bereits im ersten if-Zweig
-
-    // Hover-Overlay aktualisieren — nur im Punkte-Modus (Fix 4)
-    if (viewMode.value === 'points') {
-      updateHoverOverlay(ux, uy, pts, ac)
-    }
-
   }
   console.timeEnd(`⏱ updateChart [${reason}]`)
 }
 
-// ----------------------------------------------------------------
-// Sub-Funktionen
-// ----------------------------------------------------------------
-// ----------------------------------------------------------------
-// Kontur-Rendering (2D-Density) – 6 Level, Tageszeit-Filter aktiv
-// ----------------------------------------------------------------
+// kontur-rendering (d3 density, 6 level)
+/**
+ * Zeichnet Kontur-Diagramme (Density Estimation) für ausgewählte Tageszeiten.
+ * Pro Tageszeit eine separate Kontur in eigener Farbe.
+ * Wenn alle vier Tageszeiten aktiv sind, wird eine einzelne Kontur
+ * in der X-Achsen-Farbe gezeichnet.
+ *
+ * @param ux D3-X-Skala (Pixel-Koordinaten).
+ * @param uy D3-Y-Skala (Pixel-Koordinaten).
+ */
 function renderContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>) {
   chart.selectAll('g.contour-group').remove()
   const pts = rangePoints.value
@@ -818,105 +799,7 @@ function updateExplainMode(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinea
 
 const POINT_R = 2.5
 
-function updateHoverOverlay(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
-                             pts: Point[], ac: AxisColorSet) {
-  chart.selectAll('rect.hover-hit').remove()
-  if (pts.length <= 1) return
-
-  // Brute-force nearest point: für ~4k Punkte schnell genug (< 1ms).
-  // Kein Delaunay/Voronoi — spart den O(n log n) Rebuild.
-  function findNearest(mx: number, my: number): Point | null {
-    let best: Point | null = null
-    let bestDist = Infinity
-    for (let i = 0; i < pts.length; i++) {
-      const dx = ux(pts[i].x) - mx, dy = uy(pts[i].y) - my
-      const dist = dx * dx + dy * dy
-      if (dist < bestDist) { bestDist = dist; best = pts[i] }
-    }
-    return best
-  }
-
-  // rAF-gebündelter Hover: maximal eine Berechnung pro Frame
-  let latestHoverEvent: MouseEvent | null = null
-
-  chart.append('rect').attr('class', 'hover-hit')
-    .attr('width', INNER_W).attr('height', INNER_H)
-    .attr('fill', 'transparent').attr('cursor', 'crosshair')
-    .on('click', function () {
-      // Klick auf leeren Bereich → Auswahl aufheben
-      if (selectedHour.value) {
-        selectedHour.value = null
-        pg.selectAll('circle.point')
-          .attr('opacity', (d: any) => {
-            const hk = getHourKey(d.hour)
-            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
-            return ac.opacity
-          }).attr('r', POINT_R).attr('stroke', 'none')
-        tooltip.value = null
-      }
-    })
-    .on('pointermove', (event: PointerEvent) => {
-      latestHoverEvent = event
-      if (hoverRaf !== null) return
-      hoverRaf = requestAnimationFrame(() => {
-        hoverRaf = null
-        const ev = latestHoverEvent
-        latestHoverEvent = null
-        if (!ev) return
-        const [mx, my] = d3.pointer(ev, chart.node()!)
-        const p = findNearest(mx, my)
-        if (!p) return
-        // Tooltip + Highlight nur aktualisieren, wenn sich der Punkt ändert
-        if (p.id === lastHoverId) return
-        lastHoverId = p.id
-        const row = rowLookup.value.get(p.id)
-        if (!row) return
-        // Cache die circle-Selection (wiederholte selectAll sind teuer)
-        if (selectedHour.value) return // kein Hover-Highlight bei aktiver Auswahl
-        const circles = pg.selectChild<SVGGElement>('circle.point')
-          ? pg.selectAll<SVGCircleElement, Point>('circle.point')
-          : null
-        if (circles) {
-          circles.attr('opacity', (d) => {
-            const hk = getHourKey(d.hour)
-            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
-            return ac.opacity
-          }).attr('r', 3)
-          circles.filter((d) => d.id === p.id)
-            .attr('opacity', 1).attr('r', 6)
-            .each(function () { (this.parentNode as SVGGElement).appendChild(this) })
-        }
-        // Dynamische Tooltip-Position (Fix 3): nie in ersten 80px (Y-Achse) oder letzten 80px (Rand)
-        let tx = ux(p.x) + MARGIN.left
-        let ty = uy(p.y) + MARGIN.top
-        if (tx < 80) tx = ux(p.x) + MARGIN.left + 60
-        if (tx > INNER_W + MARGIN.left - 80) tx = ux(p.x) + MARGIN.left - 60
-        if (ty < 100) ty = uy(p.y) + MARGIN.top + 40
-        tooltip.value = { x: tx, y: ty, d: row }
-      })
-    })
-    .on('pointerleave', () => {
-      latestHoverEvent = null
-      lastHoverId = null
-      if (hoverRaf !== null) {
-        cancelAnimationFrame(hoverRaf)
-        hoverRaf = null
-      }
-      if (!selectedHour.value) {
-        pg.selectAll<SVGCircleElement, Point>('circle.point')
-          .attr('opacity', (d) => {
-            const hk = getHourKey(d.hour)
-            if (hoveredTime.value && hoveredTime.value !== hk) return 0.15
-            return ac.opacity
-          }).attr('r', 3)
-        tooltip.value = null
-      }
-    })
-}
-
-// ----------------------------------------------------------------
-// Gezielte Watches statt watchEffect
-// ----------------------------------------------------------------
+// watches (einzeln, kein watchEffect weil ich kontrolle will)
 watch(xAxis, () => { scheduleRender('metricChanged') })
 watch([selectedStartIdx, selectedEndIdx], () => { scheduleRender('timeRangeChanged') })
 
@@ -938,12 +821,9 @@ watch(viewMode, () => {
 // Initialer Render
 watch(svgRef, (el) => { if (el) scheduleRender('init') }, { once: true })
 
-// ----------------------------------------------------------------
-// Cleanup
-// ----------------------------------------------------------------
+// cleanup bei unmount
 onUnmounted(() => {
   if (renderRaf !== null) { cancelAnimationFrame(renderRaf); renderRaf = null }
-  if (hoverRaf !== null) { cancelAnimationFrame(hoverRaf); hoverRaf = null }
 })
 </script>
 
@@ -982,7 +862,6 @@ onUnmounted(() => {
       <button v-for="hl in HOUR_LABELS" :key="hl.key"
         class="tod-item" :class="{ dimmed: !visibleTimes.has(hl.key) || compareMode === 'vergleich', 'tod-disabled': compareMode === 'vergleich' }"
         :disabled="compareMode === 'vergleich'"
-        @mouseenter="compareMode !== 'vergleich' && (hoveredTime = hl.key)" @mouseleave="hoveredTime = null"
         @click="compareMode !== 'vergleich' && toggleTime(hl.key)">
         <span class="tod-dot" :style="{ background: hl.color }"></span>
         <span class="tod-label" :class="{ struck: !visibleTimes.has(hl.key) }">{{ hl.label }}</span>
@@ -992,7 +871,7 @@ onUnmounted(() => {
         <span class="tod-label">Alle Tageszeiten</span>
       </button>
     </div>
-    <div class="tod-hint">{{ compareMode === 'vergleich' ? 'Tageszeit-Filter nur im Einzelmodus verfügbar' : viewMode === 'points' ? 'Klicken zum Ausblenden · Hovern zum Hervorheben' : 'Klicken isoliert eine Tageszeit' }}</div>
+    <div class="tod-hint">{{ compareMode === 'vergleich' ? 'Tageszeit-Filter nur im Einzelmodus verfügbar' : viewMode === 'points' ? 'Klicken zum Ausblenden' : 'Klicken isoliert eine Tageszeit' }}</div>
 
 
 
@@ -1271,7 +1150,6 @@ onUnmounted(() => {
 }
 .scatter-svg {
   display:block; width:100%; height:auto;
-  cursor:crosshair;
 }
 .reset-chip {
   font-family:var(--font-sans); font-size:11px; font-weight:500;

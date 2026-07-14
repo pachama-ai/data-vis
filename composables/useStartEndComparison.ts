@@ -1,9 +1,11 @@
 /**
- * composables/useStartEndComparison.ts
- * =====================================
- * Berechnet die drei Träger mit der größten Veränderung zwischen
- * erstem und letztem Monat des sichtbaren Zeitraums.
- * Pure Computed-Properties ohne Seiteneffekte.
+ * useStartEndComparison.ts – Vergleich zwischen erstem und letztem Monat.
+ *
+ * Berechnet die drei Energieträger mit der größten Veränderung im
+ * sichtbaren Zeitraum. Liefert Daten für die Barbell-Chart-Darstellung.
+ *
+ * @example
+ * const { rows, dateRangeLabel } = useStartEndComparison(monthlyData)
  */
 
 import type { MonthlyDataPoint } from './useExtremeValues'
@@ -31,13 +33,22 @@ const LABELS: Record<string, string> = {
   gas: 'Erdgas', hardcoal: 'Steinkohle', lignite: 'Braunkohle', other: 'Sonstige',
 }
 
-export function useStartEndComparison(data: Ref<MonthlyDataPoint[]>) {
-  const rows = computed<BarbellRow[]>(() => {
-    if (data.value.length < 2) return []
-    const first = data.value[0]
-    const last = data.value[data.value.length - 1]
+// TODO: irgendwann in shared file, kommt auch in StackedArea.vue und useExtremeValues vor
 
-    // Für jeden Träger die Veränderung in Prozentpunkten berechnen
+/**
+ * Vergleicht den ersten mit dem letzten Monat und gibt die Top-3-Veränderungen zurück.
+ *
+ * @param data Ref mit Array von MonthlyDataPoint.
+ * @returns rows (Top-3-Veränderungen), dateRangeLabel, maxShare.
+ */
+export function useStartEndComparison(data: Ref<MonthlyDataPoint[]>) {
+  const cleanData = computed(() => data.value.filter((d) => !d._gap))
+  const rows = computed<BarbellRow[]>(() => {
+    if (cleanData.value.length < 2) return []
+    const first = cleanData.value[0]
+    const last = cleanData.value[cleanData.value.length - 1]
+
+    // für jeden träger die veränderung berechnen
     const deltas = ALL_KEYS.map((key) => {
       const fv = first[key] as number
       const lv = last[key] as number
@@ -55,14 +66,14 @@ export function useStartEndComparison(data: Ref<MonthlyDataPoint[]>) {
       }
     })
 
-    // Nach absoluter Veränderung sortieren, Top 3
+    // sortieren nach absoluter veränderung, top 3
     return deltas.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta)).slice(0, 3)
   })
 
   const dateRangeLabel = computed(() => {
-    if (data.value.length < 2) return ''
-    const first = data.value[0]
-    const last = data.value[data.value.length - 1]
+    if (cleanData.value.length < 2) return ''
+    const first = cleanData.value[0]
+    const last = cleanData.value[cleanData.value.length - 1]
     const fmt = (d: Date) => d.toLocaleDateString('de-DE', { year: 'numeric', month: 'long' })
     return fmt(first.date!) + ' → ' + fmt(last.date!)
   })

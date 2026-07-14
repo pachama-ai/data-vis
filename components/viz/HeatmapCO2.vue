@@ -1,4 +1,15 @@
 <script setup lang="ts">
+/**
+ * HeatmapCO2.vue – Monatliche Heatmap der CO₂-Intensität und anderer Metriken.
+ *
+ * Zeigt eine 24×12-Matrix (Stunde × Monat) farbcodiert an.
+ * Unterstützt verschiedene Metriken (CO₂, EE-Anteil, Fossil, Preis)
+ * und zwei Skalierungsmodi (Jahresvergleich vs. Muster im Jahr).
+ *
+ * @example
+ * <HeatmapCO2 :data="hourlyData" @day-selected="onDaySelected" />
+ */
+
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 import type { HourlyRow } from '~/composables/useData'
@@ -6,9 +17,7 @@ import type { HourlyRow } from '~/composables/useData'
 const props = defineProps<{ data: HourlyRow[] }>()
 const emit = defineEmits<{ 'day-selected': [isoDate: string] }>()
 
-// ----------------------------------------------------------------
-// Metriken
-// ----------------------------------------------------------------
+// welche metrik gerade angezeigt wird
 type MetricKey = 'co2' | 'ee' | 'fossil' | 'price'
 
 interface MetricConfig {
@@ -33,18 +42,24 @@ const METRICS: MetricConfig[] = [
 const activeMetric = ref<MetricKey>('co2')
 const currentMetric = computed(() => METRICS.find((m) => m.key === activeMetric.value)!)
 
-// ----------------------------------------------------------------
-// Jahr-Auswahl
-// ----------------------------------------------------------------
+// jahr und skalierungsmodus
 const YEAR_OPTIONS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
 const selectedYear = ref(2024)
 const scaleMode = ref<'einheitlich' | 'jaehrlich'>('einheitlich')
 
-// ----------------------------------------------------------------
-// Aggregierte Daten: 24×12 Matrix
+// TODO: irgendwann in shared file, kommt aktuell auch in stacked area vor
 const ALL_MONTHS = [0,1,2,3,4,5,6,7,8,9,10,11]
-// ----------------------------------------------------------------
-/** Baut die 24×12-Matrix: Mittelwert pro (Monat, Stunde) für ein Jahr */
+
+/**
+ * Baut die 24×12-Matrix mit Mittelwerten pro (Monat, Stunde) für ein Jahr.
+ * Berücksichtigt nur Zeilen mit endlichen Werten.
+ *
+ * @param rows Alle Stunden-Datensätze.
+ * @param year Gewünschtes Jahr.
+ * @param metric Die aktuelle Metrik (z. B. CO₂, EE-Anteil).
+ * @param months Monats-Indizes (0–11), die berücksichtigt werden sollen.
+ * @returns 12×24-Matrix (Monat × Stunde). Fehlende Zellen = NaN.
+ */
 function computeMonthlyHeatmap(rows: HourlyRow[], year: number, metric: MetricConfig, months: number[]): number[][] {
   const result: number[][] = Array.from({ length: 12 }, () => Array(24).fill(NaN))
   const counts: number[][] = Array.from({ length: 12 }, () => Array(24).fill(0))
@@ -68,7 +83,11 @@ function computeMonthlyHeatmap(rows: HourlyRow[], year: number, metric: MetricCo
   return result
 }
 
-/** Wandelt die 24×12-Matrix in ein flaches Array um (für Sortierung, Extremwerte) */
+/**
+ * Wandelt die 24×12-Matrix in ein flaches Array um, z. B. für Sortierung und Extremwerte.
+ * @param matrix Die 12×24-Matrix.
+ * @returns Array von { month, hour, value }-Objekten.
+ */
 function getFlatData(matrix: number[][]): { month: number; hour: number; value: number }[] {
   const out: { month: number; hour: number; value: number }[] = []
   for (let m = 0; m < 12; m++) {
@@ -80,9 +99,16 @@ function getFlatData(matrix: number[][]): { month: number; hour: number; value: 
   return out
 }
 
-// ----------------------------------------------------------------
-// Farb-Skala pro Metrik
-// ----------------------------------------------------------------
+/**
+ * Erzeugt eine D3-Farbskala für die Heatmap-Zellen.
+ * Bei divergierenden Metriken (Preis) wird 0 als Bedeutungs-Schwelle verwendet.
+ *
+ * @param metric Die Metrik-Konfiguration.
+ * @param dataMin Minimaler Datenwert.
+ * @param dataMax Maximaler Datenwert.
+ * @param useFixedScale Ob eine feste Skala (für Jahresvergleich) verwendet wird.
+ * @returns D3-Skala (Farbe aus Zahl).
+ */
 function makeColorScale(metric: MetricConfig, dataMin: number, dataMax: number, useFixedScale: boolean) {
   if (metric.diverging) {
     if (useFixedScale) {
@@ -109,9 +135,7 @@ function makeColorScale(metric: MetricConfig, dataMin: number, dataMax: number, 
   return d3.scaleSequential(d3.interpolateRgb(metric.colorLo, metric.colorHi)).domain([dataMin, dataMax])
 }
 
-// ----------------------------------------------------------------
-// Sidebar: Extremwerte
-// ----------------------------------------------------------------
+// sidebar: höchster/niedrigster wert + monat mit größter spanne
 const sidebarExtremes = computed(() => {
   const matrix = computeMonthlyHeatmap(props.data, selectedYear.value, currentMetric.value, ALL_MONTHS)
   const flat = getFlatData(matrix)
@@ -140,9 +164,7 @@ const sidebarExtremes = computed(() => {
   }
 })
 
-// ----------------------------------------------------------------
-// Container + Resize
-// ----------------------------------------------------------------
+// container + resize observer
 const containerRef = ref<HTMLDivElement | null>(null)
 const containerWidth = ref(800)
 let resizeObs: ResizeObserver | null = null
@@ -166,13 +188,18 @@ const MARGIN = { top: 28, right: 70, bottom: 36, left: 48 }
 const CHART_H = 300
 const MONTH_LABELS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
 
-// ----------------------------------------------------------------
-// Zeichnen
-// ----------------------------------------------------------------
+// zeichnen (watch + initial)
 watch([() => activeMetric.value, () => selectedYear.value, scaleMode, containerWidth], () => { drawHeatmap() }, { deep: false })
 onMounted(() => { drawHeatmap() })
 
-/** Ermittelt den globalen Wertebereich einer Metrik über alle Jahre (2015–2024) */
+/**
+ * Ermittelt den globalen Wertebereich einer Metrik über alle zehn Jahre (2015–2024).
+ * Wird für den Modus "Jahresvergleich" (einheitliche Skala) benötigt.
+ * Bei Preisen wird eine feste Skala von −50 bis 300 EUR/MWh verwendet.
+ *
+ * @param metric Die Metrik-Konfiguration.
+ * @returns Tuple [min, max].
+ */
 function globalMinMax(metric: MetricConfig): [number, number] {
   if (metric.diverging) {
     // Feste Skala für Preise: −50 bis 300 EUR/MWh
@@ -194,8 +221,9 @@ function globalMinMax(metric: MetricConfig): [number, number] {
 
 function drawHeatmap() {
   if (!svgRef.value || containerWidth.value < 100) return
+  // early return wenn keine daten da, sonst stürzt d3 ab
+  if (!props.data?.length) return
   const rows = props.data
-  if (!rows.length) return
 
   const metric = currentMetric.value
   const matrix = computeMonthlyHeatmap(rows, selectedYear.value, metric, ALL_MONTHS)
@@ -212,7 +240,20 @@ function drawHeatmap() {
   drawSingle(svgRef.value, matrix, flat, metric, dataMin, dataMax, selectedYear.value, containerWidth.value)
 }
 
-/** Haupt-Rendering: baut das SVG mit Zellen, Achsen, Legende und Tooltip */
+/**
+ * Haupt-Rendering-Funktion. Baut das komplette SVG mit Zellen, Achsen,
+ * Farblegende und Tooltip auf. Wird bei jeder Änderung von Metrik, Jahr
+ * oder Skalierungsmodus neu aufgerufen.
+ *
+ * @param svgEl Das Ziel-SVG-Element im DOM.
+ * @param matrix 12×24-Datenmatrix.
+ * @param flat Flache Version der Daten (für D3-Data-Join).
+ * @param metric Metrik-Konfiguration.
+ * @param dataMin Minimaler Farbwert.
+ * @param dataMax Maximaler Farbwert.
+ * @param year Aktuelles Jahr (für Label).
+ * @param width Verfügbare Breite in Pixeln.
+ */
 function drawSingle(
   svgEl: SVGSVGElement,
   matrix: number[][],

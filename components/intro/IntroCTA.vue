@@ -1,9 +1,7 @@
 <script setup lang="ts">
 /**
- * components/intro/IntroCTA.vue
- * ==============================
- * Textbasierter Übergang zum Dashboard.
- * Redaktionell, kein Button – wirkt wie eine Fußnote.
+ * IntroCTA.vue – Schlichter Textlink zum Dashboard.
+ * Sans-serif, body-farben, mit Hover-Unterstrich und animiertem Pfeil.
  */
 
 import { useData } from '~/composables/useData'
@@ -15,40 +13,58 @@ function preloadDashboard() { loadHourly().catch(() => {}) }
 <template>
   <section class="intro-cta">
     <p class="cta-text">
-      Die vollständige Analyse findet sich im
       <NuxtLink
         to="/dashboard"
         class="cta-link"
         @pointerenter="preloadDashboard"
         @focus="preloadDashboard"
-      >Dashboard →</NuxtLink>
+      >
+        Daten genauer ansehen
+        <span class="cta-arrow">→</span>
+      </NuxtLink>
     </p>
   </section>
 </template>
 
 <style scoped>
 .intro-cta {
-  padding: 16px 0 48px;
+  padding: 40px 0 64px;
 }
 
 .cta-text {
-  font-family: var(--font-serif);
-  font-size: 18px;
-  color: var(--fg);
+  font-family: var(--font-sans);
+  font-size: 1.125rem;
   line-height: 1.6;
   max-width: 640px;
   margin: 0;
 }
 
 .cta-link {
-  color: var(--accent);
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  color: var(--fg);
   font-weight: 500;
-  white-space: nowrap;
+  text-decoration: none;
+  border-bottom: 1.5px solid transparent;
+  padding-bottom: 1px;
+  transition: border-color 200ms ease-out;
+  outline-offset: 4px;
+}
+
+.cta-link:focus-visible {
+  outline: 2px solid var(--fg-muted);
+  outline-offset: 4px;
+  border-radius: 2px;
 }
 
 .cta-link:hover {
-  text-decoration: underline;
+  border-bottom-color: var(--fg);
+}
+
+.cta-arrow {
+  display: inline-block;
+  transition: transform 150ms ease-out;
+}
+
+.cta-link:hover .cta-arrow {
+  transform: translateX(3px);
 }
 </style>

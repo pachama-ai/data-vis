@@ -1,19 +1,16 @@
 /**
- * composables/useData.ts — Zentraler Daten-Loader fuer alle JSON-Quellen
- * ======================================================================
+ * useData.ts – Zentraler Daten-Loader für alle JSON-Quellen.
  *
  * Jede load-Funktion cached das Ergebnis in einer Modul-Variable.
- * Wird die Funktion ein zweites Mal aufgerufen, wird das gecachte
- * Ergebnis sofort zurueckgegeben — kein erneuter网络-Fetch.
+ * Bei wiederholtem Aufruf wird das gecachte Ergebnis sofort zurückgegeben.
+ * Geteilte Promises verhindern doppelte Netzwerk-Requests bei Parallelaufrufen.
  *
- * Die Interfaces HourlyRow, YearlyRow und Factors koennen von
- * Komponenten und Charts importiert werden, um Typ-Sicherheit
- * bei der Datenverarbeitung zu haben.
+ * @example
+ * const { loadHourly, loadYearly, loadFactors } = useData()
+ * const data = await loadHourly()
  */
 
-// ----------------------------------------------------------------
-// TypeScript-Interfaces — spiegeln die JSON-Strukturen wider
-// ----------------------------------------------------------------
+// interfaces — spiegeln die json-strukturen wider (aus smard + eigenem format)
 export interface HourlyRow {
   timestamp: number
   co2_g_per_kwh: number
@@ -45,10 +42,7 @@ export interface YearlyRow {
   neg_stunden: number
 }
 
-// ----------------------------------------------------------------
-// Cache — Modul-Variablen, leben nach erstem Fetch weiter
-// Geteilte Promises verhindern doppelte Requests bei Parallelaufrufen.
-// ----------------------------------------------------------------
+// cache — module-level, leben nach erstem fetch weiter
 let hourlyCache: HourlyRow[] | null = null
 let yearlyCache: YearlyRow[] | null = null
 let factorsCache: Factors | null = null
@@ -57,14 +51,13 @@ let hourlyPromise: Promise<HourlyRow[]> | null = null
 let yearlyPromise: Promise<YearlyRow[]> | null = null
 let factorsPromise: Promise<Factors> | null = null
 
-// ----------------------------------------------------------------
-// useData — von Komponenten aufgerufen
-// ----------------------------------------------------------------
+// public composable — von komponenten aufgerufen
 export function useData() {
   /**
-   * Laedt die Stunden-Daten (hourly_2015_2024.json).
-   * Teilt die Promise zwischen Aufrufern — kein doppelter Fetch.
-   * Gibt ein Promise<HourlyRow[]> zurueck.
+   * Lädt die Stunden-Daten aus hourly_2015_2024.json.
+   * Die Promise wird zwischen allen Aufrufern geteilt – kein doppelter Fetch.
+   *
+   * @returns Promise mit Array von HourlyRow-Objekten.
    */
   async function loadHourly(): Promise<HourlyRow[]> {
     if (hourlyCache) return hourlyCache
@@ -85,9 +78,9 @@ export function useData() {
   }
 
   /**
-   * Laedt die Jahres-Daten (yearly_mix.json).
-   * Teilt die Promise zwischen Aufrufern — kein doppelter Fetch.
-   * Gibt ein Promise<YearlyRow[]> zurueck.
+   * Lädt die Jahres-Daten aus yearly_mix.json.
+   *
+   * @returns Promise mit Array von YearlyRow-Objekten.
    */
   async function loadYearly(): Promise<YearlyRow[]> {
     if (yearlyCache) return yearlyCache

@@ -9,7 +9,7 @@
 
 <template>
   <section class="intro-hero">
-    <span class="eyebrow">Datenprojekt · SMARD &amp; ENTSO-E</span>
+    <span class="eyebrow">Stromerzeugung 2015–2024</span>
     <h1 class="hero-headline">Wie sich der deutsche Strom verändert hat</h1>
     <p class="hero-subline">Zehn Jahre Nettostromerzeugung Deutschlands im direkten Vergleich – 2015 und 2024, gemessen aus den öffentlichen Daten der Bundesnetzagentur (SMARD) und der ENTSO-E Transparency Platform.</p>
   </section>

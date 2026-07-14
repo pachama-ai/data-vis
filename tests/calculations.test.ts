@@ -1,17 +1,15 @@
 /**
- * tests/calculations.test.ts
- * ==========================
- * Level 2 — Berechnungs-Korrektheit
- * Unit-Tests für alle im Dashboard verwendeten Berechnungen.
+ * tests/calculations.test.ts – Unit-Tests für Dashboard-Berechnungen.
+ *
+ * Testet EE-Anteil, Residuallast, CO₂-Intensität, Perzentile,
+ * Korrelation, Regression und Aggregation.
  *
  * Aufruf: bun x vitest run
  */
 
 import { describe, it, expect } from 'vitest'
 
-// ===========================================================================
-// 1. EE-Anteil
-// ===========================================================================
+// ee-anteil berechnung
 function calcEeShare(genBySource: Record<string, number>): number {
   const eeKeys = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro']
   const ee = eeKeys.reduce((s, k) => s + (genBySource[k] ?? 0), 0)
@@ -44,9 +42,7 @@ describe('EE-Anteil', () => {
   })
 })
 
-// ===========================================================================
-// 2. Residuallast
-// ===========================================================================
+// residuallast
 function calcResiduallast(loadMwh: number, genBySource: Record<string, number>): number {
   const eeKeys = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro']
   const ee = eeKeys.reduce((s, k) => s + (genBySource[k] ?? 0), 0)
@@ -70,9 +66,7 @@ describe('Residuallast', () => {
   })
 })
 
-// ===========================================================================
-// 3. CO₂-Intensität
-// ===========================================================================
+// co2 intensität (gewichteter durchschnitt)
 const EMISSION_FACTORS: Record<string, number> = {
   lignite: 1075, hardcoal: 835, gas: 411, nuclear: 0,
   biomass: 230, hydro: 0, wind_onshore: 0, wind_offshore: 0, pv: 0,
@@ -120,9 +114,7 @@ describe('CO₂-Intensität', () => {
   })
 })
 
-// ===========================================================================
-// 4. Perzentile (unterste/oberste 10%)
-// ===========================================================================
+// extreme werte (perzentile)
 function bottom10pct(sorted: number[]): number[] {
   if (!sorted.length) return []
   return sorted.slice(0, Math.max(1, Math.round(sorted.length * 0.1)))
@@ -157,9 +149,7 @@ describe('Perzentile (10%)', () => {
   })
 })
 
-// ===========================================================================
-// 9. Berliner Lokalzeit (Zeitzonen-Tests)
-// ===========================================================================
+// zeitzonen — bug von letzter woche
 function berlinHour(ts: number): number {
   return parseInt(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false }).format(ts), 10)
 }
@@ -218,9 +208,7 @@ describe('Berliner Lokalzeit', () => {
   })
 })
 
-// ===========================================================================
-// 5. Pearson-Korrelation
-// ===========================================================================
+// pearson korrelation
 function pearsonR(x: number[], y: number[]): number {
   const n = Math.min(x.length, y.length)
   if (n < 2) return 0
@@ -263,9 +251,7 @@ describe('Pearson-Korrelation', () => {
   })
 })
 
-// ===========================================================================
-// 6. Lineare Regression (Steigung)
-// ===========================================================================
+// lineare regression
 function linregSlope(x: number[], y: number[]): number {
   const n = Math.min(x.length, y.length)
   if (n < 2) return 0
@@ -304,9 +290,7 @@ describe('Lineare Regression (Steigung)', () => {
   })
 })
 
-// ===========================================================================
-// 7. Diff-String-Formatierung (buildDeltaStr)
-// ===========================================================================
+// diff string (wird für anzeige gebraucht)
 function buildDeltaStr(diff: number, unit: string, label: string): { label: string | null; positive: boolean; tooltip: string } | null {
   if (Math.abs(diff) < 0.05) return null
   const sign = diff > 0 ? '+' : (diff < 0 ? '-' : '')
@@ -337,9 +321,7 @@ describe('buildDeltaStr', () => {
   })
 })
 
-// ===========================================================================
-// 8. Daten-Aggregation (Jahresmittel aus Stundenwerten)
-// ===========================================================================
+// aggregation — stunden zu jahresmittel
 function yearlyAvg(rows: Array<{ timestamp: number; value: number }>, year: number): number {
   const filtered = rows.filter(r => new Date(r.timestamp).getUTCFullYear() === year)
   if (!filtered.length) return 0
@@ -361,9 +343,7 @@ describe('Jahresaggregation', () => {
   })
 })
 
-// ===========================================================================
-// 9. KPI-Jahreswerte mit Europe/Berlin
-// ===========================================================================
+// kpi jahreswerte (berlin zeitzone)
 function genRow(ts: number, ee: number, co2: number, price: number) {
   return {
     timestamp: ts, co2_g_per_kwh: co2, ee_share: ee, fossil_share: 0,
@@ -437,9 +417,7 @@ describe('KPI-Jahreswerte (Berlin-Jahr)', () => {
   })
 })
 
-// ===========================================================================
-// 10. Preis-KPI: Jahresvergleich 2015 vs 2024 (Berlin-Jahr)
-// ===========================================================================
+// preis kpi 2015 vs 2024
 function yearlyPriceValues(rows: any[]) {
   // Simuliert yearlyValues('price') aus dashboard.vue: gruppiert nach Berlin-Jahr, filtert 2015–2024
   const byY: Record<number, number[]> = {}

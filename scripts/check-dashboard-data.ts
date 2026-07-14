@@ -1,9 +1,8 @@
 /**
- * scripts/check-dashboard-data.mjs
- * =================================
- * Liest hourly_2015_2024.json und yearly_mix.json und gibt alle
- * Kennzahlen aus, die im Dashboard verwendet werden.
- * Damit kann man direkt vergleichen, ob die Dashboard-Werte stimmen.
+ * check-dashboard-data.ts – Prüft Dashboard-Kennzahlen gegen Rohdaten.
+ *
+ * Liest hourly_2015_2024.json und yearly_mix.json und gibt alle Kennzahlen
+ * aus, die im Dashboard verwendet werden – zum Abgleich der Werte.
  *
  * Aufruf: bun run check:data
  */
@@ -15,9 +14,7 @@ import { fileURLToPath } from 'url'
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const DATA = path.resolve(__dirname, '..', 'public', 'data')
 
-// ---------------------------------------------------------------------------
-// Daten laden
-// ---------------------------------------------------------------------------
+// daten laden
 const hourly = JSON.parse(fs.readFileSync(path.join(DATA, 'hourly_2015_2024.json'), 'utf-8'))
 const yearly = JSON.parse(fs.readFileSync(path.join(DATA, 'yearly_mix.json'), 'utf-8'))
 
@@ -26,18 +23,14 @@ const ts = hourly.map((r) => r.timestamp).sort((a, b) => a - b)
 const erster = new Date(ts[0])
 const letzter = new Date(ts[ts.length - 1])
 
-// ---------------------------------------------------------------------------
-// Hilfsfunktionen
-// ---------------------------------------------------------------------------
+// hilfsfunktionen
 function fmt(n, d = 2) { return Number(n).toFixed(d) }
 function durchschnitt(arr) { return arr.reduce((s, v) => s + v, 0) / arr.length }
 function jahr(ts) { return new Date(ts).getUTCFullYear() }
 function isSchalt(y) { return (y % 4 === 0 && y % 100 !== 0) || y % 400 === 0 }
 function erwartet(y) { return isSchalt(y) ? 8784 : 8760 }
 
-// ------------------------------------------------
-// 1. Grunddaten
-// ------------------------------------------------
+// --- 1. grunddaten ---
 console.log('')
 console.log('='.repeat(72))
 console.log('  1. GRUNDDATEN')

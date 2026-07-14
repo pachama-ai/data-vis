@@ -1,15 +1,13 @@
 /**
- * tests/logic.test.ts
- * ===================
- * Zusätzliche Tests für kritische Fachlogik:
- * Aggregation, fehlende Werte, Prozentpunkte, Filter, Grenzfälle.
+ * tests/logic.test.ts – Zusätzliche Tests für kritische Fachlogik.
+ *
+ * Deckt Aggregation, fehlende Werte, Prozentpunkte, Filter, Grenzfälle,
+ * Trendlinien und Einheitenumrechnung ab.
  */
 
 import { describe, it, expect } from 'vitest'
 
-// ===========================================================================
-// Aggregation nach Stunde, Monat, Jahr
-// ===========================================================================
+// aggregation grundlagen
 function hourlyToYearlyAvg(rows: Array<{ ts: number; value: number }>, year: number): number {
   const filtered = rows.filter(r => new Date(r.ts).getUTCFullYear() === year)
   return filtered.length ? filtered.reduce((s, r) => s + r.value, 0) / filtered.length : 0
@@ -41,9 +39,7 @@ describe('Jahres-Aggregation', () => {
   })
 })
 
-// ===========================================================================
-// Umgang mit fehlenden Werten
-// ===========================================================================
+// edge cases: null, undefined, NaN
 describe('Fehlende Werte', () => {
   it('null in Datenreihe ignorieren', () => {
     const data = [1, null, 3, undefined, 5].filter((v): v is number => v !== null && v !== undefined)
@@ -62,9 +58,7 @@ describe('Fehlende Werte', () => {
   })
 })
 
-// ===========================================================================
-// Prozentpunkte (nicht Prozent)
-// ===========================================================================
+// prozentpunkte vs prozent — nicht verwechseln!
 describe('Prozentpunkte', () => {
   it('EE-Anteil steigt von 33,1% auf 56,7% → +23,6 PP', () => {
     const pp = 56.7 - 33.1
@@ -80,9 +74,7 @@ describe('Prozentpunkte', () => {
   })
 })
 
-// ===========================================================================
-// Filter-Kombinationen
-// ===========================================================================
+// filter kombos
 describe('Filter', () => {
   const data = [
     { ts: Date.UTC(2024, 5, 1, 10), value: 10, hour: 10 },
@@ -114,9 +106,7 @@ describe('Filter', () => {
   })
 })
 
-// ===========================================================================
-// Division durch null abfangen
-// ===========================================================================
+// division durch null abfangen
 describe('Division durch null', () => {
   function safeDivide(a: number, b: number): number {
     return b === 0 ? 0 : a / b
@@ -128,9 +118,7 @@ describe('Division durch null', () => {
   it('Null durch Zahl = 0', () => expect(safeDivide(0, 5)).toBe(0))
 })
 
-// ===========================================================================
-// Vergleich 2015 vs 2024 (zentral für das Dashboard)
-// ===========================================================================
+// 2015 vs 2024 — zentral für dashboard
 describe('Vergleich 2015 vs 2024', () => {
   const yearly = [
     { year: 2015, ee: 33.1, co2: 472.7 },
@@ -165,9 +153,7 @@ describe('Vergleich 2015 vs 2024', () => {
   })
 })
 
-// ===========================================================================
-// Min-/Max-Berechnung (für Sparklines)
-// ===========================================================================
+// min/max für sparklines
 describe('Min/Max Berechnung', () => {
   it('Normale Werte', () => {
     const data = [3, 7, 2, 9, 5]
@@ -187,9 +173,7 @@ describe('Min/Max Berechnung', () => {
   })
 })
 
-// ===========================================================================
-// Trendlinien-Berechnung (lineare Regression)
-// ===========================================================================
+// ols regression
 describe('Trendlinie (OLS)', () => {
   function linreg(x: number[], y: number[]): { slope: number; intercept: number; r2: number } {
     const n = Math.min(x.length, y.length)
@@ -242,9 +226,7 @@ describe('Trendlinie (OLS)', () => {
   })
 })
 
-// ===========================================================================
-// Einheiten: MWh → MW → GW
-// ===========================================================================
+// einheiten umrechnen
 describe('Einheitenumrechnung', () => {
   it('100 MWh in 1 Stunde = 100 MW (Intervall = 1 h)', () => {
     const mwh = 100
@@ -269,9 +251,7 @@ describe('Einheitenumrechnung', () => {
   })
 })
 
-// ===========================================================================
-// Chronologische Sortierung
-// ===========================================================================
+// chronologische sortierung
 describe('Chronologische Sortierung', () => {
   it('Unsorted timestamps → aufsteigend sortiert', () => {
     const data = [

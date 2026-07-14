@@ -1,10 +1,10 @@
 /**
- * scripts/audit/level3-consistency.mjs
- * =====================================
- * Level 3 — Konsistenz zwischen Ansichten
- * Vergleicht Rohdaten-Aggregation mit vorberechneten JSON-Dateien.
+ * level3-consistency.ts – Konsistenz zwischen Rohdaten und vorberechneten Dateien.
  *
- * Aufruf: bun run scripts/audit/level3-consistency.mjs
+ * Vergleicht die Aggregation der Stunden-Daten mit den Werten in yearly_mix.json
+ * und prüft die Emissionsfaktoren auf Plausibilität.
+ *
+ * Aufruf: bun run scripts/audit/level3-consistency.ts
  */
 
 import fs from 'fs'
@@ -33,9 +33,7 @@ console.log('\n' + '='.repeat(72))
 console.log('  LEVEL 3: KONSISTENZ ZWISCHEN ANSICHTEN')
 console.log('='.repeat(72))
 
-// ---------------------------------------------------------------------------
-// Mapping: hourly-Feldnamen → yearly-Feldnamen
-// ---------------------------------------------------------------------------
+// mapping von hourly zu yearly feldnamen
 const KEY_MAP = {
   wind_onshore: 'windOnshore', wind_offshore: 'windOffshore',
   biomass: 'biomasse', hydro: 'wasserkraft',
