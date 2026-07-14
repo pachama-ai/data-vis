@@ -10,17 +10,17 @@
     "typecheck": "npx nuxi typecheck",
     "test": "vitest run",
     "check": "npx nuxi typecheck && vitest run && nuxt build",
-    "pipeline:hourly": "bun run scripts/build_hourly.mjs",
-    "pipeline:yearly": "bun run scripts/build_yearly.mjs",
-    "pipeline": "bun run scripts/build_hourly.mjs; bun run scripts/build_yearly.mjs",
-    "download:prices": "bun run scripts/download-prices.js",
-    "download:smard": "bun run scripts/download-smard.js",
-    "validate": "bun run scripts/validate-data.mjs",
-    "check:data": "node scripts/check-dashboard-data.mjs",
-    "audit:level1": "bun run scripts/audit/level1-integrity.mjs",
+    "pipeline:hourly": "bun run scripts/build_hourly.ts",
+    "pipeline:yearly": "bun run scripts/build_yearly.ts",
+    "pipeline": "bun run scripts/build_hourly.ts; bun run scripts/build_yearly.ts",
+    "download:prices": "bun run scripts/download-prices.ts",
+    "download:smard": "bun run scripts/download-smard.ts",
+    "validate": "bun run scripts/validate-data.ts",
+    "check:data": "bun run scripts/check-dashboard-data.ts",
+    "audit:level1": "bun run scripts/audit/level1-integrity.ts",
     "audit:level2": "vitest run",
-    "audit:level3": "bun run scripts/audit/level3-consistency.mjs",
-    "audit": "bun run scripts/audit/level1-integrity.mjs && vitest run && bun run scripts/audit/level3-consistency.mjs"
+    "audit:level3": "bun run scripts/audit/level3-consistency.ts",
+    "audit": "bun run scripts/audit/level1-integrity.ts && vitest run && bun run scripts/audit/level3-consistency.ts"
   },
   "dependencies": {
     "d3": "^7.9.0",
@@ -29,6 +29,8 @@
   },
   "devDependencies": {
     "@types/d3": "^7.4.3",
-    "vitest": "^4.1.10"
+    "typescript": "5.8",
+    "vitest": "^4.1.10",
+    "vue-tsc": "2.2"
   }
 }

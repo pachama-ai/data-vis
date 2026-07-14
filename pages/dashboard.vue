@@ -2,6 +2,7 @@
 import { ref, shallowRef, computed, defineAsyncComponent } from 'vue'
 import { useData } from '~/composables/useData'
 import { useFilters } from '~/composables/useFilters'
+import { getBerlinYear, getBerlinMonth } from '~/utils/berlin'
 import type { HourlyRow } from '~/composables/useData'
 
 // Explizite Imports (Auto-Import ohne Directory-Prefix)
@@ -10,7 +11,9 @@ import DashboardKpiCard from '~/components/dashboard/KpiCard.vue'
 import VizStackedArea from '~/components/viz/StackedArea.vue'
 import ExtremeValuesPanel from '~/components/dashboard/ExtremeValuesPanel.vue'
 import StartEndComparison from '~/components/dashboard/StartEndComparison.vue'
+import type { YearlyRow } from '~/composables/useData'
 import type { MonthlyDataPoint } from '~/composables/useExtremeValues'
+import { aggregate } from '~/utils/aggregate'
 
 const { loadHourly, loadYearly } = useData()
 
@@ -29,67 +32,29 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 
 // Sichtbarer Zeitraum aus StackedArea-Zoom
+// Zoom-Bereich aus dem StackedArea-Chart
 const visibleRange = ref<{ start: Date; end: Date } | null>(null)
+/** Wird vom StackedArea-Chart aufgerufen, wenn der Zoom-Bereich sich ändert */
 function onVisibleRangeChange(range: { start: Date; end: Date } | null) {
   visibleRange.value = range
 }
 
-// Hilfstyp für die Monats-Aggregation
-interface MonthAccumulator {
-  date: Date; total: number; hours: number
-  [key: string]: number | Date
-  biomass: number; hydro: number; wind_onshore: number; wind_offshore: number
-  pv: number; nuclear: number; gas: number; hardcoal: number; lignite: number; other: number
-}
-
-const ALL_KEYS: (keyof MonthAccumulator)[] = ['biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
-  'nuclear', 'gas', 'hardcoal', 'lignite', 'other']
-function aggregateMonths(rows: HourlyRow[]): MonthlyDataPoint[] {
-  const map = new Map<string, MonthAccumulator>()
-  function getKey(d: Date): string {
-    return d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0')
-  }
-  function getDate(key: string): Date {
-    const parts = key.split('-')
-    return new Date(Date.UTC(+(parts[0] ?? 0), +(parts[1] ?? 1) - 1, 1))
-  }
-  for (const row of rows) {
-    const d = new Date(row.timestamp), key = getKey(d)
-    if (!map.has(key)) {
-      const init = { date: getDate(key), total: 0, hours: 0 } as MonthAccumulator
-      for (const k of ALL_KEYS) init[k] = 0
-      map.set(key, init)
-    }
-    const b = map.get(key)!
-    b.hours++
-    b.hydro += row.generation_by_source.hydro ?? 0
-    b.biomass += row.generation_by_source.biomass ?? 0
-    b.wind_onshore += row.generation_by_source.wind_onshore ?? 0
-    b.wind_offshore += row.generation_by_source.wind_offshore ?? 0
-    b.pv += row.generation_by_source.pv ?? 0
-    b.nuclear += row.generation_by_source.nuclear ?? 0
-    b.gas += row.generation_by_source.gas ?? 0
-    b.hardcoal += row.generation_by_source.hardcoal ?? 0
-    b.lignite += row.generation_by_source.lignite ?? 0
-    b.other += (row.generation_by_source.other_renewables ?? 0) + (row.generation_by_source.other_fossil ?? 0) + (row.generation_by_source.pumped_storage ?? 0)
-    b.total += Object.values(row.generation_by_source).reduce((a: number, v) => a + (v ?? 0), 0)
-  }
-  return [...map.values()].sort((a, b) => a.date.getTime() - b.date.getTime())
-}
-
 // Monatliche Daten im sichtbaren Bereich
+/** Monatlich aggregierte Daten, optional auf den Zoom-Bereich gefiltert */
 const monthlyData = computed<MonthlyDataPoint[]>(() => {
   if (!hourly.value.length) return []
-  const all = aggregateMonths(hourly.value)
+  const all = aggregate(hourly.value)
   if (!visibleRange.value) return all
   return all.filter((d) => d.date >= visibleRange.value!.start && d.date <= visibleRange.value!.end)
 })
 
 const highlightedKey = ref<string | null>(null)
+/** Merkt den hervorgehobenen Energieträger aus StartEndComparison */
 function onHighlightChange(key: string | null) {
   highlightedKey.value = key
 }
 
+/** Lädt Stunden- und Jahresdaten, setzt Loading-Status */
 async function loadData() {
   try {
     loading.value = true
@@ -115,22 +80,13 @@ const tabs = [
   { id: 'preise' as const, label: 'Markt & Preise' },
 ]
 const selectedDay = ref<string | undefined>(undefined)
+/** Merkt den aus der Heatmap ausgewählten Tag für die Duck Curve */
 function handleDaySelected(isoDate: string) { selectedDay.value = isoDate }
 
-// Sparkline-Hover-Sync
+// Sparkline-Hover-Sync über mehrere KPI-Karten
 const hoveredIndex = ref<number | null>(null)
 
-// Hilfsfunktion: Werte für ein bestimmtes Jahr
-function yearValue(year: number, field: string): number | null {
-  const yd = hourly.value.filter((r) => new Date(r.timestamp).getUTCFullYear() === year)
-  if (!yd.length) return null
-  if (field === 'ee') return yd.reduce((s, r) => s + r.ee_share, 0) / yd.length
-  if (field === 'co2') return yd.reduce((s, r) => s + r.co2_g_per_kwh, 0) / yd.length
-  if (field === 'price') return yd.reduce((s, r) => s + r.price_eur_mwh, 0) / yd.length
-  if (field === 'neg') return yd.filter((r) => r.price_eur_mwh < 0).length
-  return null
-}
-
+/** True, wenn der KPI-Modus 'Gesamt' ist */
 const isGesamt = computed(() => state.year === null && state.mode !== 'vergleich')
 const isEinzeljahr2015 = computed(() => state.year === 2015)
 const selectedYear = computed(() => state.year)
@@ -145,16 +101,22 @@ const kpis = computed(() => {
     if (field === 'price') {
       const byY: Record<number, number[]> = {}
       for (const r of hourly.value) {
-        const y = new Date(r.timestamp).getUTCFullYear()
+        const y = getBerlinYear(r.timestamp)
+        if (y < 2015 || y > 2024) continue
         if (!byY[y]) byY[y] = []
         byY[y].push(r.price_eur_mwh)
       }
-      return Object.keys(byY).sort().map((y) => (byY[Number(y)] ?? [0]).reduce((a, b) => a + b, 0) / (byY[Number(y)] ?? [1]).length)
+      // Alle 10 Jahre sicherstellen
+      const years = [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024]
+      return years.map((y) => {
+        const vals = byY[y]
+        return vals ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+      })
     }
     if (field === 'neg') {
       const byY: Record<number, number> = {}
       for (const r of hourly.value) {
-        if (r.price_eur_mwh < 0) { const y = new Date(r.timestamp).getUTCFullYear(); byY[y] = (byY[y] ?? 0) + 1 }
+        if (r.price_eur_mwh < 0) { const y = getBerlinYear(r.timestamp); byY[y] = (byY[y] ?? 0) + 1 }
       }
       // Alle 10 Jahre sicherstellen, auch Jahre mit 0 Negativstunden
       const years = [2015,2016,2017,2018,2019,2020,2021,2022,2023,2024]
@@ -164,10 +126,10 @@ const kpis = computed(() => {
   }
 
   function monthlyValues(year: number, field: 'ee' | 'co2' | 'price' | 'neg'): number[] {
-    const yd = hourly.value.filter((r) => new Date(r.timestamp).getUTCFullYear() === year)
+    const yd = hourly.value.filter((r) => getBerlinYear(r.timestamp) === year)
     const byM: number[][] = [[],[],[],[],[],[],[],[],[],[],[],[]]
     for (const r of yd) {
-      const m = new Date(r.timestamp).getUTCMonth()
+      const m = getBerlinMonth(r.timestamp) - 1 // 1-based → 0-based für Array
       let v: number
       if (field === 'ee') v = r.ee_share
       else if (field === 'co2') v = r.co2_g_per_kwh
@@ -175,7 +137,7 @@ const kpis = computed(() => {
       else v = r.price_eur_mwh < 0 ? 1 : 0
       byM[m]!.push(v)
     }
-    // Negativ: absolute Summe statt Mittelwert (Fix 1)
+    // Negativ: absolute Summe statt Mittelwert
     if (field === 'neg') {
       return byM.map((arr) => arr.reduce((a, b) => a + b, 0))
     }
@@ -183,7 +145,7 @@ const kpis = computed(() => {
   }
 
   function singleYearValue(year: number, field: 'ee' | 'co2' | 'price' | 'neg'): number {
-    const yd = hourly.value.filter((r) => new Date(r.timestamp).getUTCFullYear() === year)
+    const yd = hourly.value.filter((r) => getBerlinYear(r.timestamp) === year)
     if (!yd.length) return 0
     if (field === 'ee') return yd.reduce((s, r) => s + r.ee_share, 0) / yd.length
     if (field === 'co2') return yd.reduce((s, r) => s + r.co2_g_per_kwh, 0) / yd.length
@@ -200,7 +162,7 @@ const kpis = computed(() => {
   }
 
   function prevYear(y: number): number {
-    const first = Math.min(...hourly.value.map((r) => new Date(r.timestamp).getUTCFullYear()))
+    const first = Math.min(...hourly.value.map((r) => getBerlinYear(r.timestamp)))
     return y > first ? y - 1 : y
   }
 

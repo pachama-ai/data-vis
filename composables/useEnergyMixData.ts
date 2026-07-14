@@ -14,13 +14,13 @@ export interface EnergyMixRow {
   share2024: number
 }
 
-export interface EnergyMixMeta {
+interface EnergyMixMeta {
   source: string[]
   generated: string
   unit: string
 }
 
-export interface EnergyMixData {
+interface EnergyMixData {
   meta: EnergyMixMeta
   rows: EnergyMixRow[]
 }

@@ -7,18 +7,16 @@
 
 import { reactive } from 'vue'
 import type { HourlyRow } from './useData'
+import { getBerlinYear } from '~/utils/berlin'
 
 export type FilterMode = 'gesamt' | 'jahr' | 'vergleich'
 
-export interface KpiFilterState {
-  /** null = Gesamtzeitraum 2015-2024, sonst einzelnes Jahr */
+const state = reactive<{
   year: number | null
   mode: FilterMode
   baseYear: number
   compareYear: number
-}
-
-const state = reactive<KpiFilterState>({
+}>({
   year: null,
   mode: 'gesamt',
   baseYear: 2015,
@@ -26,14 +24,16 @@ const state = reactive<KpiFilterState>({
 })
 
 export function useFilters() {
+  /** Filtert Stunden auf das ausgewählte Einzeljahr (Berliner Kalender) */
   function filteredKpiData(hours: HourlyRow[]): HourlyRow[] {
     if (state.year === null) return hours
     const y = state.year
-    return hours.filter((r) => new Date(r.timestamp).getUTCFullYear() === y)
+    return hours.filter((r) => getBerlinYear(r.timestamp) === y)
   }
 
+  /** Filtert Stunden auf ein bestimmtes Jahr (für Vergleichsmodus) */
   function dataForYear(hours: HourlyRow[], y: number): HourlyRow[] {
-    return hours.filter((r) => new Date(r.timestamp).getUTCFullYear() === y)
+    return hours.filter((r) => getBerlinYear(r.timestamp) === y)
   }
 
   return {

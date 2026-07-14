@@ -111,8 +111,8 @@ Vergleicht den Strommix 2015 vs. 2024. Jeder Energieträger wird als Kapsel darg
 | Tab | Komponente | Beschreibung |
 |-----|-----------|-------------|
 | **Strommix** | `StackedArea.vue` | Gestapelte Fläche des Erzeugungsmix 2015–2024, absolut oder in Prozent. Annotationen für Atomausstieg (2023) und Kohleausstiegsbeschluss (2020). |
-| **Einflussfaktoren** | `ScatterAnalysis.vue` | Scatterplot: CO₂-Intensität vs. EE-Anteil, Preis, Last oder Fossil-Anteil. Mit Zeitraum-Slider, Regressionslinie und Erklärzonen. |
-| **Tagesmuster** | `HeatmapCO2.vue` | 24h × 365-Tage-Heatmap. Metriken: CO₂, EE-Anteil, Fossil-Anteil, Preis. Perzentil-Clipping für Ausreißer. |
+| **Einflussfaktoren** | `ScatterAnalysis.vue` | Scatterplot: CO₂-Intensität vs. EE-Anteil, Preis, Last oder konventionellem Anteil. Mit Zeitraum-Slider, Regressionslinie und Erklärzonen. |
+| **Tagesmuster** | `HeatmapCO2.vue` | 24h × 365-Tage-Heatmap. Metriken: CO₂, EE-Anteil, Konventioneller Anteil, Preis. Perzentil-Clipping für Ausreißer. |
 | **Markt & Preise** | `DuckCurve.vue` | Tagesprofile mit Zeitregler. 4 KPI-Karten (PV, Residuallast, Preis, CO₂). Vergleichsmodus mit zwei unabhängigen Timelines. |
 
 ### KPI-Kacheln
@@ -132,8 +132,10 @@ preise.json ─┘                            │
 
 `build_hourly.mjs` führt einen Inner Join auf den Timestamp durch und berechnet:
 - CO₂-Intensität (gewichteter Durchschnitt über Emissionsfaktoren)
-- EE-Anteil und Fossil-Anteil
+- EE-Anteil und konventioneller Anteil
 - generation_by_source (auf Englisch gemappt)
+
+Die jährliche CO₂-Intensität (`yearly_mix.json`) ist das arithmetische Mittel aller stündlichen CO₂-Intensitäten eines Jahres. Die stündlichen Werte selbst werden anhand des jeweiligen Erzeugungsmixes (erzeugungsgewichtet über die Emissionsfaktoren der einzelnen Energieträger) berechnet.
 
 Nach einem Download neuer Rohdaten wird die Pipeline mit `bun run pipeline` neu durchlaufen.
 

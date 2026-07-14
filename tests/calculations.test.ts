@@ -158,6 +158,67 @@ describe('Perzentile (10%)', () => {
 })
 
 // ===========================================================================
+// 9. Berliner Lokalzeit (Zeitzonen-Tests)
+// ===========================================================================
+function berlinHour(ts: number): number {
+  return parseInt(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false }).format(ts), 10)
+}
+function berlinYear(ts: number): number {
+  return Number(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', year: 'numeric' }).format(ts))
+}
+function berlinMonth(ts: number): number {
+  return Number(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', month: 'numeric' }).format(ts))
+}
+
+describe('Berliner Lokalzeit', () => {
+  // Winter: CET = UTC+1
+  it('Winter 00:00 Berlin = UTC 23:00 Vortag, Stunde 0', () => {
+    // 2015-01-05 00:00 CET = 2015-01-04 23:00 UTC
+    const ts = Date.UTC(2015, 0, 4, 23, 0)
+    expect(berlinHour(ts)).toBe(0)
+    expect(berlinYear(ts)).toBe(2015)
+    expect(berlinMonth(ts)).toBe(1)
+  })
+
+  // Sommer: CEST = UTC+2
+  it('Sommer 13:00 Berlin = UTC 11:00, Stunde 13', () => {
+    const ts = Date.UTC(2024, 5, 21, 11, 0) // 11:00 UTC = 13:00 CEST
+    expect(berlinHour(ts)).toBe(13)
+  })
+
+  // DST-Beginn: 31.03.2024, Berlin springt 02:00→03:00
+  it('DST-Beginn: 03:00 Berlin = UTC 01:00, Stunde 3', () => {
+    const ts = Date.UTC(2024, 2, 31, 1, 0) // 01:00 UTC = 03:00 CEST
+    expect(berlinHour(ts)).toBe(3)
+  })
+
+  // DST-Ende: beide Berlin 02:00 haben unterschiedliche UTC-Timestamps
+  it('DST-Ende: erste 02:00 Berlin = UTC 00:00 (CEST)', () => {
+    const ts = Date.UTC(2024, 9, 27, 0, 0) // 00:00 UTC = 02:00 CEST
+    expect(berlinHour(ts)).toBe(2)
+  })
+
+  it('DST-Ende: zweite 02:00 Berlin = UTC 01:00 (CET)', () => {
+    const ts = Date.UTC(2024, 9, 27, 1, 0) // 01:00 UTC = 02:00 CET
+    expect(berlinHour(ts)).toBe(2)
+  })
+
+  // Jahreswechsel: UTC 23:00 am 31.12. = 01.01. 00:00 Berlin
+  it('Silvester 23:00 UTC = 01.01. 00:00 Berlin (nächstes Jahr)', () => {
+    const ts = Date.UTC(2023, 11, 31, 23, 0)
+    expect(berlinHour(ts)).toBe(0)
+    expect(berlinYear(ts)).toBe(2024)
+    expect(berlinMonth(ts)).toBe(1)
+  })
+
+  // UTC-Mitternacht im Winter = Berlin 01:00 (nächster Tag)
+  it('UTC 00:00 im Winter = Berlin 01:00 CET, gleicher Tag', () => {
+    const ts = Date.UTC(2024, 0, 15, 0, 0)
+    expect(berlinHour(ts)).toBe(1)
+  })
+})
+
+// ===========================================================================
 // 5. Pearson-Korrelation
 // ===========================================================================
 function pearsonR(x: number[], y: number[]): number {
@@ -297,5 +358,155 @@ describe('Jahresaggregation', () => {
 
   it('Kein Daten für Jahr → 0', () => {
     expect(yearlyAvg([], 2024)).toBe(0)
+  })
+})
+
+// ===========================================================================
+// 9. KPI-Jahreswerte mit Europe/Berlin
+// ===========================================================================
+function genRow(ts: number, ee: number, co2: number, price: number) {
+  return {
+    timestamp: ts, co2_g_per_kwh: co2, ee_share: ee, fossil_share: 0,
+    price_eur_mwh: price, load_mwh: 0, generation_by_source: {
+      lignite: 0, nuclear: 0, wind_offshore: 0, hydro: 0, other_fossil: 0,
+      other_renewables: 0, biomass: 0, wind_onshore: 0, pv: 0, hardcoal: 0,
+      pumped_storage: 0, gas: 0,
+    },
+  }
+}
+
+describe('KPI-Jahreswerte (Berlin-Jahr)', () => {
+  it('Silvester 23:00 UTC gehört zum Berlin-Jahr 2024, nicht 2023', () => {
+    // 2023-12-31 23:00 UTC = 2024-01-01 00:00 Berlin (CET)
+    const ts = Date.UTC(2023, 11, 31, 23, 0)
+    expect(berlinYear(ts)).toBe(2024)
+    expect(new Date(ts).getUTCFullYear()).toBe(2023)
+  })
+
+  it('Jahresmittel aus 3 Stundenwerten mit Berlin-Jahr', () => {
+    const data = [
+      { timestamp: Date.UTC(2024, 0, 1, 0), value: 10 },
+      { timestamp: Date.UTC(2024, 5, 15, 12), value: 20 },
+      { timestamp: Date.UTC(2024, 11, 31, 23), value: 30 },
+    ]
+    // Alle 3 timestamps sind auch Berlin 2024 (kein DST-Überlauf an Silvester)
+    expect(yearlyAvg(data, 2024)).toBeCloseTo(20, 1)
+  })
+
+  it('Jahresgrenze: UTC 2023-12-31 23:00 zählt nicht zu UTC-2024, aber zu Berlin-2024', () => {
+    const data = [
+      { timestamp: Date.UTC(2023, 11, 31, 23, 0), value: 100 }, // Berlin: 2024-01-01 00:00
+      { timestamp: Date.UTC(2024, 0, 1, 0, 0), value: 200 },   // Berlin: 2024-01-01 01:00
+      { timestamp: Date.UTC(2024, 0, 1, 22, 0), value: 300 },  // Berlin: 2024-01-01 23:00
+    ]
+    // Mit UTC-Jahr: nur 2 Werte (200 und 300) → MW = 250
+    const utcAvg = data.filter(r => new Date(r.timestamp).getUTCFullYear() === 2024)
+      .reduce((s, r) => s + r.value, 0) / 2
+    expect(utcAvg).toBe(250)
+    // Mit Berlin-Jahr: alle 3 Werte → MW = 200
+    const berlinAvg = data.filter(r => berlinYear(r.timestamp) === 2024)
+      .reduce((s, r) => s + r.value, 0) / 3
+    expect(berlinAvg).toBe(200)
+  })
+
+  it('Negative Preisstunden zählen mit Berlin-Jahr', () => {
+    // 3 hours: two with negative price in Berlin 2024, one in Berlin 2023
+    const rows = [
+      genRow(Date.UTC(2024, 5, 15, 10, 0), 50, 300, -10),  // Berlin 2024, negativ
+      genRow(Date.UTC(2024, 5, 15, 11, 0), 50, 300, -20),  // Berlin 2024, negativ
+      genRow(Date.UTC(2024, 5, 15, 12, 0), 50, 300, 30),   // Berlin 2024, positiv
+    ]
+    const negCount = rows.filter(r => berlinYear(r.timestamp) === 2024 && r.price_eur_mwh < 0).length
+    expect(negCount).toBe(2)
+  })
+
+  it('Einzeljahres-Mittelwert EE-Anteil', () => {
+    const rows = [
+      genRow(Date.UTC(2024, 0, 1, 0), 30, 400, 50),  // ee=30
+      genRow(Date.UTC(2024, 5, 15, 12), 50, 300, 80), // ee=50
+      genRow(Date.UTC(2024, 11, 31, 12), 40, 350, 60), // ee=40
+    ]
+    const eeValues = rows.filter(r => berlinYear(r.timestamp) === 2024).map(r => r.ee_share)
+    const avg = eeValues.reduce((s, v) => s + v, 0) / eeValues.length
+    expect(avg).toBeCloseTo(40, 1) // (30+50+40)/3 = 40
+  })
+
+  it('Leere Jahresdaten → 0', () => {
+    expect(yearlyAvg([], 2024)).toBe(0)
+    expect(yearlyAvg([], 2025)).toBe(0)
+  })
+})
+
+// ===========================================================================
+// 10. Preis-KPI: Jahresvergleich 2015 vs 2024 (Berlin-Jahr)
+// ===========================================================================
+function yearlyPriceValues(rows: any[]) {
+  // Simuliert yearlyValues('price') aus dashboard.vue: gruppiert nach Berlin-Jahr, filtert 2015–2024
+  const byY: Record<number, number[]> = {}
+  for (const r of rows) {
+    const y = berlinYear(r.timestamp)
+    if (y < 2015 || y > 2024) continue
+    if (!byY[y]) byY[y] = []
+    byY[y].push(r.price_eur_mwh)
+  }
+  const years = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
+  return years.map((y) => {
+    const vals = byY[y]
+    return vals ? vals.reduce((a, b) => a + b, 0) / vals.length : 0
+  })
+}
+
+describe('Preis-KPI Jahresvergleich', () => {
+  const makeRow = (ts: number, price: number) => genRow(ts, 50, 400, price)
+
+  it('Test A: Delta 2015 vs 2024 ignoriert Berlin-2025-Stunde', () => {
+    // 2 Stunden 2015, 2 Stunden 2024, 1 Stunde Berlin 2025
+    const rows = [
+      makeRow(Date.UTC(2015, 5, 1, 10), 30),     // Berlin 2015
+      makeRow(Date.UTC(2015, 5, 1, 11), 40),     // Berlin 2015
+      makeRow(Date.UTC(2024, 5, 1, 10), 80),     // Berlin 2024
+      makeRow(Date.UTC(2024, 5, 1, 11), 90),     // Berlin 2024
+      makeRow(Date.UTC(2024, 11, 31, 23), 999),  // Berlin 2025! Darf nicht zählen
+    ]
+    const vals = yearlyPriceValues(rows)
+    expect(vals[0]).toBeCloseTo(35, 0)  // 2015: (30+40)/2 = 35
+    expect(vals[9]).toBeCloseTo(85, 0)  // 2024: (80+90)/2 = 85
+    expect(vals.length).toBe(10)         // Nur 2015-2024
+  })
+
+  it('Test B: Sparkline enthält keine 2025-Daten', () => {
+    const rows = [
+      makeRow(Date.UTC(2024, 11, 31, 23), 100), // Berlin 2025
+      makeRow(Date.UTC(2024, 0, 1, 12), 50),    // Berlin 2024
+    ]
+    const vals = yearlyPriceValues(rows)
+    // vals[9] = 2024, vals[8] = 2023 (0 weil keine Daten)
+    expect(vals[9]).toBeCloseTo(50, 0)
+    expect(vals.length).toBe(10)
+  })
+
+  it('Test C: Fehlendes Start- oder Endjahr wird sauber behandelt', () => {
+    const rows = [makeRow(Date.UTC(2020, 5, 1, 12), 100)]
+    const vals = yearlyPriceValues(rows)
+    expect(vals[0]).toBe(0)  // 2015: keine Daten
+    expect(vals[5]).toBeCloseTo(100, 0) // 2020
+    expect(vals[9]).toBe(0)  // 2024: keine Daten
+    expect(vals.length).toBe(10)
+  })
+
+  it('Test D: Berlin 2025 erkannt, aber nicht im Vergleich 2015→2024', () => {
+    const ts = Date.UTC(2024, 11, 31, 23, 0)
+    expect(berlinYear(ts)).toBe(2025) // Berlin-Jahr erkannt
+    expect(new Date(ts).getUTCFullYear()).toBe(2024) // UTC-Jahr ist 2024
+
+    const rows = [
+      makeRow(Date.UTC(2015, 0, 1, 0), 30),
+      makeRow(ts, 999),              // Berlin 2025
+      makeRow(Date.UTC(2024, 5, 1, 0), 80),
+    ]
+    const vals = yearlyPriceValues(rows)
+    // Delta: vals[9] - vals[0] = 80 - 30 = +50 (nicht 999-30)
+    const delta = vals[9] - vals[0]
+    expect(delta).toBeCloseTo(50, 0)
   })
 })

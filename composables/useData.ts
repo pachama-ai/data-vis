@@ -42,13 +42,8 @@ export interface YearlyRow {
   sources: Record<string, number>
   avg_co2: number
   avg_ee_share: number
+  neg_stunden: number
 }
-
-export interface Factors {
-  [source: string]: number
-}
-
-
 
 // ----------------------------------------------------------------
 // Cache — Modul-Variablen, leben nach erstem Fetch weiter

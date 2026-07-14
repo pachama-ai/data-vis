@@ -54,19 +54,23 @@ const LABELS: Record<string, string> = {
   gas: 'Erdgas', hardcoal: 'Steinkohle', lignite: 'Braunkohle', other: 'Sonstige',
 }
 
+/** Dezimalzahl als Prozent-String (z. B. 0,68 → '68,4 %') */
 function fmtPct(v: number): string {
   return (v * 100).toFixed(1).replace('.', ',') + ' %'
 }
 
+/** Differenz in Prozentpunkten (z. B. 0,12 → '+12,0 pp') */
 function fmtPctDiff(v: number): string {
   const sign = v >= 0 ? '+' : ''
   return sign + (v * 100).toFixed(1).replace('.', ',') + ' pp'
 }
 
+/** Datum als deutscher Monatsname mit Jahr (z. B. 'Januar 2024') */
 function fmtMonth(d: Date): string {
   return d.toLocaleDateString('de-DE', { year: 'numeric', month: 'long' })
 }
 
+/** MWh-Wert in GWh-String umrechnen (z. B. 5000000 → '5.000 GWh') */
 function fmtGWh(v: number): string {
   return Math.round(v / 1000).toLocaleString('de-DE') + ' GWh'
 }

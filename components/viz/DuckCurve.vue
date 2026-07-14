@@ -8,6 +8,7 @@
 import { ref, computed, watch, nextTick } from 'vue'
 import * as d3 from 'd3'
 import type { HourlyRow } from '~/composables/useData'
+import { getBerlinHour, getBerlinYear, getBerlinMonth, isBerlinWeekend } from '~/utils/berlin'
 
 const props = defineProps<{ data: HourlyRow[]; selectedDay?: string }>()
 
@@ -16,22 +17,33 @@ const profileMode = ref<ProfileMode>('durchschnitt')
 
 interface HourPoint { hour: number; pv: number; residuallast: number; price: number; co2: number }
 
-function inSummer(d: Date): boolean { const m = d.getUTCMonth(); return m >= 4 && m <= 8 }
-function inWinter(d: Date): boolean { const m = d.getUTCMonth(); return m <= 1 || m >= 10 }
-function isWeekend(d: Date): boolean { return d.getUTCDay() === 0 || d.getUTCDay() === 6 }
+/** Prüft, ob ein Datum in die Sommermonate Juni–August fällt */
+function inSummer(d: Date): boolean { const m = getBerlinMonth(d.getTime()); return m >= 5 && m <= 7 }
+/** Prüft, ob ein Datum in die Wintermonate Dezember–Februar fällt */
+function inWinter(d: Date): boolean { const m = getBerlinMonth(d.getTime()); return m <= 2 || m >= 11 }
+/** Prüft, ob ein Datum auf ein Wochenende fällt (Samstag oder Sonntag) */
+function isWeekend(d: Date): boolean { return isBerlinWeekend(d.getTime()) }
 
+/** Berechnet die Residuallast in GW: (Last − EE-Erzeugung) / 1000 */
 function residuallastGW(row: HourlyRow): number {
   const g = row.generation_by_source
   const ee = (g.wind_onshore ?? 0) + (g.wind_offshore ?? 0) + (g.pv ?? 0) + (g.biomass ?? 0) + (g.hydro ?? 0) + (g.other_renewables ?? 0)
   return (row.load_mwh - ee) / 1000
 }
+/** PV-Erzeugung in GW aus dem Rohwert in MWh */
 function pvGW(row: HourlyRow): number { return (row.generation_by_source.pv ?? 0) / 1000 }
 
+/** Dezimaltrennzeichen: Punkt → Komma (deutsches Format) */
+function fmtNum(n: number): string {
+  return n.toFixed(1).replace('.', ',')
+}
+
+/** Formatiert eine Differenz als HTML-String mit CSS-Klasse und Einheit */
 function diffStr(diff: number | null, unit: string): string {
   if (diff === null) return ''
   const sign = diff >= 0 ? '+' : ''
   const cls = diff >= 0 ? 'diff-pos' : 'diff-neg'
-  return `<span class="${cls}">${sign}${diff.toFixed(1).replace('.', ',')} ${unit}</span>`
+  return `<span class="${cls}">${sign}${fmtNum(diff)} ${unit}</span>`
 }
 
 function computeProfile(rows: HourlyRow[], mode: ProfileMode): HourPoint[] {
@@ -41,16 +53,16 @@ function computeProfile(rows: HourlyRow[], mode: ProfileMode): HourPoint[] {
   else if (mode === 'winter') filtered = rows.filter((r) => inWinter(new Date(r.timestamp)))
   else if (mode === 'werktag') filtered = rows.filter((r) => !isWeekend(new Date(r.timestamp)))
   else if (mode === 'wochenende') filtered = rows.filter((r) => isWeekend(new Date(r.timestamp)))
-  else if (mode === 'jahr2015') filtered = rows.filter((r) => new Date(r.timestamp).getUTCFullYear() === 2015)
-  else if (mode === 'jahr2024') filtered = rows.filter((r) => new Date(r.timestamp).getUTCFullYear() === 2024)
+  else if (mode === 'jahr2015') filtered = rows.filter((r) => getBerlinYear(r.timestamp) === 2015)
+  else if (mode === 'jahr2024') filtered = rows.filter((r) => getBerlinYear(r.timestamp) === 2024)
 
-  // 2. Stundenweise Buckets anlegen (0–23)
+  // 2. Stundenweise Buckets anlegen (0–23, Berliner Lokalzeit)
   const buckets: Array<{ hour: number; pv: number[]; residuallast: number[]; price: number[]; co2: number[] }> =
     Array.from({ length: 24 }, (_, hour) => ({ hour, pv: [], residuallast: [], price: [], co2: [] }))
 
   // 3. Werte in die passenden Buckets sortieren
   for (const row of filtered) {
-    const hour = new Date(row.timestamp).getUTCHours()
+    const hour = getBerlinHour(row.timestamp)
     buckets[hour].pv.push(pvGW(row))
     buckets[hour].residuallast.push(residuallastGW(row))
     buckets[hour].price.push(row.price_eur_mwh)
@@ -95,27 +107,38 @@ function setSparkRef(i: number) { return (el: SVGSVGElement | null) => { sparkRe
 watch(() => props.data, (rows) => { if (rows.length) profile.value = computeProfile(rows, profileMode.value) }, { immediate: true })
 watch(profileMode, () => { if (props.data.length) profile.value = computeProfile(props.data, profileMode.value) })
 
+/** Ordnet einen Wert im Tagesverlauf ein (nahe Max, Min oder Mitte) */
 function dayContext(v: number, mx: number, mn: number, av: number): string {
   const range = mx - mn
-  if (range === 0) return `Ø ${av.toFixed(1).replace('.', ',')}`
+  if (range === 0) return `Ø ${fmtNum(av)}`
   const third = range / 3
-  let pos: string
-  if (v >= mx - third) pos = 'nahe Tages-Max'
-  else if (v <= mn + third) pos = 'nahe Tages-Min'
-  else pos = 'mittlerer Tagesbereich'
-  return `${pos} (Ø ${av.toFixed(1).replace('.', ',')})`
+  const pos = v >= mx - third
+    ? 'nahe Tages-Max'
+    : v <= mn + third
+      ? 'nahe Tages-Min'
+      : 'mittlerer Tagesbereich'
+  return `${pos} (Ø ${fmtNum(av)})`
 }
 
-// Karten
+/** Berechnet max, min und avg für eine Metrik aus den 24 Stunden */
+function cardStats(data: HourPoint[], key: keyof HourPoint) {
+  const vals = data.map((d) => d[key] as number)
+  return {
+    vals,
+    max: Math.max(...vals),
+    min: Math.min(...vals),
+    avg: vals.reduce((a, v) => a + v, 0) / vals.length,
+  }
+}
+
 const cards = computed(() => {
   const p = profile.value; if (!p.length) return []
   const h = compareTimeEnabled.value ? rangeStartPoint.value : current.value
   const hEnd = compareTimeEnabled.value ? rangeEndPoint.value : current.value
-  const allPv = p.map((x) => x.pv); const allRl = p.map((x) => x.residuallast); const allPrice = p.map((x) => x.price); const allCo2 = p.map((x) => x.co2)
-  const maxPv = Math.max(...allPv); const minPv = Math.min(...allPv); const avgPv = allPv.reduce((a, v) => a + v, 0) / allPv.length
-  const maxRl = Math.max(...allRl); const minRl = Math.min(...allRl); const avgRl = allRl.reduce((a, v) => a + v, 0) / allRl.length
-  const maxPrice = Math.max(...allPrice); const minPrice = Math.min(...allPrice); const avgPrice = allPrice.reduce((a, v) => a + v, 0) / allPrice.length
-  const maxCo2 = Math.max(...allCo2); const minCo2 = Math.min(...allCo2); const avgCo2 = allCo2.reduce((a, v) => a + v, 0) / allCo2.length
+  const { vals: allPv, max: maxPv, min: minPv, avg: avgPv } = cardStats(p, 'pv')
+  const { vals: allRl, max: maxRl, min: minRl, avg: avgRl } = cardStats(p, 'residuallast')
+  const { vals: allPrice, max: maxPrice, min: minPrice, avg: avgPrice } = cardStats(p, 'price')
+  const { vals: allCo2, max: maxCo2, min: minCo2, avg: avgCo2 } = cardStats(p, 'co2')
 
   return [
     { key: 'pv', label: 'PV-Erzeugung', unit: 'GW', color: '#E8B547',
@@ -149,6 +172,7 @@ watch(currentHour, () => { nextTick(() => { drawSparklines() }) })
 watch(rangeStart, () => { nextTick(() => { drawSparklines() }) })
 watch(rangeEnd, () => { nextTick(() => { drawSparklines() }) })
 
+/** Zeichnet alle vier KPI-Sparklines unter dem DuckCurve-Diagramm */
 function drawSparklines() {
   const profile = profile.value; if (!profile.length) return
   const currentH = currentHour.value; const startH = rangeStart.value; const endH = rangeEnd.value
@@ -159,6 +183,7 @@ function drawSparklines() {
   }
 }
 
+/** Zeichnet eine einzelne Sparkline (D3) für eine KPI-Karte */
 function drawSingleSparkline(
   index: number, key: keyof HourPoint,
   profile: HourPoint[], currentH: number, startH: number, endH: number
@@ -208,7 +233,7 @@ const presets = [
   { hour: 3, label: '03 Uhr Nacht' }, { hour: 8, label: '08 Uhr Morgen' },
   { hour: 13, label: '13 Uhr PV-Peak' }, { hour: 18, label: '18 Uhr Abendrampe' }, { hour: 22, label: '22 Uhr Abend' },
 ]
-// Prüft für eine Preset-Stunde, ob A, B, beide oder keiner aktiv ist
+/** Prüft für eine Preset-Stunde, ob A, B, beide oder keiner aktiv ist */
 function presetMarkerState(prHour: number): 'A' | 'B' | 'both' | 'none' {
   if (!compareTimeEnabled.value) {
     return currentHour.value === prHour ? 'A' : 'none'
@@ -220,6 +245,7 @@ function presetMarkerState(prHour: number): 'A' | 'B' | 'both' | 'none' {
   if (bMatch) return 'B'
   return 'none'
 }
+/** Springt zu einer bestimmten Stunde (Preset-Klick) */
 function goToHour(h: number) {
   if (compareTimeEnabled.value) {
     if (activeTimepoint.value === 'A') rangeStart.value = Math.max(0, Math.min(23, h))

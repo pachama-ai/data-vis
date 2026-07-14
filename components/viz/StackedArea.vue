@@ -2,6 +2,7 @@
 import { ref, watchEffect, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 import type { HourlyRow } from '~/composables/useData'
+import { aggregate } from '~/utils/aggregate'
 
 const props = defineProps<{ data: HourlyRow[] }>()
 const emit = defineEmits<{ visibleRangeChange: [range: { start: Date; end: Date } | null] }>()
@@ -27,73 +28,18 @@ const hoveredKey = ref<string | null>(null)
 const zoomDomain = ref<[Date, Date] | null>(null)
 const hasZoomed = ref(false)
 
+/** Blendet einen Energieträger in der Legende ein oder aus */
 function toggleKey(key: string) {
   if (visibleKeys.value.has(key)) { visibleKeys.value.delete(key); if (visibleKeys.value.size === 0) visibleKeys.value.add(key) }
   else { visibleKeys.value.add(key) }
   visibleKeys.value = new Set(visibleKeys.value)
 }
+/** Setzt den Zoom auf den Gesamtzeitraum zurück */
 function resetZoom() { zoomDomain.value = null; hasZoomed.value = true; emit('visibleRangeChange', null) }
 
-function aggregate(rows: HourlyRow[], level: string) {
-  // Monats-Akkumulator mit Index-Signatur für dynamische Source-Keys
-  interface Accum {
-    date: Date; total: number; co2Sum: number; co2Count: number; hours: number
-    [key: string]: number | Date
-    biomass: number; hydro: number; wind_onshore: number; wind_offshore: number
-    pv: number; nuclear: number; gas: number; hardcoal: number; lignite: number; other: number
-  }
-  const map = new Map<string, Accum>()
-  const HOURS_EXPECTED: Record<string, number> = { tag: 1, woche: 168, monat: 730, quartal: 2190 }
-  const minFrac = 0.1
-
-  // Konfiguration: pro Aggregationsebene eine Schlüssel-Funktion und eine Datums-Funktion
-  const levelConfig: Record<string, { makeKey: (d: Date) => string; parseDate: (key: string) => Date }> = {
-    tag: {
-      makeKey: (d) => d.toISOString().slice(0, 10),
-      parseDate: (key) => new Date(key),
-    },
-    woche: {
-      makeKey: (d) => {
-        const do4 = new Date(d); do4.setUTCDate(d.getUTCDate() + (4 - (d.getUTCDay() || 7)))
-        const weekNum = Math.ceil(((do4.getTime() - Date.UTC(do4.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7)
-        return do4.getUTCFullYear() + '-W' + String(weekNum).padStart(2, '0')
-      },
-      parseDate: (key) => { const [y, w] = key.split('-W'); return new Date(Date.UTC(+y, 0, 1 + (+w - 1) * 7)) },
-    },
-    monat: {
-      makeKey: (d) => d.getUTCFullYear() + '-' + String(d.getUTCMonth() + 1).padStart(2, '0'),
-      parseDate: (key) => { const [y, m] = key.split('-'); return new Date(Date.UTC(+y, +m - 1, 1)) },
-    },
-    quartal: {
-      makeKey: (d) => d.getUTCFullYear() + '-Q' + (Math.floor(d.getUTCMonth() / 3) + 1),
-      parseDate: (key) => { const [y, q] = key.split('-Q'); return new Date(Date.UTC(+y, (+q - 1) * 3, 1)) },
-    },
-  }
-  const cfg = levelConfig[level] || levelConfig.monat
-
-  for (const row of rows) {
-    const d = new Date(row.timestamp), key = cfg.makeKey(d)
-    if (!map.has(key)) {
-      const init = { date: cfg.parseDate(key), total: 0, co2Sum: 0, co2Count: 0, hours: 0 } as Accum
-      for (const k of ALL_KEYS) init[k] = 0
-      map.set(key, init)
-    }
-    const bucket = map.get(key)!, gen = row.generation_by_source
-    bucket.hours++
-    // Alle Energieträger aufsummieren
-    for (const source of ALL_KEYS) {
-      if (source === 'other') {
-        bucket.other += (gen.other_renewables ?? 0) + (gen.other_fossil ?? 0) + (gen.pumped_storage ?? 0)
-      } else {
-        bucket[source] = (bucket[source] as number) + (gen[source as keyof typeof gen] ?? 0)
-      }
-    }
-    bucket.total += Object.values(gen).reduce((a: number, v) => a + (v ?? 0), 0)
-    bucket.co2Sum += row.co2_g_per_kwh; bucket.co2Count++
-  }
-  const expected = HOURS_EXPECTED[level] || 730
-  return [...map.values()].sort((a, b) => a.date.getTime() - b.date.getTime())
-    .map((d) => (d.hours / expected >= minFrac) ? d : { ...d, _gap: true })
+/** Kurzform: aggregiert Stunden mit CO₂-Tracking auf gewünschtem Level */
+function aggregateHours(rows: HourlyRow[], level: string) {
+  return aggregate(rows, { level: level as any, trackCo2: true })
 }
 
 const svgRef = ref<SVGSVGElement | null>(null)
@@ -126,6 +72,7 @@ const EVENTS = [
   { date: new Date('2023-11-17'), label: 'BVerfG-Urteil zum Klimafonds' },
 ]
 
+/** Formatiert ein Datum nach Aggregations-Level (Monatname, KW, Quartal) */
 function fmtDate(d: Date, level: string): string {
   if (level === 'monat') return d.toLocaleDateString('de-DE', { year: 'numeric', month: 'long' })
   if (level === 'woche') return 'KW ' + Math.ceil(((d.getTime() - Date.UTC(d.getUTCFullYear(), 0, 1)) / 86400000 + 1) / 7) + '/' + d.getUTCFullYear()
@@ -133,15 +80,15 @@ function fmtDate(d: Date, level: string): string {
   return d.toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' })
 }
 
-function getAggregated() { return aggregate(props.data, aggLevel.value) }
-defineExpose({ getAggregated, aggregate, ALL_KEYS })
+/** Gibt die aktuell aggregierten Daten zurück (abhängig vom aggLevel-Ref) */
+function getAggregated() { return aggregateHours(props.data, aggLevel.value) }
 
 // Haupt-Rendering
 watchEffect(() => {
   const rows = props.data
   if (!rows.length || !svgRef.value) return
 
-  const aggregated = aggregate(rows, aggLevel.value)
+  const aggregated = aggregateHours(rows, aggLevel.value)
   const activeKeys = ALL_KEYS.filter((k) => visibleKeys.value.has(k))
   const fullDomain = d3.extent(aggregated, (d) => d.date) as [Date, Date]
   const xDomain = zoomDomain.value ?? fullDomain
@@ -303,16 +250,22 @@ watchEffect(() => {
       if (entry._gap) { tooltipDiv!.style('display', 'none'); return }
       const xPos = xScale(entry.date)
       tooltipLine.attr('x1', xPos).attr('x2', xPos).attr('opacity', 0.4)
-      const unit = mode.value === 'absolute' ? 'TWh' : 'GWh'
-      const divisor = mode.value === 'absolute' ? 1000000 : 1000
-      const totalVal = (entry.total / divisor).toFixed(1)
+      const isPct = mode.value === 'percent'
+      const divisor = isPct ? 1 : 1000000
       const sorted = ALL_KEYS.map((k) => ({ key: k, val: entry[k] })).filter((s) => s.val > 0).sort((a, b) => b.val - a.val)
       let html = '<div style="font-weight:600;margin-bottom:4px;white-space:nowrap">' + fmtDate(entry.date, aggLevel.value) + '</div>'
-      html += '<div style="color:var(--fg-muted);margin-bottom:6px;white-space:nowrap">Gesamt: ' + totalVal + ' ' + unit + '</div>'
+      if (isPct) {
+        html += '<div style="color:var(--fg-muted);margin-bottom:6px;white-space:nowrap">100 %</div>'
+      } else {
+        const totalVal = (entry.total / divisor).toFixed(1)
+        html += '<div style="color:var(--fg-muted);margin-bottom:6px;white-space:nowrap">Gesamt: ' + totalVal + ' TWh</div>'
+      }
       for (const t of sorted) {
         const pct = entry.total > 0 ? (t.val / entry.total * 100).toFixed(1) : '0.0'
         const isTop3 = sorted.indexOf(t) < 3
-        html += '<div style="font-weight:500;font-size:' + (isTop3 ? '12px' : '11px') + ';color:' + (isTop3 ? 'var(--fg)' : 'var(--fg-muted)') + ';white-space:nowrap"><span style="color:' + COLORS[t.key] + '">●</span> ' + LABELS[t.key] + ': ' + (t.val / divisor).toFixed(1) + ' ' + unit + ' (' + pct + '%)</div>'
+        const displayVal = isPct ? pct : (t.val / divisor).toFixed(1)
+        const displayUnit = isPct ? '%' : ' TWh'
+        html += '<div style="font-weight:500;font-size:' + (isTop3 ? '12px' : '11px') + ';color:' + (isTop3 ? 'var(--fg)' : 'var(--fg-muted)') + ';white-space:nowrap"><span style="color:' + COLORS[t.key] + '">●</span> ' + LABELS[t.key] + ': ' + displayVal + displayUnit + (isPct ? '' : ' (' + pct + '%)') + '</div>'
       }
       tooltipDiv!.style('display', 'block').html(html)
         .style('left', (event.clientX > window.innerWidth - 260 ? event.clientX - 240 : event.clientX + 14) + 'px')

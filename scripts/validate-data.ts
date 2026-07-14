@@ -117,7 +117,7 @@ const kritischeFelder = [
   { feld: 'co2_g_per_kwh', label: 'CO₂-Intensität (co2_g_per_kwh)' },
   { feld: 'price_eur_mwh',  label: 'Preis (price_eur_mwh)' },
   { feld: 'ee_share',       label: 'EE-Anteil (ee_share)' },
-  { feld: 'fossil_share',   label: 'Fossil-Anteil (fossil_share)' },
+  { feld: 'fossil_share',   label: 'Konventioneller Anteil (fossil_share)' },
   { feld: 'load_mwh',       label: 'Last (load_mwh)' },
 ]
 

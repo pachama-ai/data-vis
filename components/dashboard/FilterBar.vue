@@ -14,6 +14,7 @@ const { state } = useFilters()
 
 const YEARS = [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024]
 
+/** Wechselt den Filter-Modus und setzt das ausgewählte Jahr zurück */
 function applyMode(m: FilterMode) {
   state.mode = m
   if (m === 'gesamt') {
@@ -25,6 +26,7 @@ function applyMode(m: FilterMode) {
   }
 }
 
+/** Wählt ein bestimmtes Jahr für den Jahr-Modus aus */
 function selectYear(y: number) {
   state.year = y
 }

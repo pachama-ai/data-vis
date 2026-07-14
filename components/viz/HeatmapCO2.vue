@@ -26,7 +26,7 @@ interface MetricConfig {
 const METRICS: MetricConfig[] = [
   { key: 'co2',    label: 'CO₂-Intensität',   unit: 'g/kWh',   value: (r) => r.co2_g_per_kwh,      colorLo: '#F5F5F0', colorHi: '#6B4423', legendLo: 'niedrige', legendHi: 'hohe CO₂-Intensität' },
   { key: 'ee',     label: 'EE-Anteil',         unit: '%',       value: (r) => r.ee_share,           colorLo: '#F5F5F0', colorHi: '#2D6A4F', legendLo: 'niedriger', legendHi: 'hoher EE-Anteil' },
-  { key: 'fossil', label: 'Fossiler Anteil',   unit: '%',       value: (r) => r.fossil_share,        colorLo: '#F5F5F0', colorHi: '#3A3A3A', legendLo: 'niedriger', legendHi: 'hoher fossiler Anteil' },
+  { key: 'fossil', label: 'Konventioneller Anteil', unit: '%',  value: (r) => r.fossil_share,        colorLo: '#F5F5F0', colorHi: '#3A3A3A', legendLo: 'niedriger', legendHi: 'hoher konventioneller Anteil' },
   { key: 'price',  label: 'Day-Ahead-Preis',   unit: 'EUR/MWh', value: (r) => r.price_eur_mwh,       colorLo: '#F5F5F0', colorHi: '#D97742', diverging: true, legendLo: 'negativ', legendHi: 'hoher Preis' },
 ]
 
@@ -44,16 +44,17 @@ const scaleMode = ref<'einheitlich' | 'jaehrlich'>('einheitlich')
 // Aggregierte Daten: 24×12 Matrix
 const ALL_MONTHS = [0,1,2,3,4,5,6,7,8,9,10,11]
 // ----------------------------------------------------------------
+/** Baut die 24×12-Matrix: Mittelwert pro (Monat, Stunde) für ein Jahr */
 function computeMonthlyHeatmap(rows: HourlyRow[], year: number, metric: MetricConfig, months: number[]): number[][] {
   const result: number[][] = Array.from({ length: 12 }, () => Array(24).fill(NaN))
   const counts: number[][] = Array.from({ length: 12 }, () => Array(24).fill(0))
   for (const r of rows) {
-    const d = new Date(r.timestamp)
-    const y = d.getUTCFullYear()
+    const ts = r.timestamp
+    const y = getBerlinYear(ts)
     if (y !== year) continue
-    const m = d.getUTCMonth()
+    const m = getBerlinMonth(ts) - 1 // 1-based → 0-based für Array
     if (!months.includes(m)) continue
-    const h = d.getUTCHours()
+    const h = getBerlinHour(ts)
     const v = metric.value(r)
     if (!Number.isFinite(v)) continue
     if (isNaN(result[m][h])) { result[m][h] = v; counts[m][h] = 1 }
@@ -67,6 +68,7 @@ function computeMonthlyHeatmap(rows: HourlyRow[], year: number, metric: MetricCo
   return result
 }
 
+/** Wandelt die 24×12-Matrix in ein flaches Array um (für Sortierung, Extremwerte) */
 function getFlatData(matrix: number[][]): { month: number; hour: number; value: number }[] {
   const out: { month: number; hour: number; value: number }[] = []
   for (let m = 0; m < 12; m++) {
@@ -170,6 +172,7 @@ const MONTH_LABELS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Ok
 watch([() => activeMetric.value, () => selectedYear.value, scaleMode, containerWidth], () => { drawHeatmap() }, { deep: false })
 onMounted(() => { drawHeatmap() })
 
+/** Ermittelt den globalen Wertebereich einer Metrik über alle Jahre (2015–2024) */
 function globalMinMax(metric: MetricConfig): [number, number] {
   if (metric.diverging) {
     // Feste Skala für Preise: −50 bis 300 EUR/MWh
@@ -209,6 +212,7 @@ function drawHeatmap() {
   drawSingle(svgRef.value, matrix, flat, metric, dataMin, dataMax, selectedYear.value, containerWidth.value)
 }
 
+/** Haupt-Rendering: baut das SVG mit Zellen, Achsen, Legende und Tooltip */
 function drawSingle(
   svgEl: SVGSVGElement,
   matrix: number[][],

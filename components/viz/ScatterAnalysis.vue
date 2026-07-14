@@ -9,6 +9,7 @@
 import { ref, computed, watch, onUnmounted } from 'vue'
 import * as d3 from 'd3'
 import type { HourlyRow } from '~/composables/useData'
+import { getBerlinHour, getBerlinYear, getBerlinMonth, getBerlinDay } from '~/utils/berlin'
 
 const props = defineProps<{ data: HourlyRow[] }>()
 
@@ -22,7 +23,7 @@ interface AxisOption {
 
 const X_OPTIONS: AxisOption[] = [
   { key: 'ee_share',     label: 'EE-Anteil',       unit: '%',      value: (r) => r.ee_share },
-  { key: 'fossil_share', label: 'Fossil-Anteil',   unit: '%',      value: (r) => r.fossil_share },
+  { key: 'fossil_share', label: 'Konventioneller Anteil', unit: '%',  value: (r) => r.fossil_share },
   { key: 'load',         label: 'Stromnachfrage',   unit: 'GW',     value: (r) => r.load_mwh / 1000 },
   { key: 'price',        label: 'Strompreis',       unit: '€/MWh',  value: (r) => r.price_eur_mwh },
 ]
@@ -48,11 +49,13 @@ const DATA_START = new Date(Date.UTC(2015, 0, 1))
 const DATA_END = new Date(Date.UTC(2024, 11, 31, 23, 59, 59))
 const TOTAL_MONTHS = 120 // Jan 2015 – Dez 2024
 
+/** Wandelt einen Monats-Index (0–119) in ein UTC-Datum um */
 function monthToDate(m: number): Date {
   return new Date(Date.UTC(2015 + Math.floor(m / 12), m % 12, 1))
 }
+/** Wandelt ein Datum in einen Monats-Index um (0–119, Berlin-Jahr) */
 function dateToMonth(d: Date): number {
-  return (d.getUTCFullYear() - 2015) * 12 + d.getUTCMonth()
+  return (getBerlinYear(d.getTime()) - 2015) * 12 + getBerlinMonth(d.getTime()) - 1
 }
 
 const MONTH_LABELS = ['Jan','Feb','Mär','Apr','Mai','Jun','Jul','Aug','Sep','Okt','Nov','Dez']
@@ -86,11 +89,13 @@ const RANGE_PRESETS = [
   { label: '2023/24', start: 96, end: TOTAL_MONTHS - 1 },
 ]
 
+/** Springt zu einem vorgegebenen Zeitraum (Preset-Button) */
 function applyPreset(start: number, end: number) {
   selectedStartIdx.value = start
   selectedEndIdx.value = end
 }
 
+/** Verhindert, dass Start-Index größer als End-Index wird */
 function clampRange() {
   if (selectedStartIdx.value > selectedEndIdx.value) {
     selectedEndIdx.value = selectedStartIdx.value
@@ -117,6 +122,7 @@ function getHourColor(h: number): string {
   for (const [lo, hi, c] of HOUR_COLORS) { if (h >= lo && h <= hi) return c }
   return '#2C3E50'
 }
+/** Gibt den Tageszeit-Schlüssel für eine Stunde zurück (nacht/morgen/tag/abend) */
 function getHourKey(h: number): string {
   if (h >= 0 && h <= 5) return 'nacht'
   if (h >= 6 && h <= 9) return 'morgen'
@@ -213,7 +219,7 @@ const rangePoints = computed<Point[]>(() => {
     id: r.timestamp,
     x: xFn(r),
     y: r.co2_g_per_kwh,
-    hour: new Date(r.timestamp).getUTCHours(),
+    hour: getBerlinHour(r.timestamp),
   })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
 
   const n = all.length; if (n === 0) return []
@@ -397,7 +403,7 @@ const compareAPoints = computed<Point[]>(() => {
     id: r.timestamp,
     x: xFn(r),
     y: r.co2_g_per_kwh,
-    hour: new Date(r.timestamp).getUTCHours(),
+    hour: getBerlinHour(r.timestamp),
   })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
 })
 
@@ -414,7 +420,7 @@ const compareBPoints = computed<Point[]>(() => {
     id: r.timestamp,
     x: xFn(r),
     y: r.co2_g_per_kwh,
-    hour: new Date(r.timestamp).getUTCHours(),
+    hour: getBerlinHour(r.timestamp),
   })).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y))
 })
 // ----------------------------------------------------------------
@@ -448,10 +454,10 @@ const selectedHour = ref<{ point: Point; row: HourlyRow } | null>(null)
 // ----------------------------------------------------------------
 function formatTimestamp(ts: number): string {
   const d = new Date(ts)
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const yyyy = d.getUTCFullYear()
-  const hh = String(d.getUTCHours()).padStart(2, '0')
+  const dd = String(getBerlinDay(ts)).padStart(2, '0')
+  const mm = String(getBerlinMonth(ts)).padStart(2, '0')
+  const yyyy = getBerlinYear(ts)
+  const hh = String(getBerlinHour(ts)).padStart(2, '0')
   return `${dd}.${mm}.${yyyy}, ${hh}:00`
 }
 
