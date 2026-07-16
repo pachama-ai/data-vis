@@ -128,19 +128,7 @@ const rangeStart = ref(7)
 const rangeEnd = ref(16)
 const compareTimeEnabled = ref(false)
 
-// Welcher Zeitpunkt gerade aktiv ist — A (Ausgang) oder B (Vergleich)
-const activeTimepoint = ref<'A' | 'B'>('A')
 
-function onSliderAInput(e: Event): void {
-  const v = Number((e.target as HTMLInputElement).value)
-  rangeStart.value = Math.min(v, 23)
-  activeTimepoint.value = 'A'
-}
-function onSliderBInput(e: Event): void {
-  const v = Number((e.target as HTMLInputElement).value)
-  rangeEnd.value = Math.max(v, 0)
-  activeTimepoint.value = 'B'
-}
 const profile = ref<HourPoint[]>([])
 const current = computed(() => profile.value[currentHour.value] || profile.value[0])
 const rangeStartPoint = computed(() => profile.value[rangeStart.value] || profile.value[0])
@@ -151,72 +139,41 @@ function setSparkRef(i: number) { return (el: SVGSVGElement | null) => { sparkRe
 watch(() => props.data, (rows) => { if (rows.length) profile.value = computeProfile(rows, profileMode.value) }, { immediate: true })
 watch(profileMode, () => { if (props.data.length) profile.value = computeProfile(props.data, profileMode.value) })
 
-/**
- * Ordnet einen Wert im Tagesverlauf ein: nahe Maximum, Minimum oder im mittleren Bereich.
- * @param v Aktueller Wert.
- * @param mx Maximum des Tages.
- * @param mn Minimum des Tages.
- * @param av Durchschnitt des Tages.
- * @returns Beschreibung der Position im Tagesverlauf.
- */
-function dayContext(v: number, mx: number, mn: number, av: number): string {
-  const range = mx - mn
-  if (range === 0) return `Ø ${fmtNum(av)}`
-  const third = range / 3
-  const pos = v >= mx - third
-    ? 'nahe Tages-Max'
-    : v <= mn + third
-      ? 'nahe Tages-Min'
-      : 'mittlerer Tagesbereich'
-  return `${pos} (Ø ${fmtNum(av)})`
-}
-
-/**
- * Berechnet Maximum, Minimum und Durchschnitt für eine Metrik über alle 24 Stunden.
- * @param data Array mit 24 HourPoint-Einträgen.
- * @param key Welche Metrik (pv, residuallast, price, co2).
- * @returns Objekt mit vals, max, min, avg.
- */
-function cardStats(data: HourPoint[], key: keyof HourPoint) {
+function avgOf(data: HourPoint[], key: keyof HourPoint): number {
   const vals = data.map((d) => d[key] as number)
-  return {
-    vals,
-    max: Math.max(...vals),
-    min: Math.min(...vals),
-    avg: vals.reduce((a, v) => a + v, 0) / vals.length,
-  }
+  return vals.reduce((a, v) => a + v, 0) / vals.length
 }
 
 const cards = computed(() => {
   const p = profile.value; if (!p.length) return []
   const h = compareTimeEnabled.value ? rangeStartPoint.value : current.value
   const hEnd = compareTimeEnabled.value ? rangeEndPoint.value : current.value
-  const { vals: allPv, max: maxPv, min: minPv, avg: avgPv } = cardStats(p, 'pv')
-  const { vals: allRl, max: maxRl, min: minRl, avg: avgRl } = cardStats(p, 'residuallast')
-  const { vals: allPrice, max: maxPrice, min: minPrice, avg: avgPrice } = cardStats(p, 'price')
-  const { vals: allCo2, max: maxCo2, min: minCo2, avg: avgCo2 } = cardStats(p, 'co2')
+  const avgPv = avgOf(p, 'pv')
+  const avgRl = avgOf(p, 'residuallast')
+  const avgPrice = avgOf(p, 'price')
+  const avgCo2 = avgOf(p, 'co2')
 
   return [
     { key: 'pv', label: 'PV-Erzeugung', unit: 'GW', color: '#E8B547',
       value: h.pv.toFixed(1), valueEnd: hEnd.pv.toFixed(1),
       diff: compareTimeEnabled.value ? hEnd.pv - h.pv : null,
-      spark: allPv,
-      context: dayContext(h.pv, maxPv, minPv, avgPv) },
+      spark: p.map((d) => d.pv),
+      context: `Durchschnitt: ${avgPv.toFixed(1)} GW` },
     { key: 'residuallast', label: 'Residuallast', unit: 'GW', color: '#3A3A3A',
       value: h.residuallast.toFixed(1), valueEnd: hEnd.residuallast.toFixed(1),
       diff: compareTimeEnabled.value ? hEnd.residuallast - h.residuallast : null,
-      spark: allRl,
-      context: dayContext(h.residuallast, maxRl, minRl, avgRl) },
+      spark: p.map((d) => d.residuallast),
+      context: `Durchschnitt: ${avgRl.toFixed(1)} GW` },
     { key: 'price', label: 'Day-Ahead-Preis', unit: 'EUR/MWh', color: 'var(--accent)',
       value: h.price.toFixed(1), valueEnd: hEnd.price.toFixed(1),
       diff: compareTimeEnabled.value ? hEnd.price - h.price : null,
-      spark: allPrice,
-      context: dayContext(h.price, maxPrice, minPrice, avgPrice) },
+      spark: p.map((d) => d.price),
+      context: `Durchschnitt: ${avgPrice.toFixed(1)} EUR/MWh` },
     { key: 'co2', label: 'CO₂-Intensität', unit: 'g/kWh', color: '#6B4423',
       value: h.co2.toFixed(0), valueEnd: hEnd.co2.toFixed(0),
       diff: compareTimeEnabled.value ? hEnd.co2 - h.co2 : null,
-      spark: allCo2,
-      context: dayContext(h.co2, maxCo2, minCo2, avgCo2) },
+      spark: p.map((d) => d.co2),
+      context: `Durchschnitt: ${avgCo2.toFixed(0)} g/kWh` },
   ]
 })
 
@@ -301,33 +258,17 @@ function drawSingleSparkline(
 
 const presets = [
   { hour: 3, label: '03 Uhr Nacht' }, { hour: 8, label: '08 Uhr Morgen' },
-  { hour: 13, label: '13 Uhr PV-Peak' }, { hour: 18, label: '18 Uhr Abendrampe' }, { hour: 22, label: '22 Uhr Abend' },
+  { hour: 13, label: '13 Uhr PV-Peak' }, { hour: 18, label: '18 Uhr Abendhoch' }, { hour: 22, label: '22 Uhr Abend' },
 ]
 /**
- * Prüft, ob ein Preset-Marker gerade aktiv ist und in welchem Modus.
- * @param prHour Die Stunde des Presets (0–23).
- * @returns 'A', 'B', 'both' oder 'none'.
- */
-function presetMarkerState(prHour: number): 'A' | 'B' | 'both' | 'none' {
-  if (!compareTimeEnabled.value) {
-    return currentHour.value === prHour ? 'A' : 'none'
-  }
-  const aMatch = rangeStart.value === prHour
-  const bMatch = rangeEnd.value === prHour
-  if (aMatch && bMatch) return 'both'
-  if (aMatch) return 'A'
-  if (bMatch) return 'B'
-  return 'none'
-}
-/**
  * Setzt die ausgewählte Stunde (per Preset-Button).
- * Im Vergleichsmodus wird je nach activeTimepoint rangeStart oder rangeEnd gesetzt.
+ * Im Vergleichsmodus werden beide Slider auf die Stunde gesetzt.
  * @param h Die Ziel-Stunde (0–23).
  */
 function goToHour(h: number) {
   if (compareTimeEnabled.value) {
-    if (activeTimepoint.value === 'A') rangeStart.value = Math.max(0, Math.min(23, h))
-    else rangeEnd.value = Math.max(0, Math.min(23, h))
+    rangeStart.value = Math.max(0, Math.min(23, h))
+    rangeEnd.value = Math.max(0, Math.min(23, h))
   } else {
     currentHour.value = Math.max(0, Math.min(23, h))
   }
@@ -339,9 +280,9 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 <template>
   <div class="duck-section">
     <div class="duck-header">
-      <h3 class="duck-heading">Der Tag in Zahlen</h3>
+      <h3 class="duck-heading">Stündliche Muster im Tagesverlauf</h3>
     </div>
-    <p class="duck-subtitle">Bewege den Regler durch den Tag und sieh, wie sich Erzeugung, Preis und CO₂-Intensität stündlich verändern. Basierend auf Durchschnittswerten aus SMARD und ENTSO-E.</p>
+    <p class="duck-subtitle">Jeder Wert zeigt den Mittelwert aller entsprechenden Stunden im Zeitraum 2015 bis 2024.</p>
 
     <div class="mode-bar">
       <span class="mode-label">Modus:</span>
@@ -376,30 +317,27 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 
       <div class="comparison-summary">
         <span class="cs-range">{{ String(rangeStart).padStart(2, '0') }}:00 → {{ String(rangeEnd).padStart(2, '0') }}:00</span>
-        <span class="cs-diff">{{ Math.abs(rangeEnd - rangeStart) }} Stunden Abstand</span>
       </div>
 
       <!-- Timeline A -->
       <div class="timeline-row">
-        <span class="timeline-label-tag">A</span>
         <div class="timeline-content">
           <div class="timeline-header">
             <span class="timeline-eyebrow">AUSGANGSZEITPUNKT</span>
             <span class="timeline-time">{{ String(rangeStart).padStart(2, '0') }}:00</span>
           </div>
-          <input type="range" class="timeline-slider timeline-slider-a" min="0" max="23" step="1" :value="rangeStart" @input="onSliderAInput($event)" />
+          <input type="range" class="timeline-slider timeline-slider-a" min="0" max="23" step="1" v-model.number="rangeStart" />
         </div>
       </div>
 
       <!-- Timeline B -->
       <div class="timeline-row">
-        <span class="timeline-label-tag timeline-label-tag-b">B</span>
         <div class="timeline-content">
           <div class="timeline-header">
             <span class="timeline-eyebrow">VERGLEICHSZEITPUNKT</span>
             <span class="timeline-time timeline-time-b">{{ String(rangeEnd).padStart(2, '0') }}:00</span>
           </div>
-          <input type="range" class="timeline-slider timeline-slider-b" min="0" max="23" step="1" :value="rangeEnd" @input="onSliderBInput($event)" />
+          <input type="range" class="timeline-slider timeline-slider-b" min="0" max="23" step="1" v-model.number="rangeEnd" />
         </div>
       </div>
 
@@ -408,38 +346,12 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
         <span v-for="h in [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]" :key="h" class="tl-label">{{ String(h).padStart(2, '0') }}</span>
       </div>
 
-      <!-- A/B Auswahl -->
-      <div class="ab-selector">
-        <span class="ab-selector-label">ZEITPUNKT ÄNDERN:</span>
-        <span class="ab-option" :class="{ active: activeTimepoint === 'A' }" @click="activeTimepoint = 'A'">A</span>
-        <span class="ab-sep">/</span>
-        <span class="ab-option" :class="{ active: activeTimepoint === 'B' }" @click="activeTimepoint = 'B'">B</span>
-      </div>
-
-      <!-- Schnellwahl -->
-      <div class="quick-pick">
-        <button v-for="pr in presets" :key="pr.hour" class="qp-btn"
-          :class="{
-            'qp-active-a': presetMarkerState(pr.hour) === 'A',
-            'qp-active-b': presetMarkerState(pr.hour) === 'B',
-            'qp-active-both': presetMarkerState(pr.hour) === 'both'
-          }"
-          @click="goToHour(pr.hour)">
-          <span class="qp-dot"
-            :class="{
-              'qp-dot-a': presetMarkerState(pr.hour) === 'A',
-              'qp-dot-b': presetMarkerState(pr.hour) === 'B',
-              'qp-dot-both': presetMarkerState(pr.hour) === 'both'
-            }"></span>
-          {{ pr.label }}
-        </button>
-      </div>
     </div>
 
     <!-- Einzel-Modus: einfacher Slider -->
     <div v-else class="single-slider-section">
       <div class="time-display"><span class="time-bullet">●</span> {{ String(currentHour).padStart(2, '0') }}:00 <span class="time-bullet">●</span></div>
-      <input type="range" class="time-slider" min="0" max="23" step="1" :value="currentHour" @input="currentHour = Number(($event.target as HTMLInputElement).value)" />
+      <input type="range" class="time-slider" min="0" max="23" step="1" v-model.number="currentHour" />
       <div class="tick-labels"><span v-for="h in [0, 4, 8, 12, 16, 20]" :key="h">{{ String(h).padStart(2, '0') }}</span></div>
       <div class="preset-row">
         <button v-for="pr in presets" :key="pr.hour" class="preset-btn" :class="{ active: currentHour === pr.hour }" @click="goToHour(pr.hour)">
@@ -448,65 +360,7 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
       </div>
     </div>
 
-    <!-- Abstand + Trennlinie vor Methodik -->
-    <div class="methodik-gap"></div>
-    <div class="methodik-rule"></div>
 
-    <!-- Methodik-Bereich (immer sichtbar) -->
-    <div class="methodik-section">
-      <div class="methodik-eyebrow">METHODIK &amp; DATENQUELLEN</div>
-      <h4 class="methodik-heading">Wie die Werte berechnet wurden</h4>
-
-      <div class="methodik-block">
-        <div class="methodik-block-kicker">PV-ERZEUGUNG</div>
-        <div class="methodik-body">
-          <p><strong>Datenquelle:</strong> SMARD — realisierte Erzeugung, Energieträger „Photovoltaik"</p>
-          <p><strong>Auflösung:</strong> stündlich, Deutschland (Regelzone gesamt)</p>
-          <p><strong>Berechnung:</strong> arithmetisches Mittel aller Stunden desselben Uhrzeit-Slots im gewählten Zeitraum. Beispiel: der Wert für 13:00 im Modus „Sommer" ist der Durchschnitt aller 13:00-Werte an Sommertagen (Juni–August) 2024.</p>
-        </div>
-      </div>
-
-      <div class="methodik-block">
-        <div class="methodik-block-kicker">RESIDUALLAST</div>
-        <div class="methodik-body">
-          <p><strong>Datenquelle:</strong> berechnet aus SMARD-Werten: realisierte Netzlast minus Wind Onshore minus Wind Offshore minus Photovoltaik minus Wasserkraft minus Biomasse</p>
-          <p><strong>Auflösung:</strong> stündlich, Deutschland</p>
-          <p><strong>Berechnung:</strong> arithmetisches Mittel aller Stunden desselben Uhrzeit-Slots im gewählten Zeitraum. Sie zeigt den Bedarf, der nach Einspeisung aller volatilen und erneuerbaren Quellen aus konventionellen Kraftwerken gedeckt werden muss.</p>
-        </div>
-      </div>
-
-      <div class="methodik-block">
-        <div class="methodik-block-kicker">DAY-AHEAD-PREIS</div>
-        <div class="methodik-body">
-          <p><strong>Datenquelle:</strong> ENTSO-E Transparency Platform — Day-Ahead-Auktion, Marktgebiet Deutschland-Luxemburg (DE-LU ab Oktober 2018, davor DE-AT-LU)</p>
-          <p><strong>Auflösung:</strong> stündliche Preise in EUR/MWh</p>
-          <p><strong>Berechnung:</strong> arithmetisches Mittel aller Stunden desselben Uhrzeit-Slots im gewählten Zeitraum. Negative Preise werden mit ihrem tatsächlichen negativen Wert einbezogen, nicht bei null abgeschnitten.</p>
-        </div>
-      </div>
-
-      <div class="methodik-block">
-        <div class="methodik-block-kicker">CO₂-INTENSITÄT</div>
-        <div class="methodik-body">
-          <p><strong>Datenquelle:</strong> berechnet aus SMARD-Erzeugungswerten und UBA-Emissionsfaktoren pro Energieträger (Braunkohle, Steinkohle, Erdgas, Kernkraft, Erneuerbare)</p>
-          <p><strong>Auflösung:</strong> stündlich</p>
-          <p><strong>Berechnung:</strong> für jede Stunde: Summe aus (Erzeugung Träger × Emissionsfaktor Träger) geteilt durch Gesamterzeugung. Diese Stundenwerte werden für den Zeitregler pro Uhrzeit-Slot gemittelt.</p>
-        </div>
-      </div>
-
-      <div class="methodik-block">
-        <div class="methodik-block-kicker">ZEITRAUM-VERGLEICH</div>
-        <div class="methodik-body">
-          <p>Mit dem Schalter „Zeitraum-Vergleich" aktivierst du zwei Regler-Griffe: einen Start- und einen Endzeitpunkt. Die Karten zeigen dann beide Werte sowie die Differenz (Ende − Start). Der Start-Griff ist gefüllt, der End-Griff als offener Kreis dargestellt.</p>
-        </div>
-      </div>
-
-      <div class="methodik-block">
-        <div class="methodik-block-kicker">AUSSAGEGRENZE</div>
-        <div class="methodik-body">
-          <p>Alle angezeigten Werte sind Durchschnitte über viele Tage. Einzelne Tage weichen deutlich ab. An sonnigen Sommertagen kann der PV-Peak über 30 GW liegen und der Preis mittags unter null fallen. An windarmen Wintertagen erreicht der Preis 200 EUR/MWh und mehr. Die Sektion zeigt typische Muster, keine Einzelfälle.</p>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 
@@ -561,12 +415,10 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 
 .comparison-summary { display:flex; align-items:baseline; gap:12px; margin-bottom:28px; }
 .cs-range { font-family:var(--font-serif); font-size:26px; font-weight:500; color:var(--fg); }
-.cs-diff { font-family:var(--font-sans); font-size:12px; color:var(--fg-muted); }
 
 /* Einzelne Timeline-Zeile */
 .timeline-row { display:flex; align-items:flex-start; gap:12px; margin-bottom:20px; }
-.timeline-label-tag { font-family:var(--font-sans); font-size:11px; font-weight:600; color:var(--fg); width:16px; text-align:center; margin-top:2px; flex-shrink:0; }
-.timeline-label-tag-b { color:var(--fg-muted); }
+
 
 .timeline-content { flex:1; }
 .timeline-header { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:6px; }
@@ -591,24 +443,10 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 .tl-label { font-family:var(--font-sans); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-muted); opacity:0.6; }
 
 /* A/B Selector — textbasiert, kein Toggle */
-.ab-selector { display:flex; align-items:center; gap:4px; margin-bottom:20px; margin-left:28px; }
-.ab-selector-label { font-family:var(--font-sans); font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted); margin-right:8px; }
-.ab-option { font-family:var(--font-sans); font-size:13px; font-weight:500; color:var(--fg-muted); cursor:pointer; padding:1px 0; border-bottom:1.5px solid transparent; transition:all .15s; }
-.ab-option.active { color:var(--fg); border-bottom-color:var(--fg); }
-.ab-option:hover { color:var(--fg); }
-.ab-sep { font-family:var(--font-sans); font-size:13px; color:var(--fg-muted); opacity:0.4; margin:0 2px; }
+
 
 /* Schnellwahl — textbasiert, kleine Kreise als Marker */
-.quick-pick { display:flex; gap:20px; flex-wrap:wrap; margin-left:28px; }
-.qp-btn { font-family:var(--font-sans); font-size:12px; color:var(--fg-muted); background:none; border:none; cursor:pointer; padding:3px 0; display:inline-flex; align-items:center; gap:6px; transition:color .15s; }
-.qp-btn:hover { color:var(--fg); }
-.qp-dot { display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--fg-muted); opacity:0.3; flex-shrink:0; transition:all .15s; }
-.qp-dot-a { background:var(--fg); opacity:1; }
-.qp-dot-b { background:transparent; border:1.5px solid var(--fg-muted); opacity:1; width:6px; height:6px; }
-.qp-dot-both { background:var(--fg); opacity:1; }
-.qp-active-a { color:var(--fg); font-weight:500; }
-.qp-active-b { color:var(--fg); }
-.qp-active-both { color:var(--fg); font-weight:500; }
+
 
 /* ---- Einzel-Modus Slider ---- */
 .single-slider-section { margin-bottom:32px; }
@@ -629,21 +467,7 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 .preset-marker { display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--fg-muted); opacity:0.3; flex-shrink:0; transition:all .15s; }
 .preset-marker.active { background:var(--fg); opacity:1; }
 
-/* ---- Abstand + Trennlinie vor Methodik ---- */
-.methodik-gap { height:64px; }
-.methodik-rule { height:1px; background:var(--hairline); margin-bottom:32px; }
 
-/* ---- Methodik-Bereich ---- */
-.methodik-section { max-width:800px; }
-.methodik-eyebrow { font-family:var(--font-sans); font-size:11px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted); margin-bottom:4px; }
-.methodik-heading { font-family:var(--font-serif); font-size:20px; font-weight:500; color:var(--fg); margin:0 0 28px; }
-.methodik-block { margin-bottom:24px; }
-.methodik-block:last-child { margin-bottom:0; }
-.methodik-block-kicker { font-family:var(--font-sans); font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; color:var(--fg-muted); margin-bottom:6px; }
-.methodik-body { font-family:var(--font-sans); font-size:14px; color:var(--fg); line-height:1.6; max-width:720px; }
-.methodik-body p { margin:0 0 4px; }
-.methodik-body p:last-child { margin-bottom:0; }
-.methodik-body strong { font-weight:600; color:var(--fg); }
 
 /* ---- Responsive ---- */
 @media (max-width:700px) { .kpi-row { grid-template-columns:repeat(2,1fr); } .card-cell:nth-child(2) { border-right:none; } }

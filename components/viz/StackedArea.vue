@@ -334,7 +334,7 @@ watchEffect(() => {
         <span class="legend-label" :class="{struck:!visibleKeys.has(key)}">{{ LABELS[key] }}</span>
       </button>
     </div>
-    <div class="legend-hint">Klicken zum Ausblenden</div>
+    <div class="legend-hint">Klicken zum Ausblenden · Scrollen zum Zoomen</div>
     <div class="chart-wrap"><svg ref="svgRef"></svg></div>
     <div class="event-legend">1 Paris · 2 EEG-Reform · 3 Corona · 4 Kohleausstieg · 5 Ukraine-Krieg · 6 Gaspreis · 7 Atomausstieg · 8 BVerfG-Urteil</div>
     <div v-if="!zoomDomain||(zoomDomain[0]<=new Date('2018-12-31')&&zoomDomain[1]>=new Date('2018-01-01'))" class="data-warning">
@@ -366,6 +366,6 @@ watchEffect(() => {
 .chart-wrap { width:100%; }
 .chart-wrap svg { width:100%; height:auto; display:block; }
 .event-legend { font-family:var(--font-sans); font-size:10px; color:var(--fg-muted); line-height:1.6; margin-top:4px; opacity:0.7; }
-.data-warning { background:#FDF6E3; border-left:3px solid #E8B547; padding:12px; font-family:var(--font-sans); font-size:13px; color:var(--fg); line-height:1.5; margin-top:12px; border-radius:0 4px 4px 0; }
+.data-warning { background:#EDF3EB; border-left:3px solid var(--accent); padding:12px; font-family:var(--font-sans); font-size:13px; color:var(--fg); line-height:1.5; margin-top:12px; border-radius:0 4px 4px 0; }
 </style>
 

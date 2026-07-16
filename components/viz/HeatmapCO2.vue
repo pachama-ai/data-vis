@@ -33,10 +33,10 @@ interface MetricConfig {
 }
 
 const METRICS: MetricConfig[] = [
-  { key: 'co2',    label: 'CO₂-Intensität',   unit: 'g/kWh',   value: (r) => r.co2_g_per_kwh,      colorLo: '#F5F5F0', colorHi: '#6B4423', legendLo: 'niedrige', legendHi: 'hohe CO₂-Intensität' },
+  { key: 'co2',    label: 'CO₂-Intensität',   unit: 'g CO₂/kWh', value: (r) => r.co2_g_per_kwh,      colorLo: '#F5F5F0', colorHi: '#6B4423', legendLo: 'niedrige', legendHi: 'hohe CO₂-Intensität' },
   { key: 'ee',     label: 'EE-Anteil',         unit: '%',       value: (r) => r.ee_share,           colorLo: '#F5F5F0', colorHi: '#2D6A4F', legendLo: 'niedriger', legendHi: 'hoher EE-Anteil' },
   { key: 'fossil', label: 'Konventioneller Anteil', unit: '%',  value: (r) => r.fossil_share,        colorLo: '#F5F5F0', colorHi: '#3A3A3A', legendLo: 'niedriger', legendHi: 'hoher konventioneller Anteil' },
-  { key: 'price',  label: 'Day-Ahead-Preis',   unit: 'EUR/MWh', value: (r) => r.price_eur_mwh,       colorLo: '#F5F5F0', colorHi: '#D97742', diverging: true, legendLo: 'negativ', legendHi: 'hoher Preis' },
+  { key: 'price',  label: 'Day-Ahead-Preis',   unit: '€/MWh', value: (r) => r.price_eur_mwh,       colorLo: '#F5F5F0', colorHi: '#D97742', diverging: true, legendLo: 'negativ', legendHi: 'hoher Preis' },
 ]
 
 const activeMetric = ref<MetricKey>('co2')
@@ -60,27 +60,30 @@ const ALL_MONTHS = [0,1,2,3,4,5,6,7,8,9,10,11]
  * @param months Monats-Indizes (0–11), die berücksichtigt werden sollen.
  * @returns 12×24-Matrix (Monat × Stunde). Fehlende Zellen = NaN.
  */
-function computeMonthlyHeatmap(rows: HourlyRow[], year: number, metric: MetricConfig, months: number[]): number[][] {
-  const result: number[][] = Array.from({ length: 12 }, () => Array(24).fill(NaN))
+function computeMonthlyHeatmap(rows: HourlyRow[], year: number, metric: MetricConfig, months: number[]): {
+  values: number[][]
+  counts: number[][]
+} {
+  const values: number[][] = Array.from({ length: 12 }, () => Array(24).fill(NaN))
   const counts: number[][] = Array.from({ length: 12 }, () => Array(24).fill(0))
   for (const r of rows) {
     const ts = r.timestamp
     const y = getBerlinYear(ts)
     if (y !== year) continue
-    const m = getBerlinMonth(ts) - 1 // 1-based → 0-based für Array
+    const m = getBerlinMonth(ts) - 1
     if (!months.includes(m)) continue
     const h = getBerlinHour(ts)
     const v = metric.value(r)
     if (!Number.isFinite(v)) continue
-    if (isNaN(result[m][h])) { result[m][h] = v; counts[m][h] = 1 }
-    else { result[m][h] += v; counts[m][h]++ }
+    if (isNaN(values[m][h])) { values[m][h] = v; counts[m][h] = 1 }
+    else { values[m][h] += v; counts[m][h]++ }
   }
   for (let m = 0; m < 12; m++) {
     for (let h = 0; h < 24; h++) {
-      if (counts[m][h] > 0) result[m][h] /= counts[m][h]
+      if (counts[m][h] > 0) values[m][h] /= counts[m][h]
     }
   }
-  return result
+  return { values, counts }
 }
 
 /**
@@ -112,7 +115,7 @@ function getFlatData(matrix: number[][]): { month: number; hour: number; value: 
 function makeColorScale(metric: MetricConfig, dataMin: number, dataMax: number, useFixedScale: boolean) {
   if (metric.diverging) {
     if (useFixedScale) {
-      // Feste inhaltliche Skala für Jahresvergleich: −50 bis 300 EUR/MWh
+      // Feste inhaltliche Skala für Jahresvergleich: −50 bis 300 €/MWh
       const domain = [-50, 0, 50, 100, 200, 300]
       const colors = ['#4A90A4', '#F5F5F0', '#FDE8D0', '#F5C6A0', '#D97742', '#B85C3A']
       return d3.scaleLinear<string>().domain(domain).range(colors).clamp(true)
@@ -137,7 +140,7 @@ function makeColorScale(metric: MetricConfig, dataMin: number, dataMax: number, 
 
 // sidebar: höchster/niedrigster wert + monat mit größter spanne
 const sidebarExtremes = computed(() => {
-  const matrix = computeMonthlyHeatmap(props.data, selectedYear.value, currentMetric.value, ALL_MONTHS)
+  const { values: matrix } = computeMonthlyHeatmap(props.data, selectedYear.value, currentMetric.value, ALL_MONTHS)
   const flat = getFlatData(matrix)
   if (!flat.length) return null
   const metric = currentMetric.value
@@ -207,7 +210,7 @@ function globalMinMax(metric: MetricConfig): [number, number] {
   }
   let gMin = Infinity; let gMax = -Infinity
   for (let y = 2015; y <= 2024; y++) {
-    const m = computeMonthlyHeatmap(props.data, y, metric, ALL_MONTHS)
+    const { values: m } = computeMonthlyHeatmap(props.data, y, metric, ALL_MONTHS)
     const flat = getFlatData(m)
     if (!flat.length) continue
     const vals = flat.map(d => d.value)
@@ -221,12 +224,11 @@ function globalMinMax(metric: MetricConfig): [number, number] {
 
 function drawHeatmap() {
   if (!svgRef.value || containerWidth.value < 100) return
-  // early return wenn keine daten da, sonst stürzt d3 ab
-  if (!props.data?.length) return
   const rows = props.data
+  if (!rows.length) return
 
   const metric = currentMetric.value
-  const matrix = computeMonthlyHeatmap(rows, selectedYear.value, metric, ALL_MONTHS)
+  const { values: matrix, counts } = computeMonthlyHeatmap(rows, selectedYear.value, metric, ALL_MONTHS)
   const flat = getFlatData(matrix)
   const allVals = flat.map(d => d.value)
   let dataMin: number; let dataMax: number
@@ -237,7 +239,7 @@ function drawHeatmap() {
     dataMin = d3.min(allVals) ?? 0; dataMax = d3.max(allVals) ?? 1
   }
 
-  drawSingle(svgRef.value, matrix, flat, metric, dataMin, dataMax, selectedYear.value, containerWidth.value)
+  drawSingle(svgRef.value, matrix, flat, counts, metric, dataMin, dataMax, selectedYear.value, containerWidth.value)
 }
 
 /**
@@ -258,6 +260,7 @@ function drawSingle(
   svgEl: SVGSVGElement,
   matrix: number[][],
   flat: { month: number; hour: number; value: number }[],
+  counts: number[][],
   metric: MetricConfig,
   dataMin: number,
   dataMax: number,
@@ -334,13 +337,14 @@ function drawSingle(
   }
 
   // Tooltip
-  const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
   cells
     .on('mouseenter', function (event: MouseEvent, d) {
       if (!tooltipEl) return
+      const cnt = counts[d.month][d.hour]
       const wert = isNaN(d.value) ? 'keine Daten' : `Ø ${d.value.toFixed(metric.key === 'co2' ? 0 : 1).replace('.', ',')} ${metric.unit}`
+      const tage = cnt > 0 ? `Ø über ${cnt} verf\u00fcgbare Tage` : ''
       tooltipEl.style('display', 'block')
-        .html(`${MONTH_LABELS[d.month]}, ${String(d.hour).padStart(2, '0')}:00<br><span style="color:var(--fg-muted)">${wert} · über ${daysInMonth[d.month]} Tage gemittelt</span>`)
+        .html(`${MONTH_LABELS[d.month]}, ${String(d.hour).padStart(2, '0')}:00<br><span style="color:var(--fg-muted)">${wert} · ${tage}</span>`)
         .style('left', `${event.clientX + 12}px`).style('top', `${event.clientY - 10}px`)
       d3.select(this).attr('stroke', 'var(--fg)').attr('stroke-width', 1)
     })
@@ -391,7 +395,7 @@ function drawSingle(
     <div class="heatmap-header">
       <h3 class="heatmap-heading">Stündliche Muster über den Tag</h3>
     </div>
-    <p class="heatmap-subtitle">Wie sich der Strommix und die CO₂-Intensität im Tagesverlauf verändern – im Durchschnitt pro Monat.</p>
+    <p class="heatmap-subtitle">Jede Zelle zeigt den Durchschnitt eines Monats zu einer bestimmten Uhrzeit.</p>
 
     <div class="heatmap-controls">
 
@@ -425,28 +429,27 @@ function drawSingle(
           <svg ref="svgRef"></svg>
         </div>
         <p class="heatmap-legend-text">
-          <template v-if="currentMetric.key === 'price'">Negativ ← 0 EUR/MWh → hoher Preis</template>
-          <template v-else>Hell = {{ currentMetric.legendLo }} / dunkel = {{ currentMetric.legendHi }}</template>
-          <span class="scale-hint"> · {{ scaleMode === 'einheitlich' ? 'gleiche Preisgrenzen für alle Jahre' : 'Farben relativ zum gewählten Jahr' }}</span>
+          <template v-if="currentMetric.key === 'price'">Blau = negativer Preis · Orange = positiver Preis · gleiche Farbskala für alle Jahre</template>
+          <template v-else>Je dunkler das Feld, desto höher die {{ currentMetric.legendHi }}. Die Farbskala ist für alle Jahre identisch.</template>
         </p>
       </div>
       <aside class="heatmap-sidebar">
         <div class="metric-tile" v-if="sidebarExtremes">
-          <div class="tile-eyebrow">Höchster Wert</div>
+          <div class="tile-eyebrow">Höchster Durchschnitt</div>
           <div class="tile-value">{{ sidebarExtremes.max.value }}</div>
-          <div class="tile-context">Ø {{ sidebarExtremes.max.label }}, {{ String(sidebarExtremes.max.hour).padStart(2, '0') }}:00</div>
+          <div class="tile-context">{{ sidebarExtremes.max.label }}, {{ String(sidebarExtremes.max.hour).padStart(2, '0') }}:00</div>
         </div>
         <div class="metric-divider"></div>
         <div class="metric-tile" v-if="sidebarExtremes">
-          <div class="tile-eyebrow">Niedrigster Wert</div>
+          <div class="tile-eyebrow">Niedrigster Durchschnitt</div>
           <div class="tile-value">{{ sidebarExtremes.min.value }}</div>
-          <div class="tile-context">Ø {{ sidebarExtremes.min.label }}, {{ String(sidebarExtremes.min.hour).padStart(2, '0') }}:00</div>
+          <div class="tile-context">{{ sidebarExtremes.min.label }}, {{ String(sidebarExtremes.min.hour).padStart(2, '0') }}:00</div>
         </div>
         <div class="metric-divider"></div>
         <div class="metric-tile" v-if="sidebarExtremes">
-          <div class="tile-eyebrow">Größte Tagesspanne</div>
+          <div class="tile-eyebrow">Größter Unterschied im Tagesverlauf</div>
           <div class="tile-value">{{ sidebarExtremes.range.diff }}</div>
-          <div class="tile-context">Ø {{ sidebarExtremes.range.month }}</div>
+          <div class="tile-context">im {{ sidebarExtremes.range.month }}</div>
         </div>
       </aside>
     </div>

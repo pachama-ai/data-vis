@@ -28,7 +28,7 @@ const X_OPTIONS: AxisOption[] = [
   { key: 'ee_share',     label: 'EE-Anteil',       unit: '%',      value: (r) => r.ee_share },
   { key: 'fossil_share', label: 'Konventioneller Anteil', unit: '%',  value: (r) => r.fossil_share },
   { key: 'load',         label: 'Stromnachfrage',   unit: 'GW',     value: (r) => r.load_mwh / 1000 },
-  { key: 'price',        label: 'Strompreis',       unit: '€/MWh',  value: (r) => r.price_eur_mwh },
+  { key: 'price',        label: 'Strompreis',       unit: 'EUR/MWh',  value: (r) => r.price_eur_mwh },
 ]
 
 const xAxis = ref<AxisOption>(X_OPTIONS[0])
@@ -126,10 +126,10 @@ const HOUR_COLORS: [number, number, string][] = [
   [18, 23, '#B85C8E'], // Abend (Kernenergie-Magenta)
 ]
 const HOUR_LABELS = [
-  { key: 'nacht',  label: 'Nacht',   color: '#2C3E50' },
-  { key: 'morgen', label: 'Morgen',  color: '#D97742' },
-  { key: 'tag',    label: 'Tag',     color: '#E8B547' },
-  { key: 'abend',  label: 'Abend',   color: '#B85C8E' },
+  { key: 'nacht',  label: 'Nacht (0–6 Uhr)',   color: '#2C3E50' },
+  { key: 'morgen', label: 'Morgen (6–10 Uhr)',  color: '#D97742' },
+  { key: 'tag',    label: 'Tag (10–18 Uhr)',    color: '#E8B547' },
+  { key: 'abend',  label: 'Abend (18–24 Uhr)',  color: '#B85C8E' },
 ]
 
 function getHourColor(h: number): string {
@@ -145,8 +145,8 @@ function getHourKey(h: number): string {
 }
 
 // chart dimensionen (an strommix angeglichen)
-const MARGIN = { top: 12, right: 16, bottom: 60, left: 60 }
-const WIDTH = 900
+const MARGIN = { top: 12, right: 80, bottom: 60, left: 60 }
+const WIDTH = 960
 const HEIGHT = 412
 const INNER_W = WIDTH - MARGIN.left - MARGIN.right
 const INNER_H = HEIGHT - MARGIN.top - MARGIN.bottom
@@ -245,6 +245,17 @@ const rangePoints = computed<Point[]>(() => {
   }))
 })
 
+// Nach Tageszeit gefilterte Punkte für Sidebar (identisch zur Chart-Darstellung)
+const filteredRangePoints = computed(() =>
+  rangePoints.value.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
+)
+const filteredCompareAPoints = computed(() =>
+  compareAPoints.value.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
+)
+const filteredCompareBPoints = computed(() =>
+  compareBPoints.value.filter((p) => visibleTimes.value.has(getHourKey(p.hour)))
+)
+
 // regression für trendlinie
 const rangeStats = computed(() => {
   const pts = rangePoints.value; const n = pts.length
@@ -279,11 +290,14 @@ interface ScatterExtremes {
 }
 
 function calcExtremes(pts: Point[]): ScatterExtremes | null {
-  if (pts.length < 200) return null
+  if (pts.length < 10) return null
   const sorted = [...pts].sort((a, b) => a.x - b.x)
-  const cutoff = Math.floor(sorted.length * 0.1)
-  const low = sorted.slice(0, cutoff)
-  const high = sorted.slice(-cutoff)
+  const cutoff = Math.max(1, Math.floor(sorted.length * 0.1))
+  // Bei sehr kleinen Datensätzen (< 20) überschneiden sich die Gruppen.
+  // Dann wird der gesamte Datensatz halbiert.
+  const safeCut = cutoff * 2 > sorted.length ? Math.floor(sorted.length / 2) : cutoff
+  const low = sorted.slice(0, safeCut)
+  const high = sorted.slice(-safeCut)
   const avg = (arr: Point[], field: 'x' | 'y') => arr.reduce((s, d) => s + d[field], 0) / arr.length
   const avgXLow = avg(low, 'x'); const avgYLow = avg(low, 'y')
   const avgXHigh = avg(high, 'x'); const avgYHigh = avg(high, 'y')
@@ -298,11 +312,25 @@ function calcExtremes(pts: Point[]): ScatterExtremes | null {
 // Beschriftungs-Hilfen
 const xAxisMeta = computed(() => {
   const key = xAxis.value.key
-  if (key === 'ee_share')     return { label: 'EE-Anteil', unit: '%', dec: 1, niedrig: 'niedrigem EE-Anteil', hoch: 'hohem EE-Anteil', niedrigUpper: 'NIEDRIGER EE-ANTEIL', hochUpper: 'HOHER EE-ANTEIL' }
-  if (key === 'fossil_share') return { label: 'Fossil-Anteil', unit: '%', dec: 1, niedrig: 'niedrigem Fossil-Anteil', hoch: 'hohem Fossil-Anteil', niedrigUpper: 'NIEDRIGER FOSSIL-ANTEIL', hochUpper: 'HOHER FOSSIL-ANTEIL' }
-  if (key === 'load')         return { label: 'Stromnachfrage', unit: 'GW', dec: 1, niedrig: 'niedriger Stromnachfrage', hoch: 'hoher Stromnachfrage', niedrigUpper: 'NIEDRIGE STROMNACHFRAGE', hochUpper: 'HOHE STROMNACHFRAGE' }
-  if (key === 'price')        return { label: 'Strompreis', unit: 'EUR/MWh', dec: 1, niedrig: 'niedrigem Strompreis', hoch: 'hohem Strompreis', niedrigUpper: 'NIEDRIGER STROMPREIS', hochUpper: 'HOHER STROMPREIS' }
-  return { label: 'X', unit: '', dec: 1, niedrig: 'niedrigem X', hoch: 'hohem X', niedrigUpper: 'NIEDRIGER X', hochUpper: 'HOHER X' }
+  if (key === 'ee_share')
+    return { label: 'EE-Anteil', unit: '%', dec: 1, unitShort: '% erneuerbar',
+      titleLow: 'Die 10 % mit dem niedrigsten EE-Anteil im Durchschnitt',
+      titleHigh: 'Die 10 % mit dem h\u00f6chsten EE-Anteil im Durchschnitt' }
+  if (key === 'fossil_share')
+    return { label: 'Konventioneller Anteil', unit: '%', dec: 1, unitShort: '% konventionell',
+      titleLow: 'Die 10 % mit dem niedrigsten konventionellen Anteil im Durchschnitt',
+      titleHigh: 'Die 10 % mit dem h\u00f6chsten konventionellen Anteil im Durchschnitt' }
+  if (key === 'load')
+    return { label: 'Stromnachfrage', unit: 'GW', dec: 1, unitShort: 'GW',
+      titleLow: 'Die 10 % mit der niedrigsten Stromnachfrage im Durchschnitt',
+      titleHigh: 'Die 10 % mit der h\u00f6chsten Stromnachfrage im Durchschnitt' }
+  if (key === 'price')
+    return { label: 'Strompreis', unit: 'EUR/MWh', dec: 1, unitShort: 'EUR/MWh',
+      titleLow: 'Die 10 % mit dem niedrigsten Strompreis im Durchschnitt',
+      titleHigh: 'Die 10 % mit dem h\u00f6chsten Strompreis im Durchschnitt' }
+  return { label: 'X', unit: '', dec: 1, unitShort: '',
+    titleLow: 'Die 10 % mit dem niedrigsten X im Durchschnitt',
+    titleHigh: 'Die 10 % mit dem h\u00f6chsten X im Durchschnitt' }
 })
 
 function fmtVal(v: number, unit: string, dec: number): string {
@@ -313,83 +341,108 @@ function fmtInt(v: number, unit: string): string {
 }
 
 // sidebar kacheln (extreme werte)
+/** Berechnet Gesamtdurchschnitt aus allen Punkten */
+function calcOverall(pts: Point[]): { avgX: number; avgY: number; n: number } | null {
+  if (!pts.length) return null
+  const sx = pts.reduce((s, p) => s + p.x, 0)
+  const sy = pts.reduce((s, p) => s + p.y, 0)
+  return { avgX: sx / pts.length, avgY: sy / pts.length, n: pts.length }
+}
+
 const sidebarMetrics = computed(() => {
-  const pts = rangePoints.value
+  // Verwende sichtbarkeitsgefilterte Punkte (identisch zur Chart-Darstellung)
+  const pts = filteredRangePoints.value
 
   if (compareMode.value === 'vergleich') {
-    const ptsA = compareAPoints.value
-    const ptsB = compareBPoints.value
+    const ptsA = filteredCompareAPoints.value
+    const ptsB = filteredCompareBPoints.value
     const meta = xAxisMeta.value
     const eA = calcExtremes(ptsA)
     const eB = calcExtremes(ptsB)
+    const oA = calcOverall(ptsA)
+    const oB = calcOverall(ptsB)
     const labelA = RANGE_PRESETS[compareRangeA.value]?.label || ''
     const labelB = RANGE_PRESETS[compareRangeB.value]?.label || ''
     const yUnit = 'g CO₂/kWh'
 
     return {
       mode: 'vergleich' as const,
+      overallA: oA ? { avgY: oA.avgY, avgX: oA.avgX, n: oA.n, label: labelA } : null,
+      overallB: oB ? { avgY: oB.avgY, avgX: oB.avgX, n: oB.n, label: labelB } : null,
       tile1: {
-        eyebrow: meta.niedrigUpper,
+        eyebrow: 'Stunden mit sehr niedrigem ' + meta.label,
+        sublabel: 'Unterste 10 % der sichtbaren Stunden',
         valueA: eA ? fmtInt(eA.lowGroup.avgY, yUnit) : '—',
-        ctxA: eA ? `Ø ${meta.label}: ${eA.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        ctxA: eA ? `Ø ${meta.label}: ${eA.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit} · n = ${eA.lowGroup.n.toLocaleString('de-DE')}` : 'zu wenig Daten',
         valueB: eB ? fmtInt(eB.lowGroup.avgY, yUnit) : '—',
-        ctxB: eB ? `Ø ${meta.label}: ${eB.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        ctxB: eB ? `Ø ${meta.label}: ${eB.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit} · n = ${eB.lowGroup.n.toLocaleString('de-DE')}` : 'zu wenig Daten',
         labelA, labelB,
       },
       tile2: {
-        eyebrow: meta.hochUpper,
+        eyebrow: 'Stunden mit sehr hohem ' + meta.label,
+        sublabel: 'Oberste 10 % der sichtbaren Stunden',
         valueA: eA ? fmtInt(eA.highGroup.avgY, yUnit) : '—',
-        ctxA: eA ? `Ø ${meta.label}: ${eA.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        ctxA: eA ? `Ø ${meta.label}: ${eA.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit} · n = ${eA.highGroup.n.toLocaleString('de-DE')}` : 'zu wenig Daten',
         valueB: eB ? fmtInt(eB.highGroup.avgY, yUnit) : '—',
-        ctxB: eB ? `Ø ${meta.label}: ${eB.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}` : 'zu wenig Daten (< 200 Std.)',
+        ctxB: eB ? `Ø ${meta.label}: ${eB.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit} · n = ${eB.highGroup.n.toLocaleString('de-DE')}` : 'zu wenig Daten',
         labelA, labelB,
       },
       tile3: {
-        eyebrow: 'CO₂-UNTERSCHIED',
+        eyebrow: 'CO₂-Unterschied',
         valueA: eA ? fmtInt(eA.absDiff, yUnit) : '—',
-        subA: eA ? `${Math.round(eA.relDiff) >= 0 ? '+' : ''}${Math.round(eA.relDiff)} %` : '',
+        subA: eA ? `${eA.relDiff >= 0 ? '+' : ''}${Math.round(eA.relDiff)} % relativ zur unteren 10-%-Gruppe` : '',
         valueB: eB ? fmtInt(eB.absDiff, yUnit) : '—',
-        subB: eB ? `${Math.round(eB.relDiff) >= 0 ? '+' : ''}${Math.round(eB.relDiff)} %` : '',
+        subB: eB ? `${eB.relDiff >= 0 ? '+' : ''}${Math.round(eB.relDiff)} % relativ zur unteren 10-%-Gruppe` : '',
         labelA, labelB,
       },
     }
   }
 
   // Einzel-Modus
-  const e = calcExtremes(pts)
+  const overall = calcOverall(pts)
   const meta = xAxisMeta.value
   const yUnit = 'g CO₂/kWh'
+  const e = calcExtremes(pts)
+
+  if (!pts.length) {
+    return { mode: 'leer' as const }
+  }
+
+  const result: any = {
+    mode: 'einzel' as const,
+    overall: {
+      avgY: overall!.avgY,
+      avgX: overall!.avgX,
+      n: overall!.n,
+    },
+  }
 
   if (!e) {
-    return {
-      mode: 'einzel' as const,
-      tile1: { eyebrow: meta.niedrigUpper, value: '—', context: 'zu wenig Daten (< 200 Std.)' },
-      tile2: { eyebrow: meta.hochUpper, value: '—', context: 'zu wenig Daten (< 200 Std.)' },
-      tile3: { eyebrow: 'CO₂-UNTERSCHIED', value: '—', context: 'zu wenig Daten (< 200 Std.)' },
+    result.tile1 = null; result.tile2 = null; result.tile3 = null
+  } else {
+    const fmtX = (v: number) => v.toFixed(meta.dec).replace('.', ',') + ' ' + meta.unitShort
+    result.tile1 = {
+      co2Val: Math.round(e.lowGroup.avgY) + ' g CO₂/kWh',
+      xVal: fmtX(e.lowGroup.avgX),
+      n: e.lowGroup.n,
+    }
+    result.tile2 = {
+      co2Val: Math.round(e.highGroup.avgY) + ' g CO₂/kWh',
+      xVal: fmtX(e.highGroup.avgX),
+      n: e.highGroup.n,
+    }
+    const abs = Math.round(Math.abs(e.absDiff))
+    const rel = Math.round(Math.abs(e.relDiff))
+    const diffWord = e.absDiff >= 0 ? 'mehr' : 'weniger'
+    result.tile3 = {
+      diffVal: abs.toLocaleString('de-DE') + ' g CO₂/kWh',
+      diffWord: diffWord,
+      relVal: rel + ' %',
+      relWord: diffWord + ' CO₂',
     }
   }
 
-  const diffWord = e.absDiff < 0 ? `niedrigem ${meta.label}` : `niedrigem ${meta.label}`
-
-  return {
-    mode: 'einzel' as const,
-    tile1: {
-      eyebrow: meta.niedrigUpper,
-      value: fmtInt(e.lowGroup.avgY, yUnit),
-      context: `Unterste 10 % der Stunden · Ø ${meta.label}: ${e.lowGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}`,
-    },
-    tile2: {
-      eyebrow: meta.hochUpper,
-      value: fmtInt(e.highGroup.avgY, yUnit),
-      context: `Oberste 10 % der Stunden · Ø ${meta.label}: ${e.highGroup.avgX.toFixed(meta.dec).replace('.', ',')} ${meta.unit}`,
-    },
-    tile3: {
-      eyebrow: 'CO₂-UNTERSCHIED',
-      value: fmtInt(e.absDiff, yUnit),
-      sub: `${Math.round(e.relDiff) >= 0 ? '+' : ''}${Math.round(e.relDiff)} %`,
-      context: `gegenüber Stunden mit ${diffWord}`,
-    },
-  }
+  return result
 })
 
 // toggle states (ansichtsmodus, vergleich)
@@ -566,7 +619,7 @@ function updateChart(reason: RenderReason) {
         .attr('x', INNER_W / 2).attr('y', INNER_H + 45)
         .attr('text-anchor', 'middle')
         .attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
-        .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
+        .style('letter-spacing', '0.04em')
     }
 
     // Y-Label
@@ -576,7 +629,7 @@ function updateChart(reason: RenderReason) {
         .attr('text-anchor', 'middle')
         .attr('transform', `rotate(-90, 12, ${MARGIN.top + INNER_H / 2})`)
         .attr('font-size', '11px').attr('fill', 'var(--fg-muted)').attr('font-family', 'var(--font-sans)')
-        .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
+        .style('letter-spacing', '0.04em')
         .text('CO₂-Intensität (g CO₂/kWh)')
 
     // Point-Gruppe
@@ -598,9 +651,6 @@ function updateChart(reason: RenderReason) {
   gridGroup.selectAll('.tick text').remove()
   gridGroup.selectAll('.domain').remove() // Fix 4: Grid-Domain entfernen
   baselineGroup.selectAll('line').remove()
-  baselineGroup.append('line')
-    .attr('x1', 0).attr('x2', INNER_W).attr('y1', INNER_H).attr('y2', INNER_H)
-    .attr('stroke', 'var(--hairline)').attr('stroke-width', 1)
 
   // 2. Achsen (immer) — Strommix-Stil: Inter 11px uppercase
   axisGroup.select('.x-axis')
@@ -608,13 +658,13 @@ function updateChart(reason: RenderReason) {
     .call(g => g.select('.domain').remove())
   axisGroup.select('.x-axis .tick text')
     .attr('fill', 'var(--fg-muted)').attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
-    .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
+    .style('letter-spacing', '0.04em')
   axisGroup.select('.y-axis')
     .call(d3.axisLeft(uy).ticks(5).tickSize(0) as any)
     .call(g => g.select('.domain').remove())
   axisGroup.select('.y-axis .tick text')
     .attr('fill', 'var(--fg-muted)').attr('font-size', '11px').attr('font-family', 'var(--font-sans)')
-    .style('text-transform', 'uppercase').style('letter-spacing', '0.04em')
+    .style('letter-spacing', '0.04em')
 
   // X-Label
   // Domain-Linien der Achsen entfernen — alle Pfade mit Klasse .domain
@@ -633,6 +683,7 @@ function updateChart(reason: RenderReason) {
     chart.selectAll('g.reg-group').remove()
     chart.selectAll('rect.hover-hit').remove()
     chart.selectAll('g.compare-legend').remove()
+    chart.selectAll('g.contour-legend').remove()
 
     if (viewMode.value === 'contour') {
       if (compareMode.value === 'vergleich') {
@@ -718,26 +769,41 @@ function renderContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<n
     }
   }
 
-  // Kontur-Dichte-Legende (Fix 5)
+  // Kontur-Dichte-Legende – nur im Kontur-Modus, nicht im Vergleich
   chart.selectAll('g.contour-legend').remove()
+  if (viewMode.value !== 'contour' || compareMode.value === 'vergleich') return
+  // Farbe der Legende an aktive Tageszeit(en) anpassen
+  const activeKeys2 = [...visibleTimes.value]
+  const isAllActive2 = activeKeys2.length === 4
+  let legendColor: string
+  if (isAllActive2) {
+    legendColor = baseColor
+  } else {
+    const firstKey = activeKeys2[0]
+    legendColor = colorMap[firstKey] || baseColor
+  }
   const legG = chart.append('g').attr('class', 'contour-legend')
-    .attr('transform', `translate(${INNER_W - 24}, ${INNER_H - 120})`)
-  const legH = 80; const legW = 8
+    .attr('transform', `translate(${INNER_W + 10}, 0)`)
+  const legH = INNER_H; const legW = 7
   const gradId = 'contour-density-grad'
   const grad = legG.append('defs').append('linearGradient').attr('id', gradId)
     .attr('x1', '0').attr('y1', '1').attr('x2', '0').attr('y2', '0')
-  grad.append('stop').attr('offset', '0%').attr('stop-color', baseColor).attr('stop-opacity', 0.08)
-  grad.append('stop').attr('offset', '100%').attr('stop-color', baseColor).attr('stop-opacity', 0.6)
+  grad.append('stop').attr('offset', '0%').attr('stop-color', legendColor).attr('stop-opacity', 0.08)
+  grad.append('stop').attr('offset', '100%').attr('stop-color', legendColor).attr('stop-opacity', 0.85)
+  // Farbbalken
   legG.append('rect').attr('width', legW).attr('height', legH).attr('rx', 2).style('fill', `url(#${gradId})`)
-  legG.append('text').attr('x', legW + 4).attr('y', 0)
+  // Label oben
+  legG.append('text').attr('x', legW + 5).attr('y', -1)
     .attr('font-size', '9px').attr('font-family', 'var(--font-sans)')
-    .attr('fill', 'var(--fg-muted)').style('text-transform', 'uppercase').style('letter-spacing', '0.03em')
-    .text('VIELE')
-  legG.append('text').attr('x', legW + 4).attr('y', legH)
+    .attr('fill', 'var(--fg-muted)')
+    .attr('dominant-baseline', 'hanging')
+    .text('h\u00e4ufig')
+  // Label unten
+  legG.append('text').attr('x', legW + 5).attr('y', legH)
     .attr('font-size', '9px').attr('font-family', 'var(--font-sans)')
-    .attr('fill', 'var(--fg-muted)').style('text-transform', 'uppercase').style('letter-spacing', '0.03em')
+    .attr('fill', 'var(--fg-muted)')
     .attr('dominant-baseline', 'auto')
-    .text('WENIGE')
+    .text('selten')
 }
 
 function drawSingleContour(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>,
@@ -780,6 +846,8 @@ function renderCompareContours(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleL
 
 function updateTrendline(ux: d3.ScaleLinear<number, number>, uy: d3.ScaleLinear<number, number>, ac: AxisConfig) {
   chart.selectAll('g.reg-group').remove()
+  // Keine Trendlinie für Strompreis – Zusammenhang ist nichtlinear
+  if (xAxis.value.key === 'price') return
   const { a, b, r2, count } = rangeStats.value
   if (!Number.isFinite(a) || !Number.isFinite(b) || count < 3) return
   const rg = chart.append('g').attr('class', 'reg-group').attr('clip-path', 'url(#chart-clip)')
@@ -831,9 +899,10 @@ onUnmounted(() => {
   <div class="scatter-card">
     <!-- Header mit Kicker + Titel + Untertitel (wie Strommix) -->
     <div class="scatter-header">
-      <h3 class="scatter-heading">Einflussfaktoren der CO₂-Intensität</h3>
+      <h3 class="scatter-heading">Zusammenhänge der CO₂-Intensität</h3>
     </div>
-    <p class="scatter-subtitle">Wie verändern Strommix, Nachfrage, Preis und Tageszeit die Klimabilanz des Stroms?</p>
+    <p class="scatter-subtitle">Wann verursacht Strom wenig oder viel CO₂?</p>
+    <p class="scatter-correlation-note">Die Darstellungen zeigen Korrelationen, keine kausalen Wirkungen.</p>
 
     <!-- Kontrollleiste: zwei Reihen rechtsbündig (wie Strommix) -->
     <div class="scatter-controls">
@@ -871,7 +940,8 @@ onUnmounted(() => {
         <span class="tod-label">Alle Tageszeiten</span>
       </button>
     </div>
-    <div class="tod-hint">{{ compareMode === 'vergleich' ? 'Tageszeit-Filter nur im Einzelmodus verfügbar' : viewMode === 'points' ? 'Klicken zum Ausblenden' : 'Klicken isoliert eine Tageszeit' }}</div>
+    <div class="tod-hint">{{ compareMode === 'vergleich' ? 'Tageszeit-Filter nur im Einzelmodus verfügbar' : viewMode === 'points' ? 'Klicken zum Ausblenden' : '' }}</div>
+    <div v-if="viewMode === 'contour'" class="contour-hint">Dichteverteilung: Dunklere Bereiche = mehr Stunden mit dieser Kombination.</div>
 
 
 
@@ -939,31 +1009,87 @@ onUnmounted(() => {
         </div>
       </div>
       <aside class="scatter-sidebar">
+        <!-- Leerzustand -->
+        <template v-if="sidebarMetrics.mode === 'leer'">
+          <div class="metric-tile">
+            <div class="tile-context" style="padding:24px 0;text-align:center">Keine Daten verf\u00fcgbar</div>
+          </div>
+        </template>
         <!-- Einzelmodus -->
         <template v-if="sidebarMetrics.mode === 'einzel'">
+          <!-- Gesamtdurchschnitt -->
           <div class="metric-tile">
-            <div class="tile-eyebrow">{{ sidebarMetrics.tile1.eyebrow }}</div>
-            <div class="tile-value">{{ sidebarMetrics.tile1.value }}</div>
-            <div class="tile-context">{{ sidebarMetrics.tile1.context }}</div>
+            <div class="tile-eyebrow">Alle sichtbaren Stunden im Durchschnitt</div>
+            <div class="metric-values">
+              <span class="metric-value">{{ Math.round(sidebarMetrics.overall.avgY) }} g CO₂/kWh</span>
+              <span class="metric-sep">·</span>
+              <span class="metric-value">{{ sidebarMetrics.overall.avgX.toFixed(1).replace('.', ',') }} {{ xAxisMeta.unitShort }}</span>
+            </div>
+            <div class="tile-n">{{ sidebarMetrics.overall.n.toLocaleString('de-DE') }} Stunden</div>
           </div>
           <div class="metric-divider"></div>
-          <div class="metric-tile">
-            <div class="tile-eyebrow">{{ sidebarMetrics.tile2.eyebrow }}</div>
-            <div class="tile-value">{{ sidebarMetrics.tile2.value }}</div>
-            <div class="tile-context">{{ sidebarMetrics.tile2.context }}</div>
-          </div>
-          <div class="metric-divider"></div>
-          <div class="metric-tile">
-            <div class="tile-eyebrow">{{ sidebarMetrics.tile3.eyebrow }}</div>
-            <div class="tile-value">{{ sidebarMetrics.tile3.value }}</div>
-            <div v-if="sidebarMetrics.tile3.sub" class="tile-sub-value">{{ sidebarMetrics.tile3.sub }}</div>
-            <div class="tile-context">{{ sidebarMetrics.tile3.context }}</div>
-          </div>
+          <!-- Niedrig-Gruppe -->
+          <template v-if="sidebarMetrics.tile1">
+            <div class="metric-tile">
+              <div class="tile-eyebrow">{{ xAxisMeta.titleLow }}</div>
+              <div class="metric-values">
+                <span class="metric-value">{{ sidebarMetrics.tile1.co2Val }}</span>
+                <span class="metric-sep">·</span>
+                <span class="metric-value">{{ sidebarMetrics.tile1.xVal }}</span>
+              </div>
+              <div class="tile-n">{{ sidebarMetrics.tile1.n.toLocaleString('de-DE') }} Stunden</div>
+            </div>
+            <div class="metric-divider"></div>
+          </template>
+          <!-- Hoch-Gruppe -->
+          <template v-if="sidebarMetrics.tile2">
+            <div class="metric-tile">
+              <div class="tile-eyebrow">{{ xAxisMeta.titleHigh }}</div>
+              <div class="metric-values">
+                <span class="metric-value">{{ sidebarMetrics.tile2.co2Val }}</span>
+                <span class="metric-sep">·</span>
+                <span class="metric-value">{{ sidebarMetrics.tile2.xVal }}</span>
+              </div>
+              <div class="tile-n">{{ sidebarMetrics.tile2.n.toLocaleString('de-DE') }} Stunden</div>
+            </div>
+            <div class="metric-divider"></div>
+          </template>
+          <!-- Differenz -->
+          <template v-if="sidebarMetrics.tile3">
+            <div class="metric-tile">
+              <div class="tile-eyebrow">Unterschied zwischen beiden Gruppen</div>
+              <div class="metric-values">
+                <span class="metric-value">{{ sidebarMetrics.tile3.diffVal }}</span>
+                <span class="metric-value">{{ sidebarMetrics.tile3.diffWord }}</span>
+              </div>
+              <div class="tile-n">
+                <span class="metric-value">{{ sidebarMetrics.tile3.relVal }}</span>
+                <span class="metric-value">{{ sidebarMetrics.tile3.relWord }}</span>
+              </div>
+            </div>
+          </template>
         </template>
         <!-- Vergleichsmodus -->
         <template v-if="sidebarMetrics.mode === 'vergleich'">
+          <!-- Gesamt A -->
+          <template v-if="sidebarMetrics.overallA">
+            <div class="metric-tile">
+              <div class="tile-eyebrow">Zeitraum A ({{ sidebarMetrics.overallA.label }})</div>
+              <div class="tile-value tile-value-sm">{{ fmtInt(sidebarMetrics.overallA.avgY, 'g CO₂/kWh') }}</div>
+              <div class="tile-n">n = {{ sidebarMetrics.overallA.n.toLocaleString('de-DE') }}</div>
+            </div>
+          </template>
+          <template v-if="sidebarMetrics.overallB">
+            <div class="metric-tile">
+              <div class="tile-eyebrow">Zeitraum B ({{ sidebarMetrics.overallB.label }})</div>
+              <div class="tile-value tile-value-sm">{{ fmtInt(sidebarMetrics.overallB.avgY, 'g CO₂/kWh') }}</div>
+              <div class="tile-n">n = {{ sidebarMetrics.overallB.n.toLocaleString('de-DE') }}</div>
+            </div>
+          </template>
+          <div class="metric-divider"></div>
           <div class="metric-tile">
             <div class="tile-eyebrow">{{ sidebarMetrics.tile1.eyebrow }}</div>
+            <div class="tile-subhead">{{ sidebarMetrics.tile1.sublabel }}</div>
             <div class="tile-subhead"><span class="color-dot" style="background:#4A90A4"></span> Zeitraum A ({{ sidebarMetrics.tile1.labelA }})</div>
             <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile1.valueA }}</div>
             <div class="tile-context">{{ sidebarMetrics.tile1.ctxA }}</div>
@@ -975,6 +1101,7 @@ onUnmounted(() => {
           <div class="metric-divider"></div>
           <div class="metric-tile">
             <div class="tile-eyebrow">{{ sidebarMetrics.tile2.eyebrow }}</div>
+            <div class="tile-subhead">{{ sidebarMetrics.tile2.sublabel }}</div>
             <div class="tile-subhead"><span class="color-dot" style="background:#4A90A4"></span> Zeitraum A ({{ sidebarMetrics.tile2.labelA }})</div>
             <div class="tile-value tile-value-sm">{{ sidebarMetrics.tile2.valueA }}</div>
             <div class="tile-context">{{ sidebarMetrics.tile2.ctxA }}</div>
@@ -998,14 +1125,6 @@ onUnmounted(() => {
       </aside>
     </div>
 
-    <!-- Methodik-Fußnote -->
-    <details class="methodik-footnote">
-      <summary class="methodik-summary">Methodik &amp; Berechnungsgrundlage</summary>
-      <div class="methodik-body">
-        <p><strong>Extremwert-Kacheln:</strong> Für die Kacheln in der Seitenleiste werden die Stunden im gewählten Zeitraum nach dem X-Wert sortiert. Die untersten 10 % (Stunden mit dem niedrigsten X-Wert) und die obersten 10 % (Stunden mit dem höchsten X-Wert) bilden die zwei Vergleichsgruppen. Für jede Gruppe wird der Durchschnitt des X- und Y-Wertes berechnet. Bei 17.500 Stunden im Zeitraum entspricht dies je ca. 1.750 Stunden pro Gruppe. Der CO₂-Unterschied ist die Differenz der Y-Durchschnitte, absolut und relativ zum Durchschnitt der niedrigen Gruppe.</p>
-        <p><strong>Datenbasis:</strong> Anzahl der Stundenwerte im gewählten Zeitraum. Bei Datenlücken (2018) fehlen ca. 25 % der Stunden.</p>
-      </div>
-    </details>
   </div>
 </template>
 
@@ -1020,7 +1139,21 @@ onUnmounted(() => {
 }
 .scatter-subtitle {
   font-family:var(--font-sans); font-size:15px; color:var(--fg-muted);
-  max-width:640px; line-height:1.5; margin:8px 0 32px;
+  max-width:640px; line-height:1.5; margin:8px 0 4px;
+}
+.scatter-correlation-note {
+  font-family:var(--font-sans); font-size:12px; color:var(--fg-muted);
+  opacity:0.7; margin:0 0 32px; font-style:italic;
+}
+.tile-n {
+  font-family:var(--font-sans); font-size:11px; color:var(--fg-muted);
+  opacity:0.65; margin-bottom:2px;
+}
+.tile-n .metric-value { white-space:nowrap; }
+.tile-n .metric-sep { display:none; }
+.contour-hint {
+  font-family:var(--font-sans); font-size:12px; color:var(--fg-muted);
+  opacity:0.7; margin:0 0 16px; font-style:italic;
 }
 
 /* ---- Kontrollleiste (wie Strommix-Toggles) ---- */
@@ -1164,9 +1297,8 @@ onUnmounted(() => {
 .scatter-sidebar {
   border-left:1px solid var(--hairline);
   padding:4px 0 4px 20px;
-  position:sticky; top:20px;
 }
-.metric-tile { padding:20px 0; position:relative; }
+.metric-tile { padding:14px 0; position:relative; }
 .metric-divider {
   height:1px; background:var(--hairline); margin:0;
 }
@@ -1179,6 +1311,16 @@ onUnmounted(() => {
   font-family:var(--font-serif); font-size:28px; font-weight:500;
   color:var(--fg); line-height:1.1; margin-bottom:4px;
 }
+.tile-val-line {
+  font-family:var(--font-sans); font-size:15px; font-weight:500;
+  color:var(--fg); line-height:1.4; margin-bottom:2px;
+}
+.metric-values {
+  display:flex; flex-wrap:wrap; align-items:baseline;
+  gap:0 0.35rem; margin-bottom:2px;
+}
+.metric-value { white-space:nowrap; }
+.metric-sep { color:var(--fg-muted); opacity:0.4; }
 .tile-sub-value {
   font-family:var(--font-serif); font-size:22px; font-weight:500;
   color:var(--fg-muted); line-height:1.2; margin-bottom:4px;

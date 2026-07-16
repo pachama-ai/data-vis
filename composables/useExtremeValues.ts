@@ -44,7 +44,7 @@ export interface ExtremeValueResult {
 
 // TODO: irgendwann in shared file, kommt auch in StackedArea.vue und StartEndComparison vor
 const RENEWABLE_KEYS = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro']
-const FOSSIL_KEYS = ['lignite', 'hardcoal', 'gas']
+const CONVENTIONAL_KEYS = ['lignite', 'hardcoal', 'gas', 'nuclear']
 const ALL_KEYS = ['biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
   'nuclear', 'gas', 'hardcoal', 'lignite', 'other']
 
@@ -133,11 +133,11 @@ export function useExtremeValues(
     })
   })
 
-  // Fossiler Anteil pro Bucket (für Prozent-Modus)
-  const fossilSharePerMonth = computed(() => {
+  // Konventioneller Anteil pro Bucket (für Prozent-Modus)
+  const conventionalSharePerMonth = computed(() => {
     return cleanData.value.map((d) => {
-      const fos = FOSSIL_KEYS.reduce((s, k) => s + (d[k] as number), 0)
-      return { date: d.date, share: d.total > 0 ? fos / d.total : 0 }
+      const conventional = CONVENTIONAL_KEYS.reduce((s, k) => s + (d[k] as number), 0)
+      return { date: d.date, share: d.total > 0 ? conventional / d.total : 0 }
     })
   })
 
@@ -179,13 +179,13 @@ export function useExtremeValues(
     }
   })
 
-  // 2. Höchste fossile Erzeugung / Höchster fossiler Anteil
+  // 2. Höchste konventionelle Erzeugung / Höchster konventioneller Anteil
   const highestFossilGeneration = computed<ExtremeValueResult | null>(() => {
     if (!cleanData.value.length) return null
 
     if (mode.value === 'percent') {
-      // Prozent: Höchster fossiler Anteil
-      const items = fossilSharePerMonth.value
+      // Prozent: Höchster konventioneller Anteil
+      const items = conventionalSharePerMonth.value
       const max = items.reduce((a, b) => (a.share > b.share ? a : b))
       const avg = items.reduce((s, d) => s + d.share, 0) / items.length
       const diff = max.share - avg
@@ -194,7 +194,7 @@ export function useExtremeValues(
         ? ppm + ' Prozentpunkte über dem Durchschnitt des gewählten Zeitraums'
         : Math.abs(diff * 100).toFixed(1).replace('.', ',') + ' Prozentpunkte unter dem Durchschnitt des gewählten Zeitraums'
       return {
-        label: 'Höchster fossiler Anteil',
+        label: 'Höchster konventioneller Anteil',
         value: fmtPct(max.share),
         dateLabel: fmtDate(max.date, aggLevel.value),
         context: context,
@@ -203,21 +203,21 @@ export function useExtremeValues(
       }
     }
 
-    // Absolut: Höchste fossile Erzeugung in GWh/TWh
+    // Absolut: Höchste konventionelle Erzeugung in GWh/TWh
     let maxMonth: MonthlyDataPoint | null = null
-    let maxFossil = 0
+    let maxConventional = 0
     for (const d of cleanData.value) {
-      const fossil = FOSSIL_KEYS.reduce((s, k) => s + (d[k] as number), 0)
-      if (fossil > maxFossil) { maxFossil = fossil; maxMonth = d }
+      const conv = CONVENTIONAL_KEYS.reduce((s, k) => s + (d[k] as number), 0)
+      if (conv > maxConventional) { maxConventional = conv; maxMonth = d }
     }
     if (!maxMonth) return null
-    const share = maxMonth.total > 0 ? maxFossil / maxMonth.total : 0
+    const share = maxMonth.total > 0 ? maxConventional / maxMonth.total : 0
     return {
-      label: 'Höchste fossile Erzeugung',
-      value: fmtEnergy(maxFossil, aggLevel.value),
+      label: 'Höchste konventionelle Erzeugung',
+      value: fmtEnergy(maxConventional, aggLevel.value),
       dateLabel: fmtDate(maxMonth.date!, aggLevel.value),
       context: 'Anteil am Strommix: ' + (share * 100).toFixed(1).replace('.', ',') + ' %',
-      rawValue: maxFossil,
+      rawValue: maxConventional,
       valueType: 'sum',
     }
   })

@@ -428,7 +428,6 @@ const kpis = computed(() => {
 
       <footer class="dashboard-footer">
         <span>API: SMARD (Erzeugung), ENTSO-E (Preise) &middot; Datenquelle: UBA (Emissionsfaktoren)</span>
-        <span>Technologiestack: Vue 3 / Nuxt 3 / D3 &middot; Datenstand: Mai 2025</span>
       </footer>
     </template>
   </div>

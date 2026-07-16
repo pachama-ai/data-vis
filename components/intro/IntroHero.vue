@@ -11,7 +11,7 @@
   <section class="intro-hero">
     <span class="eyebrow">Stromerzeugung 2015–2024</span>
     <h1 class="hero-headline">Wie sich der deutsche Strom verändert hat</h1>
-    <p class="hero-subline">Zehn Jahre Nettostromerzeugung Deutschlands im direkten Vergleich – 2015 und 2024, gemessen aus den öffentlichen Daten der Bundesnetzagentur (SMARD) und der ENTSO-E Transparency Platform.</p>
+    <p class="hero-subline">Strom ist elektrische Energie. Seine Klimawirkung wird durch die Zusammensetzung des Strommixes bestimmt. Die Visualisierung zeigt, wie sich der deutsche Strommix von 2015 bis 2024 verändert hat.</p>
   </section>
 </template>
 
