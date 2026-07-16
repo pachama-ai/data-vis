@@ -256,24 +256,6 @@ function drawSingleSparkline(
 
 
 
-const presets = [
-  { hour: 3, label: '03 Uhr Nacht' }, { hour: 8, label: '08 Uhr Morgen' },
-  { hour: 13, label: '13 Uhr PV-Peak' }, { hour: 18, label: '18 Uhr Abendhoch' }, { hour: 22, label: '22 Uhr Abend' },
-]
-/**
- * Setzt die ausgewählte Stunde (per Preset-Button).
- * Im Vergleichsmodus werden beide Slider auf die Stunde gesetzt.
- * @param h Die Ziel-Stunde (0–23).
- */
-function goToHour(h: number) {
-  if (compareTimeEnabled.value) {
-    rangeStart.value = Math.max(0, Math.min(23, h))
-    rangeEnd.value = Math.max(0, Math.min(23, h))
-  } else {
-    currentHour.value = Math.max(0, Math.min(23, h))
-  }
-}
-
 const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', sommer: 'Sommer', winter: 'Winter', werktag: 'Werktag', wochenende: 'Wochenende', jahr2015: '2015', jahr2024: '2024' }
 </script>
 
@@ -343,7 +325,7 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 
       <!-- Stundenachse (einmal unter beiden) -->
       <div class="timeline-axis-labels">
-        <span v-for="h in [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]" :key="h" class="tl-label">{{ String(h).padStart(2, '0') }}</span>
+        <span v-for="h in [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22]" :key="h" class="tl-label" :style="{ left: (h / 23) * 100 + '%' }">{{ String(h).padStart(2, '0') }}</span>
       </div>
 
     </div>
@@ -352,12 +334,7 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
     <div v-else class="single-slider-section">
       <div class="time-display"><span class="time-bullet">●</span> {{ String(currentHour).padStart(2, '0') }}:00 <span class="time-bullet">●</span></div>
       <input type="range" class="time-slider" min="0" max="23" step="1" v-model.number="currentHour" />
-      <div class="tick-labels"><span v-for="h in [0, 4, 8, 12, 16, 20]" :key="h">{{ String(h).padStart(2, '0') }}</span></div>
-      <div class="preset-row">
-        <button v-for="pr in presets" :key="pr.hour" class="preset-btn" :class="{ active: currentHour === pr.hour }" @click="goToHour(pr.hour)">
-          <span class="preset-marker" :class="{ active: currentHour === pr.hour }"></span>{{ pr.label }}
-        </button>
-      </div>
+      <div class="tick-labels"><span v-for="h in [0, 4, 8, 12, 16, 20]" :key="h" class="tick-label" :style="{ left: (h / 23) * 100 + '%' }">{{ String(h).padStart(2, '0') }}</span></div>
     </div>
 
 
@@ -365,7 +342,7 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 </template>
 
 <style scoped>
-.duck-section { width:100%; }
+.duck-section { width:100%; --thumb-size:16px; }
 .duck-header { margin-bottom:2px; }
 
 .duck-heading { font-family:var(--font-serif); font-size:22px; font-weight:500; color:var(--fg); margin:0; }
@@ -438,9 +415,9 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 .timeline-slider-b::-webkit-slider-thumb { background:var(--bg); border:2px solid var(--fg-muted); }
 .timeline-slider-b::-moz-range-thumb { background:var(--bg); border:2px solid var(--fg-muted); }
 
-/* Stundenachse unter beiden Timelines */
-.timeline-axis-labels { display:flex; justify-content:space-between; padding:0 2px; margin:4px 0 24px 28px; }
-.tl-label { font-family:var(--font-sans); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-muted); opacity:0.6; }
+/* Stundenachse unter beiden Timelines — padding gleicht Thumb-Einrückung aus */
+.timeline-axis-labels { position:relative; height:16px; margin:4px 0 24px 0; padding-left:calc(var(--thumb-size)/2); padding-right:calc(var(--thumb-size)/2); }
+.tl-label { position:absolute; font-family:var(--font-sans); font-size:10px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-muted); opacity:0.6; transform:translateX(-50%); }
 
 /* A/B Selector — textbasiert, kein Toggle */
 
@@ -457,15 +434,9 @@ const modeLabels: Record<ProfileMode, string> = { durchschnitt: 'Durchschnitt', 
 .time-slider::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; border-radius:50%; background:var(--fg); border:2px solid var(--bg); margin-top:-6px; cursor:pointer; }
 .time-slider::-moz-range-track { height:4px; background:var(--hairline); border-radius:2px; }
 .time-slider::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:var(--fg); border:2px solid var(--bg); cursor:pointer; }
-.tick-labels { display:flex; justify-content:space-between; font-family:var(--font-sans); font-size:11px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-muted); margin-top:4px; padding:0 4px; }
+.tick-labels { position:relative; height:16px; font-family:var(--font-sans); font-size:11px; letter-spacing:0.04em; text-transform:uppercase; color:var(--fg-muted); margin-top:4px; padding-left:calc(var(--thumb-size)/2); padding-right:calc(var(--thumb-size)/2); }
+.tick-label { position:absolute; transform:translateX(-50%); }
 
-/* ---- Preset-Buttons (Einzel-Modus) ---- */
-.preset-row { display:flex; justify-content:center; gap:24px; flex-wrap:wrap; margin:20px 0 0; }
-.preset-btn { font-family:var(--font-sans); font-size:12px; color:var(--fg-muted); background:none; border:none; cursor:pointer; padding:6px 12px; border-radius:4px; transition:all .15s; display:inline-flex; align-items:center; gap:6px; }
-.preset-btn:hover { background:var(--hairline); color:var(--fg); }
-.preset-btn.active { color:var(--fg); font-weight:500; }
-.preset-marker { display:inline-block; width:5px; height:5px; border-radius:50%; background:var(--fg-muted); opacity:0.3; flex-shrink:0; transition:all .15s; }
-.preset-marker.active { background:var(--fg); opacity:1; }
 
 
 
