@@ -16,6 +16,7 @@ import type { HourlyRow } from '~/composables/useData'
 import type {
   MonthlyMixPoint,
   HeatmapCo2Cell,
+  ScatterDailyPoint,
 } from '~/types/visualization-data'
 
 // explizite imports weil auto-import manchmal spinnt
@@ -41,7 +42,7 @@ const chartMode = ref<'absolute' | 'percent'>('percent')
 // Lazy Loading: Nur der direkt sichtbare Tab "Strommix" lädt synchron.
 // Die drei anderen Charts werden asynchron geladen, sobald der Nutzer
 // den entsprechenden Tab anklickt. Spart ~80 kB initiales Bundle.
-const VizScatterAnalysis = defineAsyncComponent(() => import('~/components/viz/ScatterAnalysis.vue'))
+const VizScatterSimple = defineAsyncComponent(() => import('~/components/viz/ScatterSimple.vue'))
 const VizHeatmapCO2 = defineAsyncComponent(() => import('~/components/viz/HeatmapCO2.vue'))
 const VizHourlyProfile = defineAsyncComponent(() => import('~/components/viz/HourlyProfile.vue'))
 
@@ -83,6 +84,7 @@ const monthlyMix = ref<MonthlyMixPoint[]>([])
 const monthlyMixLoading = ref(true)
 const monthlyMixError = ref<string | null>(null)
 const heatmapCo2 = ref<HeatmapCo2Cell[]>([])
+const scatterDaily = ref<ScatterDailyPoint[]>([])
 
 const { loadVisualizationData } = useVisualizationData()
 
@@ -93,6 +95,7 @@ async function loadVisualization() {
     const visData = await loadVisualizationData()
     monthlyMix.value = visData.monthlyMix
     heatmapCo2.value = visData.heatmapCo2
+    scatterDaily.value = visData.scatterDaily
   } catch (e: unknown) {
     monthlyMixError.value = e instanceof Error ? e.message : 'Fehler beim Laden der Visualisierungsdaten'
   } finally {
@@ -407,12 +410,10 @@ const kpis = computed(() => {
 
       <!-- Zusammenhänge -->
       <section v-if="activeTab === 'zusammenhaenge'" class="tab-content">
-        <Suspense>
-          <VizScatterAnalysis :data="hourly" />
-          <template #fallback>
-            <div class="chart-loading">Visualisierung wird geladen …</div>
-          </template>
-        </Suspense>
+        <div v-if="monthlyMixLoading" class="chart-loading">Tagesdaten werden geladen …</div>
+        <div v-else-if="monthlyMixError" class="chart-error">{{ monthlyMixError }}</div>
+        <div v-else-if="scatterDaily.length === 0" class="chart-empty">Keine Tagesdaten für das Streudiagramm verfügbar.</div>
+        <VizScatterSimple v-else :data="scatterDaily" />
       </section>
 
       <!-- Tagesmuster -->
