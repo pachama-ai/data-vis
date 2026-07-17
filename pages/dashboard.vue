@@ -1,16 +1,14 @@
 <script setup lang="ts">
 /**
- * dashboard.vue – Haupt-Dashboard-Seite der Datenvisualisierung.
+ * dashboard.vue – Haupt-Dashboard-Seite.
  *
- * Enthält die Tab-Navigation zwischen Strommix, Einflussfaktoren,
- * Tagesmustern und Markt & Preisen. Lädt hourly+yearly Daten und
- * aggregiert sie für die Unterseiten.
+ * Enthält zwei Tabs: Strommix (KPIs, StackedArea, HeatmapCO2)
+ * und Einflussfaktoren (ScatterSimple).
+ * Datenbasis: visualization-data.json (build-time aggregiert).
  */
 
-import { ref, shallowRef, computed, defineAsyncComponent } from 'vue'
-import { useData } from '~/composables/useData'
+import { ref, computed, defineAsyncComponent } from 'vue'
 import { useVisualizationData } from '~/composables/useVisualizationData'
-import type { HourlyRow } from '~/composables/useData'
 import type {
   MonthlyMixPoint,
   HeatmapCo2Cell,
@@ -20,58 +18,9 @@ import type {
 
 // explizite imports weil auto-import manchmal spinnt
 import VizStackedArea from '~/components/viz/StackedArea.vue'
-import ExtremeValuesPanel from '~/components/dashboard/ExtremeValuesPanel.vue'
-import StartEndComparison from '~/components/dashboard/StartEndComparison.vue'
-import type { MonthlyDataPoint } from '~/composables/useExtremeValues'
-import { aggregate } from '~/utils/aggregate'
 
-const { loadHourly } = useData()
-
-// shallowRef: große Arrays sind unveränderlich, keine tiefe Reaktivität nötig
-const hourly = shallowRef<HourlyRow[]>([])
-
-// Aggregation-Level und Modus (noch von ExtremeValuesPanel/StartEndComparison genutzt)
-const aggLevel = ref<'tag' | 'woche' | 'monat' | 'quartal'>('monat')
-const chartMode = ref<'absolute' | 'percent'>('percent')
-
-// Lazy Loading: Nur der direkt sichtbare Tab "Strommix" lädt synchron.
-// Die drei anderen Charts werden asynchron geladen, sobald der Nutzer
-// den entsprechenden Tab anklickt. Spart ~80 kB initiales Bundle.
 const VizScatterSimple = defineAsyncComponent(() => import('~/components/viz/ScatterSimple.vue'))
 const VizHeatmapCO2 = defineAsyncComponent(() => import('~/components/viz/HeatmapCO2.vue'))
-const VizHourlyProfile = defineAsyncComponent(() => import('~/components/viz/HourlyProfile.vue'))
-
-const loading = ref(true)
-const error = ref<string | null>(null)
-
-// Aggregierte Daten (noch von ExtremeValuesPanel/StartEndComparison genutzt)
-/** Nach aggLevel aggregierte Stunden-Daten. */
-const monthlyData = computed<MonthlyDataPoint[]>(() => {
-  if (!hourly.value.length) return []
-  return aggregate(hourly.value, { level: aggLevel.value })
-})
-
-const highlightedKey = ref<string | null>(null)
-/** Merkt den hervorgehobenen Energieträger aus StartEndComparison */
-function onHighlightChange(key: string | null) {
-  highlightedKey.value = key
-}
-
-/**
- * Lädt Stunden- und Jahresdaten von der API.
- * Setzt loading-Status und fängt Fehler (wird im Template angezeigt).
- */
-async function loadData() {
-  try {
-    loading.value = true
-    hourly.value = await loadHourly()
-  } catch (e: unknown) {
-    error.value = e instanceof Error ? e.message : 'Fehler beim Laden der Daten'
-  } finally {
-    loading.value = false
-  }
-}
-loadData()
 
 // Build-time aggregierte Daten (monthlyMix, heatmapCo2, …)
 const monthlyMix = ref<MonthlyMixPoint[]>([])
@@ -104,15 +53,8 @@ async function loadVisualization() {
 }
 loadVisualization()
 
-// Tab-Navigation
-const activeTab = ref<'ueberblick' | 'zusammenhaenge' | 'tagesmuster' | 'preise'>('ueberblick')
-
-const tabs = [
-  { id: 'ueberblick' as const, label: 'Strommix' },
-  { id: 'zusammenhaenge' as const, label: 'Einflussfaktoren' },
-  { id: 'tagesmuster' as const, label: 'Tagesmuster' },
-  { id: 'preise' as const, label: 'Markt & Preise' },
-]
+type DashboardTab = 'strommix' | 'einflussfaktoren'
+const activeTab = ref<DashboardTab>('strommix')
 </script>
 
 <template>
@@ -126,15 +68,13 @@ const tabs = [
       <NuxtLink to="/" class="back-link">← Zurück zur Übersicht</NuxtLink>
     </header>
 
-    <div v-if="loading" class="dashboard-loading">Daten werden geladen...</div>
-    <div v-else-if="error" class="dashboard-error">{{ error }}</div>
+    <div v-if="monthlyMixLoading" class="dashboard-loading">Daten werden geladen …</div>
+    <div v-else-if="monthlyMixError" class="dashboard-error">{{ monthlyMixError }}</div>
 
-    <template v-if="!loading && !error">
+    <template v-if="!monthlyMixLoading && !monthlyMixError">
       <!-- KPI-Zahlen 2024 -->
       <section class="kpi-section">
-        <div v-if="monthlyMixLoading" class="kpi-loading">Kennzahlen werden geladen …</div>
-        <div v-else-if="monthlyMixError" class="kpi-error">{{ monthlyMixError }}</div>
-        <div v-else-if="!yearlyMix2024" class="kpi-empty">Für 2024 sind keine KPI-Daten verfügbar.</div>
+        <div v-if="!yearlyMix2024" class="kpi-empty">Für 2024 sind keine KPI-Daten verfügbar.</div>
         <div v-else class="kpi-grid">
           <div class="kpi-card">
             <span class="kpi-label">EE-Anteil 2024</span>
@@ -153,51 +93,26 @@ const tabs = [
 
       <!-- Tab-Navigation -->
       <nav class="tab-nav">
-        <button v-for="t in tabs" :key="t.id" class="tab-btn" :class="{ active: activeTab === t.id }" @click="activeTab = t.id">
-          {{ t.label }}
-        </button>
+        <button class="tab-btn" :class="{ active: activeTab === 'strommix' }" @click="activeTab = 'strommix'">Strommix</button>
+        <button class="tab-btn" :class="{ active: activeTab === 'einflussfaktoren' }" @click="activeTab = 'einflussfaktoren'">Einflussfaktoren</button>
       </nav>
 
-      <!-- Tab-Inhalte -->
-      <!-- Überblick -->
-      <section v-if="activeTab === 'ueberblick'" class="tab-content overview-layout">
-        <div class="overview-chart">
-          <div v-if="monthlyMixLoading" class="chart-loading">Monatsdaten werden geladen …</div>
-          <div v-else-if="monthlyMixError" class="chart-error">{{ monthlyMixError }}</div>
-          <div v-else-if="monthlyMix.length === 0" class="chart-empty">Keine Monatsdaten für den Strommix verfügbar.</div>
+      <!-- Strommix -->
+      <section v-if="activeTab === 'strommix'" class="tab-content">
+        <div class="overview-stacked">
+          <div v-if="monthlyMix.length === 0" class="chart-empty">Keine Monatsdaten für den Strommix verfügbar.</div>
           <VizStackedArea v-else :data="monthlyMix" />
         </div>
-        <aside class="context-panel context-panel-new">
-          <ExtremeValuesPanel :monthly-data="monthlyData" :agg-level="aggLevel" :mode="chartMode" />
-          <div class="comp-spacer"></div>
-          <StartEndComparison :monthly-data="monthlyData" @highlight-change="onHighlightChange" />
-        </aside>
+        <div class="overview-heatmap">
+          <div v-if="heatmapCo2.length === 0" class="chart-empty">Keine CO₂-Heatmap-Daten verfügbar.</div>
+          <VizHeatmapCO2 v-else :data="heatmapCo2" />
+        </div>
       </section>
 
-      <!-- Zusammenhänge -->
-      <section v-if="activeTab === 'zusammenhaenge'" class="tab-content">
-        <div v-if="monthlyMixLoading" class="chart-loading">Tagesdaten werden geladen …</div>
-        <div v-else-if="monthlyMixError" class="chart-error">{{ monthlyMixError }}</div>
-        <div v-else-if="scatterDaily.length === 0" class="chart-empty">Keine Tagesdaten für das Streudiagramm verfügbar.</div>
+      <!-- Einflussfaktoren -->
+      <section v-if="activeTab === 'einflussfaktoren'" class="tab-content">
+        <div v-if="scatterDaily.length === 0" class="chart-empty">Keine Tagesdaten für das Streudiagramm verfügbar.</div>
         <VizScatterSimple v-else :data="scatterDaily" />
-      </section>
-
-      <!-- Tagesmuster -->
-      <section v-if="activeTab === 'tagesmuster'" class="tab-content">
-        <div v-if="monthlyMixLoading" class="chart-loading">CO₂-Daten werden geladen …</div>
-        <div v-else-if="monthlyMixError" class="chart-error">{{ monthlyMixError }}</div>
-        <div v-else-if="heatmapCo2.length === 0" class="chart-empty">Keine CO₂-Heatmap-Daten verfügbar.</div>
-        <VizHeatmapCO2 v-else :data="heatmapCo2" />
-      </section>
-
-      <!-- Preise -->
-      <section v-if="activeTab === 'preise'" class="tab-content">
-        <Suspense>
-          <VizHourlyProfile :data="hourly" />
-          <template #fallback>
-            <div class="chart-loading">Visualisierung wird geladen …</div>
-          </template>
-        </Suspense>
       </section>
 
       <footer class="dashboard-footer">
@@ -271,16 +186,6 @@ const tabs = [
 .back-link:hover {
   color: var(--accent);
   text-decoration: underline;
-}
-
-.header-meta {
-  flex-shrink: 0;
-  font-size: 0.7rem;
-  color: var(--fg-muted);
-  white-space: nowrap;
-  padding-top: 6px;
-  letter-spacing: 0.02em;
-  opacity: 0.7;
 }
 
 .kpi-section {
@@ -367,75 +272,8 @@ const tabs = [
   margin-bottom: 64px;
 }
 
-/* Überblick-Layout */
-.overview-layout {
-  display: grid;
-  grid-template-columns: 1fr 260px;
-  gap: 32px;
-  align-items: start;
-}
-
-.overview-chart {
-  min-width: 0;
-}
-
-/* Kontext-Panel – neue Daten-Kacheln */
-.context-panel {
-  border-left: 1px solid var(--hairline);
-  padding: 4px 0 4px 20px;
-  position: sticky;
-  top: 20px;
-}
-.context-panel-new {
-  padding-top: 0;
-}
-.comp-spacer {
-  height: 32px;
-}
-
-.context-block {
-  margin-bottom: 20px;
-}
-
-.context-block:last-child { margin-bottom: 0; }
-
-.context-heading {
-  font-family: var(--font-sans);
-  font-size: 0.6rem;
-  font-weight: 600;
-  color: var(--fg-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  margin: 0 0 10px;
-}
-
-.context-list {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--fg);
-}
-
-.context-list li {
-  position: relative;
-  padding-left: 14px;
-  margin-bottom: 6px;
-}
-
-.context-list li::before {
-  content: "–";
-  position: absolute;
-  left: 0;
-  color: var(--fg-muted);
-}
-
-.context-text {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.6;
-  color: var(--fg);
+.overview-stacked {
+  margin-bottom: 48px;
 }
 
 .dashboard-loading, .dashboard-error {
@@ -444,7 +282,7 @@ const tabs = [
   font-size: 0.9rem;
   color: var(--fg-muted);
 }
-.chart-loading {
+.chart-empty {
   text-align: center;
   padding: 60px 0;
   font-size: 0.8rem;
@@ -465,13 +303,8 @@ const tabs = [
   opacity: 0.6;
 }
 
-@media (max-width: 1200px) {
-  .overview-layout { grid-template-columns: 1fr; }
-  .context-panel { position: static; border-left: none; border-top: 1px solid var(--hairline); padding: 16px 0 0; }
-}
 @media (max-width: 900px) {
   .dashboard-header { flex-direction: column; gap: 8px; }
-  .header-meta { white-space: normal; }
 }
 @media (max-width: 600px) {
   .dashboard-page { padding: 20px; }
