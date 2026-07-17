@@ -2,57 +2,65 @@
 /**
  * dashboard.vue – Haupt-Dashboard-Seite.
  *
- * Enthält zwei Tabs: Strommix (KPIs, StackedArea, HeatmapCO2)
+ * Zwei Tabs: Strommix (KPIs, StackedArea, HeatmapCO2)
  * und Einflussfaktoren (ScatterSimple).
- * Datenbasis: visualization-data.json (build-time aggregiert).
+ * Lädt visualization-data.json einmalig bei onMounted
+ * und verteilt die Daten an die Visualisierungskomponenten.
+ * Keine fachliche Aggregation – alle Werte sind build-time berechnet.
  */
 
-import { ref, computed, defineAsyncComponent } from 'vue'
+import { ref, computed, onMounted, defineAsyncComponent } from 'vue'
 import { useVisualizationData } from '~/composables/useVisualizationData'
-import type {
-  MonthlyMixPoint,
-  HeatmapCo2Cell,
-  ScatterDailyPoint,
-  YearlyMixPoint,
-} from '~/types/visualization-data'
+import type { VisualizationData } from '~/types/visualization-data'
 
-// explizite imports weil auto-import manchmal spinnt
 import VizStackedArea from '~/components/viz/StackedArea.vue'
 
 const VizScatterSimple = defineAsyncComponent(() => import('~/components/viz/ScatterSimple.vue'))
 const VizHeatmapCO2 = defineAsyncComponent(() => import('~/components/viz/HeatmapCO2.vue'))
 
-// Build-time aggregierte Daten (monthlyMix, heatmapCo2, …)
-const monthlyMix = ref<MonthlyMixPoint[]>([])
-const monthlyMixLoading = ref(true)
-const monthlyMixError = ref<string | null>(null)
-const heatmapCo2 = ref<HeatmapCo2Cell[]>([])
-const scatterDaily = ref<ScatterDailyPoint[]>([])
-const yearlyMix = ref<YearlyMixPoint[]>([])
+// ── Daten ──
+// Ein zentrales Ref. Die vier Arrays werden via Computed abgeleitet,
+// sodass es nur eine Zustandsquelle gibt.
+const visualizationData = ref<VisualizationData | null>(null)
+const isLoading = ref(true)
+const loadError = ref<string | null>(null)
 
+const monthlyMix = computed(() => visualizationData.value?.monthlyMix ?? [])
+const heatmapCo2 = computed(() => visualizationData.value?.heatmapCo2 ?? [])
+const scatterDaily = computed(() => visualizationData.value?.scatterDaily ?? [])
+const yearlyMix = computed(() => visualizationData.value?.yearlyMix ?? [])
+
+// KPI-Datensatz für 2024 – direkt aus yearlyMix, keine Aggregation.
 const yearlyMix2024 = computed(() =>
   yearlyMix.value.find((p) => p.year === 2024) ?? null,
 )
 
+function formatPercent(v: number): string { return v.toFixed(1) + ' %' }
+function formatCo2(v: number): string { return Math.round(v) + ' g CO\u2082/kWh' }
+function formatTwh(vMwh: number): string { return (vMwh / 1_000_000).toFixed(1) + ' TWh' }
+
+// ── Laden ──
 const { loadVisualizationData } = useVisualizationData()
 
-async function loadVisualization() {
+async function loadDashboardData(): Promise<void> {
+  isLoading.value = true
+  loadError.value = null
+
   try {
-    monthlyMixLoading.value = true
-    monthlyMixError.value = null
-    const visData = await loadVisualizationData()
-    monthlyMix.value = visData.monthlyMix
-    heatmapCo2.value = visData.heatmapCo2
-    scatterDaily.value = visData.scatterDaily
-    yearlyMix.value = visData.yearlyMix
-  } catch (e: unknown) {
-    monthlyMixError.value = e instanceof Error ? e.message : 'Fehler beim Laden der Visualisierungsdaten'
+    visualizationData.value = await loadVisualizationData()
+  } catch (caughtError: unknown) {
+    loadError.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : 'Die Visualisierungsdaten konnten nicht geladen werden.'
   } finally {
-    monthlyMixLoading.value = false
+    isLoading.value = false
   }
 }
-loadVisualization()
 
+onMounted(loadDashboardData)
+
+// ── Tabs ──
 type DashboardTab = 'strommix' | 'einflussfaktoren'
 const activeTab = ref<DashboardTab>('strommix')
 </script>
@@ -61,64 +69,78 @@ const activeTab = ref<DashboardTab>('strommix')
   <div class="dashboard-page">
     <header class="dashboard-header">
       <div>
-        <span class="dashboard-eyebrow">Stromerzeugung 2015–2024</span>
+        <span class="dashboard-eyebrow">Stromerzeugung 2015\u20132024</span>
         <h1 class="dashboard-title">Die Klimabilanz des deutschen Stroms</h1>
-        <p class="dashboard-subtitle">Eine interaktive Analyse auf Basis von SMARD- (Erzeugung), UBA- (Emissionsfaktoren) und ENTSO-E-Daten (Preise).</p>
+        <p class="dashboard-subtitle">
+          Eine interaktive Analyse auf Basis von SMARD- (Erzeugung), UBA- (Emissionsfaktoren)
+          und ENTSO-E-Daten (Preise).
+        </p>
       </div>
-      <NuxtLink to="/" class="back-link">← Zurück zur Übersicht</NuxtLink>
+      <NuxtLink to="/" class="back-link">\u2190 Zur\u00fcck zur \u00dcbersicht</NuxtLink>
     </header>
 
-    <div v-if="monthlyMixLoading" class="dashboard-loading">Daten werden geladen …</div>
-    <div v-else-if="monthlyMixError" class="dashboard-error">{{ monthlyMixError }}</div>
+    <p v-if="isLoading" class="dashboard-loading">Daten werden geladen \u2026</p>
+    <p v-else-if="loadError" class="dashboard-error" role="alert">{{ loadError }}</p>
 
-    <template v-if="!monthlyMixLoading && !monthlyMixError">
+    <template v-else-if="visualizationData">
       <!-- KPI-Zahlen 2024 -->
       <section class="kpi-section">
-        <div v-if="!yearlyMix2024" class="kpi-empty">Für 2024 sind keine KPI-Daten verfügbar.</div>
+        <div v-if="!yearlyMix2024" class="kpi-empty">F\u00fcr 2024 sind keine KPI-Daten verf\u00fcgbar.</div>
         <div v-else class="kpi-grid">
           <div class="kpi-card">
             <span class="kpi-label">EE-Anteil 2024</span>
-            <span class="kpi-value">{{ yearlyMix2024.renewableSharePercent.toFixed(1) }} %</span>
+            <span class="kpi-value">{{ formatPercent(yearlyMix2024.renewableSharePercent) }}</span>
           </div>
           <div class="kpi-card">
-            <span class="kpi-label">CO₂-Intensität 2024</span>
-            <span class="kpi-value">{{ Math.round(yearlyMix2024.co2GramsPerKwh) }} g CO₂/kWh</span>
+            <span class="kpi-label">CO\u2082-Intensit\u00e4t 2024</span>
+            <span class="kpi-value">{{ formatCo2(yearlyMix2024.co2GramsPerKwh) }}</span>
           </div>
           <div class="kpi-card">
             <span class="kpi-label">Gesamterzeugung 2024</span>
-            <span class="kpi-value">{{ (yearlyMix2024.totalGenerationMwh / 1_000_000).toFixed(1) }} TWh</span>
+            <span class="kpi-value">{{ formatTwh(yearlyMix2024.totalGenerationMwh) }}</span>
           </div>
         </div>
       </section>
 
       <!-- Tab-Navigation -->
       <nav class="tab-nav">
-        <button class="tab-btn" :class="{ active: activeTab === 'strommix' }" @click="activeTab = 'strommix'">Strommix</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'einflussfaktoren' }" @click="activeTab = 'einflussfaktoren'">Einflussfaktoren</button>
+        <button
+          type="button"
+          class="tab-btn"
+          :class="{ active: activeTab === 'strommix' }"
+          :aria-pressed="activeTab === 'strommix'"
+          @click="activeTab = 'strommix'"
+        >Strommix</button>
+        <button
+          type="button"
+          class="tab-btn"
+          :class="{ active: activeTab === 'einflussfaktoren' }"
+          :aria-pressed="activeTab === 'einflussfaktoren'"
+          @click="activeTab = 'einflussfaktoren'"
+        >Einflussfaktoren</button>
       </nav>
 
       <!-- Strommix -->
       <section v-if="activeTab === 'strommix'" class="tab-content">
         <div class="overview-stacked">
-          <div v-if="monthlyMix.length === 0" class="chart-empty">Keine Monatsdaten für den Strommix verfügbar.</div>
-          <VizStackedArea v-else :data="monthlyMix" />
+          <VizStackedArea :data="monthlyMix" />
         </div>
         <div class="overview-heatmap">
-          <div v-if="heatmapCo2.length === 0" class="chart-empty">Keine CO₂-Heatmap-Daten verfügbar.</div>
-          <VizHeatmapCO2 v-else :data="heatmapCo2" />
+          <VizHeatmapCO2 :data="heatmapCo2" />
         </div>
       </section>
 
       <!-- Einflussfaktoren -->
       <section v-if="activeTab === 'einflussfaktoren'" class="tab-content">
-        <div v-if="scatterDaily.length === 0" class="chart-empty">Keine Tagesdaten für das Streudiagramm verfügbar.</div>
-        <VizScatterSimple v-else :data="scatterDaily" />
+        <VizScatterSimple :data="scatterDaily" />
       </section>
 
       <footer class="dashboard-footer">
-        <span>API: SMARD (Erzeugung), ENTSO-E (Preise) &middot; Datenquelle: UBA (Emissionsfaktoren)</span>
+        <span>API: SMARD (Erzeugung), ENTSO-E (Preise) \u00b7 Datenquelle: UBA (Emissionsfaktoren)</span>
       </footer>
     </template>
+
+    <p v-else class="dashboard-loading">Keine Visualisierungsdaten verf\u00fcgbar.</p>
   </div>
 </template>
 
@@ -202,7 +224,7 @@ const activeTab = ref<DashboardTab>('strommix')
   background: var(--hairline);
   pointer-events: none;
 }
-.kpi-loading, .kpi-error, .kpi-empty {
+.kpi-empty {
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--fg-muted);
@@ -280,12 +302,6 @@ const activeTab = ref<DashboardTab>('strommix')
   text-align: center;
   padding: 80px 0;
   font-size: 0.9rem;
-  color: var(--fg-muted);
-}
-.chart-empty {
-  text-align: center;
-  padding: 60px 0;
-  font-size: 0.8rem;
   color: var(--fg-muted);
 }
 .dashboard-error { color: var(--accent); }
