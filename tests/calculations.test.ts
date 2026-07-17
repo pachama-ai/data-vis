@@ -216,7 +216,7 @@ function pearsonR(x: number[], y: number[]): number {
   const my = y.reduce((s, v) => s + v, 0) / n
   let num = 0, denX = 0, denY = 0
   for (let i = 0; i < n; i++) {
-    const dx = x[i] - mx, dy = y[i] - my
+    const dx = x[i]! - mx, dy = y[i]! - my
     num += dx * dy
     denX += dx * dx
     denY += dy * dy
@@ -259,8 +259,8 @@ function linregSlope(x: number[], y: number[]): number {
   const my = y.reduce((s, v) => s + v, 0) / n
   let num = 0, den = 0
   for (let i = 0; i < n; i++) {
-    const dx = x[i] - mx
-    num += dx * (y[i] - my)
+    const dx = x[i]! - mx
+    num += dx * (y[i]! - my)
     den += dx * dx
   }
   return den === 0 ? 0 : num / den
@@ -418,7 +418,7 @@ describe('KPI-Jahreswerte (Berlin-Jahr)', () => {
 })
 
 // preis kpi 2015 vs 2024
-function yearlyPriceValues(rows: any[]) {
+function yearlyPriceValues(rows: Array<{ timestamp: number; price_eur_mwh: number }>) {
   // Simuliert yearlyValues('price') aus dashboard.vue: gruppiert nach Berlin-Jahr, filtert 2015–2024
   const byY: Record<number, number[]> = {}
   for (const r of rows) {
@@ -484,7 +484,7 @@ describe('Preis-KPI Jahresvergleich', () => {
     ]
     const vals = yearlyPriceValues(rows)
     // Delta: vals[9] - vals[0] = 80 - 30 = +50 (nicht 999-30)
-    const delta = vals[9] - vals[0]
+    const delta = vals[9]! - vals[0]!
     expect(delta).toBeCloseTo(50, 0)
   })
 })
