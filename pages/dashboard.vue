@@ -13,7 +13,10 @@ import { useVisualizationData } from '~/composables/useVisualizationData'
 import { useFilters } from '~/composables/useFilters'
 import { getBerlinYear, getBerlinMonth } from '~/utils/berlin'
 import type { HourlyRow } from '~/composables/useData'
-import type { MonthlyMixPoint } from '~/types/visualization-data'
+import type {
+  MonthlyMixPoint,
+  HeatmapCo2Cell,
+} from '~/types/visualization-data'
 
 // explizite imports weil auto-import manchmal spinnt
 import DashboardFilterBar from '~/components/dashboard/FilterBar.vue'
@@ -75,26 +78,28 @@ async function loadData() {
 }
 loadData()
 
-// Monatsdaten für StackedArea (neuer build-time aggregierter Datenpfad)
+// Build-time aggregierte Daten (monthlyMix, heatmapCo2, …)
 const monthlyMix = ref<MonthlyMixPoint[]>([])
 const monthlyMixLoading = ref(true)
 const monthlyMixError = ref<string | null>(null)
+const heatmapCo2 = ref<HeatmapCo2Cell[]>([])
 
 const { loadVisualizationData } = useVisualizationData()
 
-async function loadMonthlyMix() {
+async function loadVisualization() {
   try {
     monthlyMixLoading.value = true
     monthlyMixError.value = null
     const visData = await loadVisualizationData()
     monthlyMix.value = visData.monthlyMix
+    heatmapCo2.value = visData.heatmapCo2
   } catch (e: unknown) {
-    monthlyMixError.value = e instanceof Error ? e.message : 'Fehler beim Laden der Monatsdaten'
+    monthlyMixError.value = e instanceof Error ? e.message : 'Fehler beim Laden der Visualisierungsdaten'
   } finally {
     monthlyMixLoading.value = false
   }
 }
-loadMonthlyMix()
+loadVisualization()
 
 const { state, filteredKpiData, dataForYear } = useFilters()
 
@@ -107,9 +112,7 @@ const tabs = [
   { id: 'tagesmuster' as const, label: 'Tagesmuster' },
   { id: 'preise' as const, label: 'Markt & Preise' },
 ]
-const selectedDay = ref<string | undefined>(undefined)
-/** Merkt den aus der Heatmap ausgewählten Tag für die Tagesprofile */
-function handleDaySelected(isoDate: string) { selectedDay.value = isoDate }
+
 
 // Sparkline-Hover-Sync über mehrere KPI-Karten
 const hoveredIndex = ref<number | null>(null)
@@ -414,18 +417,16 @@ const kpis = computed(() => {
 
       <!-- Tagesmuster -->
       <section v-if="activeTab === 'tagesmuster'" class="tab-content">
-        <Suspense>
-          <VizHeatmapCO2 :data="hourly" @day-selected="handleDaySelected" />
-          <template #fallback>
-            <div class="chart-loading">Visualisierung wird geladen …</div>
-          </template>
-        </Suspense>
+        <div v-if="monthlyMixLoading" class="chart-loading">CO₂-Daten werden geladen …</div>
+        <div v-else-if="monthlyMixError" class="chart-error">{{ monthlyMixError }}</div>
+        <div v-else-if="heatmapCo2.length === 0" class="chart-empty">Keine CO₂-Heatmap-Daten verfügbar.</div>
+        <VizHeatmapCO2 v-else :data="heatmapCo2" />
       </section>
 
       <!-- Preise -->
       <section v-if="activeTab === 'preise'" class="tab-content">
         <Suspense>
-          <VizHourlyProfile :data="hourly" :selected-day="selectedDay" />
+          <VizHourlyProfile :data="hourly" />
           <template #fallback>
             <div class="chart-loading">Visualisierung wird geladen …</div>
           </template>
