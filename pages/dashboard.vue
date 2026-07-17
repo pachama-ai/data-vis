@@ -9,9 +9,11 @@
 
 import { ref, shallowRef, computed, defineAsyncComponent } from 'vue'
 import { useData } from '~/composables/useData'
+import { useVisualizationData } from '~/composables/useVisualizationData'
 import { useFilters } from '~/composables/useFilters'
 import { getBerlinYear, getBerlinMonth } from '~/utils/berlin'
 import type { HourlyRow } from '~/composables/useData'
+import type { MonthlyMixPoint } from '~/types/visualization-data'
 
 // explizite imports weil auto-import manchmal spinnt
 import DashboardFilterBar from '~/components/dashboard/FilterBar.vue'
@@ -29,45 +31,25 @@ const { loadHourly, loadYearly } = useData()
 const hourly = shallowRef<HourlyRow[]>([])
 const yearly = shallowRef<YearlyRow[]>([])
 
-// Aggregation-Level und Modus, gesteuert vom StackedArea-Chart
+// Aggregation-Level und Modus (noch von ExtremeValuesPanel/StartEndComparison genutzt)
 const aggLevel = ref<'tag' | 'woche' | 'monat' | 'quartal'>('monat')
 const chartMode = ref<'absolute' | 'percent'>('percent')
-
-function onAggLevelChange(level: 'tag' | 'woche' | 'monat' | 'quartal') {
-  aggLevel.value = level
-}
-function onChartModeChange(mode: 'absolute' | 'percent') {
-  chartMode.value = mode
-}
 
 // Lazy Loading: Nur der direkt sichtbare Tab "Strommix" lädt synchron.
 // Die drei anderen Charts werden asynchron geladen, sobald der Nutzer
 // den entsprechenden Tab anklickt. Spart ~80 kB initiales Bundle.
 const VizScatterAnalysis = defineAsyncComponent(() => import('~/components/viz/ScatterAnalysis.vue'))
 const VizHeatmapCO2 = defineAsyncComponent(() => import('~/components/viz/HeatmapCO2.vue'))
-const VizDuckCurve = defineAsyncComponent(() => import('~/components/viz/DuckCurve.vue'))
+const VizHourlyProfile = defineAsyncComponent(() => import('~/components/viz/HourlyProfile.vue'))
 
 const loading = ref(true)
 const error = ref<string | null>(null)
 
-// Sichtbarer Zeitraum aus StackedArea-Zoom
-// Zoom-Bereich aus dem StackedArea-Chart
-const visibleRange = ref<{ start: Date; end: Date } | null>(null)
-/**
- * Wird vom StackedArea-Chart aufgerufen, wenn der Zoom-Bereich sich ändert.
- * @param range Der neue sichtbare Bereich oder null (Reset).
- */
-function onVisibleRangeChange(range: { start: Date; end: Date } | null) {
-  visibleRange.value = range
-}
-
-// Aggregierte Daten im sichtbaren Bereich (level folgt dem StackedArea-Chart)
-/** Nach aggLevel aggregierte Daten, optional auf den Zoom-Bereich gefiltert */
+// Aggregierte Daten (noch von ExtremeValuesPanel/StartEndComparison genutzt)
+/** Nach aggLevel aggregierte Stunden-Daten. */
 const monthlyData = computed<MonthlyDataPoint[]>(() => {
   if (!hourly.value.length) return []
-  const all = aggregate(hourly.value, { level: aggLevel.value })
-  if (!visibleRange.value) return all
-  return all.filter((d) => d.date >= visibleRange.value!.start && d.date <= visibleRange.value!.end)
+  return aggregate(hourly.value, { level: aggLevel.value })
 })
 
 const highlightedKey = ref<string | null>(null)
@@ -93,6 +75,27 @@ async function loadData() {
 }
 loadData()
 
+// Monatsdaten für StackedArea (neuer build-time aggregierter Datenpfad)
+const monthlyMix = ref<MonthlyMixPoint[]>([])
+const monthlyMixLoading = ref(true)
+const monthlyMixError = ref<string | null>(null)
+
+const { loadVisualizationData } = useVisualizationData()
+
+async function loadMonthlyMix() {
+  try {
+    monthlyMixLoading.value = true
+    monthlyMixError.value = null
+    const visData = await loadVisualizationData()
+    monthlyMix.value = visData.monthlyMix
+  } catch (e: unknown) {
+    monthlyMixError.value = e instanceof Error ? e.message : 'Fehler beim Laden der Monatsdaten'
+  } finally {
+    monthlyMixLoading.value = false
+  }
+}
+loadMonthlyMix()
+
 const { state, filteredKpiData, dataForYear } = useFilters()
 
 // Tab-Navigation
@@ -105,7 +108,7 @@ const tabs = [
   { id: 'preise' as const, label: 'Markt & Preise' },
 ]
 const selectedDay = ref<string | undefined>(undefined)
-/** Merkt den aus der Heatmap ausgewählten Tag für die Duck Curve */
+/** Merkt den aus der Heatmap ausgewählten Tag für die Tagesprofile */
 function handleDaySelected(isoDate: string) { selectedDay.value = isoDate }
 
 // Sparkline-Hover-Sync über mehrere KPI-Karten
@@ -387,7 +390,10 @@ const kpis = computed(() => {
       <!-- Überblick -->
       <section v-if="activeTab === 'ueberblick'" class="tab-content overview-layout">
         <div class="overview-chart">
-          <VizStackedArea :data="hourly" @visible-range-change="onVisibleRangeChange" @agg-level-change="onAggLevelChange" @mode-change="onChartModeChange" />
+          <div v-if="monthlyMixLoading" class="chart-loading">Monatsdaten werden geladen …</div>
+          <div v-else-if="monthlyMixError" class="chart-error">{{ monthlyMixError }}</div>
+          <div v-else-if="monthlyMix.length === 0" class="chart-empty">Keine Monatsdaten für den Strommix verfügbar.</div>
+          <VizStackedArea v-else :data="monthlyMix" />
         </div>
         <aside class="context-panel context-panel-new">
           <ExtremeValuesPanel :monthly-data="monthlyData" :agg-level="aggLevel" :mode="chartMode" />
@@ -419,7 +425,7 @@ const kpis = computed(() => {
       <!-- Preise -->
       <section v-if="activeTab === 'preise'" class="tab-content">
         <Suspense>
-          <VizDuckCurve :data="hourly" :selected-day="selectedDay" />
+          <VizHourlyProfile :data="hourly" :selected-day="selectedDay" />
           <template #fallback>
             <div class="chart-loading">Visualisierung wird geladen …</div>
           </template>
