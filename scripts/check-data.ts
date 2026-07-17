@@ -2,9 +2,9 @@
  * scripts/check-data.ts — Validiert visualization-data.json
  * ==========================================================
  *
- * Prüft Struktur, Wertebereiche, Vollständigkeit und Konsistenz
- * der vier Datenbereiche. Kein "Audit-Framework", sondern
- * einfache Funktionen mit sichtbarer Fehlerliste.
+ * Lädt die erzeugte JSON-Datei und prüft Struktur, Wertebereiche,
+ * Vollständigkeit und Konsistenz der vier Datenbereiche.
+ * Kein "Audit-Framework", sondern einfache Funktionen mit Fehlerliste.
  *
  * Aufruf: bun run scripts/check-data.ts
  */
@@ -19,69 +19,66 @@ import type {
   MonthlyMixPoint, HeatmapCo2Cell, ScatterDailyPoint, YearlyMixPoint,
 } from '../types/visualization-data'
 
-// ---------------------------------------------------------------------------
-// Energie-Träger-Konstanten
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Konstanten
+// ===========================================================================
+
 const SOURCE_KEYS: readonly (keyof EnergySourceValues)[] = [
   'biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
   'other_renewables', 'lignite', 'hardcoal', 'gas', 'nuclear',
   'other_fossil', 'pumped_storage',
 ]
 
-/** Erneuerbare Energieträger (für EE-Anteil-Rückrechnung) */
+/** Erneuerbare Energieträger (für EE-Anteil-Rückrechnung). */
 const RENEWABLE_KEYS: readonly (keyof EnergySourceValues)[] = [
   'biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
   'other_renewables',
 ]
 
-// ---------------------------------------------------------------------------
-// Fehler- / Warnungssammlung
-// ---------------------------------------------------------------------------
-const errors: string[] = []
-const warnings: string[] = []
+// ===========================================================================
+// Ergebnisverwaltung
+// ===========================================================================
 
-function err(msg: string): void { errors.push(msg) }
-function warn(msg: string): void { warnings.push(msg) }
+interface CheckResult {
+  errors: string[]
+  warnings: string[]
+}
 
-// ---------------------------------------------------------------------------
+const result: CheckResult = { errors: [], warnings: [] }
+
+function err(msg: string): void { result.errors.push(msg) }
+function warn(msg: string): void { result.warnings.push(msg) }
+
+// ===========================================================================
 // Hilfsfunktionen
-// ---------------------------------------------------------------------------
+// ===========================================================================
+
 function isPositiveInt(v: unknown): v is number {
   return typeof v === 'number' && Number.isFinite(v) && v >= 0 && v === Math.floor(v)
 }
 
+function isFiniteNum(v: unknown): v is number {
+  return typeof v === 'number' && Number.isFinite(v)
+}
+
+/**
+ * Prüft ein sources-Objekt auf alle 12 Energieträger.
+ * Meldet fehlende, nicht-endliche oder (optional) negative Werte.
+ * Warnt bei unerwarteten Schlüsseln.
+ */
 function checkSources(
-  sources: unknown, label: string,
-  allowNegative: boolean
-): sources is EnergySourceValues {
-  if (!sources || typeof sources !== 'object') {
-    err(`${label}: sources ist kein Objekt`)
-    return false
-  }
-  const s = sources as Record<string, unknown>
-  let ok = true
+  label: string,
+  sources: EnergySourceValues,
+  allowNegative: boolean,
+): void {
   for (const key of SOURCE_KEYS) {
-    if (!(key in s)) {
-      err(`${label}: Energieträger '${key}' fehlt`)
-      ok = false
-      continue
-    }
-    const v = s[key]
+    const v = sources[key]
     if (typeof v !== 'number' || !Number.isFinite(v)) {
       err(`${label}: Energieträger '${key}' ist keine gültige Zahl (${v})`)
-      ok = false
     } else if (!allowNegative && v < 0) {
       err(`${label}: Energieträger '${key}' ist negativ (${v})`)
-      ok = false
     }
   }
-  // Unerwartete Schlüssel prüfen
-  for (const key of Object.keys(s)) {
-    if (!SOURCE_KEYS.includes(key as keyof EnergySourceValues)) {
-      warn(`${label}: unerwarteter Energieträger '${key}'`)
-    }
-  }
-  return ok
 }
 
 function calcRenewableSum(sources: EnergySourceValues): number {
@@ -96,9 +93,10 @@ function calcTotalSum(sources: EnergySourceValues): number {
   return sum
 }
 
-// ---------------------------------------------------------------------------
-// Verbotene Felder
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Verbotene alte Felder
+// ===========================================================================
+
 const FORBIDDEN_PATTERNS = [
   'price', 'price_eur_mwh', 'neg_stunden', 'load_mwh',
   'fossil_share', 'conventional_share', 'ee_share', 'co2_g_per_kwh',
@@ -113,28 +111,63 @@ function isForbidden(key: string): boolean {
   return FORBIDDEN_PATTERNS.some(p => key.includes(p))
 }
 
-function checkForbiddenFields(obj: unknown, path: string): void {
-  if (!obj || typeof obj !== 'object') return
-  if (Array.isArray(obj)) {
-    if (obj.length > 0) checkForbiddenFields(obj[0], path)
-    return
-  }
-  for (const key of Object.keys(obj as Record<string, unknown>)) {
+function checkForbiddenFields(obj: Record<string, unknown>, path: string): void {
+  for (const key of Object.keys(obj)) {
     if (isForbidden(key)) {
       err(`${path}: verbotenes Feld '${key}' gefunden`)
     }
   }
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Strukturprüfung
+// ===========================================================================
+
+/**
+ * Prüft die grundlegende JSON-Struktur: Objekt mit 4 required Arrays.
+ * Gibt bei Erfolg das getypte VisualizationData-Objekt zurück.
+ * Bei Fehlern wird vor dem Abbruch bereits die Ergebnisliste ausgegeben.
+ */
+function checkStructure(raw: unknown): VisualizationData {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    printResults()
+    throw new Error('visualization-data.json ist kein Objekt')
+  }
+  const obj = raw as Record<string, unknown>
+
+  const requiredArrays = ['monthlyMix', 'heatmapCo2', 'scatterDaily', 'yearlyMix'] as const
+  for (const key of requiredArrays) {
+    if (!(key in obj)) err(`Hauptstruktur: '${key}' fehlt`)
+    else if (!Array.isArray(obj[key])) err(`Hauptstruktur: '${key}' ist kein Array`)
+  }
+
+  // Verbotene Felder auf der obersten Ebene prüfen
+  checkForbiddenFields(obj, 'root')
+
+  if (result.errors.length > 0) {
+    printResults()
+    throw new Error('Grundlegende Strukturfehler – Abbruch')
+  }
+
+  return raw as VisualizationData
+}
+
+// ===========================================================================
 // Monatsdaten
-// ---------------------------------------------------------------------------
+// ===========================================================================
+
+/**
+ * Prüft monthlyMix: 120 Monate, Format, Sortierung, Duplikate,
+ * Energieträger, Summenkonsistenz und Stundenzahlen.
+ *
+ * Januar 2015 hat eine bekannte Datenlücke (Datenstart 05.01.2015) –
+ * die abweichende Stundenzahl wird daher nur als Warnung gewertet.
+ */
 function validateMonthlyMix(data: MonthlyMixPoint[]): void {
   if (data.length !== 120) err(`monthlyMix: ${data.length} Einträge, erwartet 120`)
   if (data[0]?.month !== '2015-01') err(`monthlyMix: erster Monat ist ${data[0]?.month}, erwartet 2015-01`)
   if (data[data.length - 1]?.month !== '2024-12') err(`monthlyMix: letzter Monat ist ${data[data.length - 1]?.month}, erwartet 2024-12`)
 
-  // Vollständigkeit und Sortierung
   let prevMonth = ''
   const seen = new Set<string>()
   for (let i = 0; i < data.length; i++) {
@@ -148,32 +181,31 @@ function validateMonthlyMix(data: MonthlyMixPoint[]): void {
     if (m.month <= prevMonth) err(`monthlyMix: Sortierungsfehler bei ${m.month} nach ${prevMonth}`)
     prevMonth = m.month
 
-    checkSources(m.sources, `monthlyMix ${m.month}`, false)
+    checkSources(`monthlyMix ${m.month}`, m.sources, false)
 
-    if (typeof m.totalGenerationMwh !== 'number' || !Number.isFinite(m.totalGenerationMwh) || m.totalGenerationMwh <= 0) {
+    if (!isFiniteNum(m.totalGenerationMwh) || m.totalGenerationMwh <= 0) {
       err(`monthlyMix ${m.month}: totalGenerationMwh ungültig (${m.totalGenerationMwh})`)
     }
 
-    if (typeof m.availableHourCount !== 'number' || !Number.isFinite(m.availableHourCount) || m.availableHourCount <= 0 || m.availableHourCount !== Math.floor(m.availableHourCount)) {
+    if (!isPositiveInt(m.availableHourCount)) {
       err(`monthlyMix ${m.month}: availableHourCount ungültig (${m.availableHourCount})`)
     }
 
-    // Summen-Konsistenz
-    if (m.sources && typeof m.sources === 'object') {
-      const sumCheck = calcTotalSum(m.sources as EnergySourceValues)
-      if (Math.abs(sumCheck - m.totalGenerationMwh) > 0.1) {
-        err(`monthlyMix ${m.month}: Σ sources (${sumCheck.toFixed(2)}) weicht von totalGenerationMwh (${m.totalGenerationMwh.toFixed(2)}) ab`)
-      }
+    // Summen-Konsistenz: Rundungstoleranz 0.1 MWh
+    // (jeder Energieträger und totalGenerationMwh sind auf 2 Dezimalstellen gerundet)
+    const sumCheck = calcTotalSum(m.sources)
+    if (Math.abs(sumCheck - m.totalGenerationMwh) > 0.1) {
+      err(`monthlyMix ${m.month}: Σ sources (${sumCheck.toFixed(2)}) weicht von totalGenerationMwh (${m.totalGenerationMwh.toFixed(2)}) ab`)
     }
 
-    // Stundenzahl-Prüfung (außer Januar 2015)
+    // Stundenzahl-Prüfung (außer Januar 2015 – bekannte Datenlücke)
     if (m.month !== '2015-01') {
       const [yStr, moStr] = m.month.split('-')
       const y = Number(yStr)
       const mo = Number(moStr)
-      const lastDay = new Date(y, mo, 0).getDate() // letzter Tag des Monats
+      const lastDay = new Date(y, mo, 0).getDate()
       let expectedHours = lastDay * 24
-      // Sommerzeit: März -1h, Oktober +1h
+      // Sommerzeit-Umstellung: März -1 Stunde, Oktober +1 Stunde
       if (mo === 3) expectedHours -= 1
       if (mo === 10) expectedHours += 1
       if (m.availableHourCount !== expectedHours) {
@@ -182,27 +214,28 @@ function validateMonthlyMix(data: MonthlyMixPoint[]): void {
     }
   }
 
-  // Januar 2015: bekannte Anfangslücke
+  // Januar 2015: bekannte Anfangslücke (Datenstart 05.01.2015)
   const jan2015 = data.find(m => m.month === '2015-01')
   if (jan2015 && jan2015.availableHourCount !== 744) {
     warn(`monthlyMix 2015-01: ${jan2015.availableHourCount}h (Datenstart 05.01.2015 – erwartete Lücke)`)
+  }
 
-    // Prüfe Monatsfolge auf Vollständigkeit
-    const allMonths: string[] = []
-    for (let y = 2015; y <= 2024; y++) {
-      for (let mo = 1; mo <= 12; mo++) {
-        allMonths.push(`${y}-${String(mo).padStart(2, '0')}`)
-      }
+  // Monatsfolge auf Vollständigkeit prüfen (immer, nicht nur bei jan2015-Lücke)
+  const allMonths: string[] = []
+  for (let y = 2015; y <= 2024; y++) {
+    for (let mo = 1; mo <= 12; mo++) {
+      allMonths.push(`${y}-${String(mo).padStart(2, '0')}`)
     }
-    for (const expected of allMonths) {
-      if (!seen.has(expected)) err(`monthlyMix: Monat ${expected} fehlt`)
-    }
+  }
+  for (const expected of allMonths) {
+    if (!seen.has(expected)) err(`monthlyMix: Monat ${expected} fehlt`)
   }
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Heatmap
-// ---------------------------------------------------------------------------
+// ===========================================================================
+
 function validateHeatmap(data: HeatmapCo2Cell[]): void {
   if (data.length !== 2880) err(`heatmapCo2: ${data.length} Zellen, erwartet 2880`)
 
@@ -224,7 +257,7 @@ function validateHeatmap(data: HeatmapCo2Cell[]): void {
     if (key <= prevKey) err(`heatmapCo2: Sortierungsfehler bei ${key} nach ${prevKey}`)
     prevKey = key
 
-    if (typeof h.co2GramsPerKwh !== 'number' || !Number.isFinite(h.co2GramsPerKwh)) {
+    if (!isFiniteNum(h.co2GramsPerKwh)) {
       err(`heatmapCo2 ${key}: co2GramsPerKwh ungültig`)
     } else if (h.co2GramsPerKwh < 0 || h.co2GramsPerKwh > 1200) {
       err(`heatmapCo2 ${key}: co2GramsPerKwh=${h.co2GramsPerKwh} außerhalb [0, 1200]`)
@@ -238,9 +271,17 @@ function validateHeatmap(data: HeatmapCo2Cell[]): void {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Tageswerte (Scatter)
-// ---------------------------------------------------------------------------
+// ===========================================================================
+// Tageswerte
+// ===========================================================================
+
+/**
+ * Prüft scatterDaily: 3649 Tage, Format, Sortierung,
+ * EE-Anteil, CO₂-Intensität und Stundenzahlen.
+ *
+ * 23/25 Stunden sind durch Sommer-/Winterzeit-Umstellung (März/Oktober)
+ * zu erwarten. Genau 20 Tage im gesamten Zeitraum weichen von 24h ab.
+ */
 function validateScatterDaily(data: ScatterDailyPoint[]): void {
   if (data.length !== 3649) err(`scatterDaily: ${data.length} Tage, erwartet 3649`)
   if (data[0]?.date !== '2015-01-05') err(`scatterDaily: erster Tag ist ${data[0]?.date}, erwartet 2015-01-05`)
@@ -249,8 +290,6 @@ function validateScatterDaily(data: ScatterDailyPoint[]): void {
   let prevDate = ''
   const seen = new Set<string>()
   let oddHourCount = 0
-  const RENEWABLE_KEYS_SET = new Set(RENEWABLE_KEYS)
-  // Erneuerbare Schlüssel als Set
 
   for (let i = 0; i < data.length; i++) {
     const d = data[i]
@@ -265,13 +304,13 @@ function validateScatterDaily(data: ScatterDailyPoint[]): void {
 
     const { renewableSharePercent, co2GramsPerKwh, availableHourCount } = d
 
-    if (typeof renewableSharePercent !== 'number' || !Number.isFinite(renewableSharePercent)) {
+    if (!isFiniteNum(renewableSharePercent)) {
       err(`scatterDaily ${d.date}: renewableSharePercent ungültig`)
     } else if (renewableSharePercent < 0 || renewableSharePercent > 100) {
       err(`scatterDaily ${d.date}: renewableSharePercent=${renewableSharePercent} außerhalb [0, 100]`)
     }
 
-    if (typeof co2GramsPerKwh !== 'number' || !Number.isFinite(co2GramsPerKwh)) {
+    if (!isFiniteNum(co2GramsPerKwh)) {
       err(`scatterDaily ${d.date}: co2GramsPerKwh ungültig`)
     } else if (co2GramsPerKwh < 0 || co2GramsPerKwh > 1200) {
       err(`scatterDaily ${d.date}: co2GramsPerKwh=${co2GramsPerKwh} außerhalb [0, 1200]`)
@@ -283,6 +322,7 @@ function validateScatterDaily(data: ScatterDailyPoint[]): void {
       err(`scatterDaily ${d.date}: availableHourCount=${availableHourCount}, erlaubt: 23, 24, 25`)
     } else if (availableHourCount !== 24) {
       oddHourCount++
+      // Nur März (Monat 3) und Oktober (Monat 10) dürfen abweichende Stunden haben
       const mo = Number(d.date.slice(5, 7))
       if (mo !== 3 && mo !== 10) {
         warn(`scatterDaily ${d.date}: ${availableHourCount}h außerhalb März/Oktober`)
@@ -293,14 +333,32 @@ function validateScatterDaily(data: ScatterDailyPoint[]): void {
   if (oddHourCount !== 20) err(`scatterDaily: ${oddHourCount} Tage mit ≠24h, erwartet 20`)
 }
 
-// ---------------------------------------------------------------------------
+// ===========================================================================
 // Jahresdaten
-// ---------------------------------------------------------------------------
+// ===========================================================================
+
+/** Erwartete Stundenzahlen pro Jahr (Berliner Lokalzeit, inkl. Schaltjahre). */
 const EXPECTED_YEARLY_HOURS: Record<number, number> = {
-  2015: 8664, 2016: 8784, 2017: 8760, 2018: 8760, 2019: 8760,
-  2020: 8784, 2021: 8760, 2022: 8760, 2023: 8760, 2024: 8784,
+  // 2015: Datenstart 05.01. → 8.664 h (8.760 − 96 fehlende Stunden)
+  2015: 8664,
+  2016: 8784, // Schaltjahr
+  2017: 8760,
+  2018: 8760,
+  2019: 8760,
+  2020: 8784, // Schaltjahr
+  2021: 8760,
+  2022: 8760,
+  2023: 8760,
+  2024: 8784, // Schaltjahr
 }
 
+/**
+ * Prüft yearlyMix: 10 Jahre, Energieträger, EE-Anteil, CO₂,
+ * Stundenzahlen und Kernenergie 2024 = 0.
+ *
+ * Kernenergie ist 2024 nach dem Atomausstieg (§7 AtG, 15.04.2023)
+ * tatsächlich 0 – die Jahres-Summe muss exakt 0 sein.
+ */
 function validateYearlyMix(data: YearlyMixPoint[]): void {
   if (data.length !== 10) err(`yearlyMix: ${data.length} Jahre, erwartet 10`)
 
@@ -316,38 +374,36 @@ function validateYearlyMix(data: YearlyMixPoint[]): void {
     if (y.year <= prevYear) err(`yearlyMix: Sortierungsfehler bei ${y.year} nach ${prevYear}`)
     prevYear = y.year
 
-    checkSources(y.sources, `yearlyMix ${y.year}`, false)
+    checkSources(`yearlyMix ${y.year}`, y.sources, false)
 
-    if (typeof y.totalGenerationMwh !== 'number' || !Number.isFinite(y.totalGenerationMwh) || y.totalGenerationMwh <= 0) {
+    if (!isFiniteNum(y.totalGenerationMwh) || y.totalGenerationMwh <= 0) {
       err(`yearlyMix ${y.year}: totalGenerationMwh ungültig (${y.totalGenerationMwh})`)
     }
 
-    if (typeof y.renewableSharePercent !== 'number' || !Number.isFinite(y.renewableSharePercent)) {
+    // EE-Anteil-Rückrechnung
+    if (!isFiniteNum(y.renewableSharePercent)) {
       err(`yearlyMix ${y.year}: renewableSharePercent ungültig`)
     } else if (y.renewableSharePercent < 0 || y.renewableSharePercent > 100) {
       err(`yearlyMix ${y.year}: renewableSharePercent=${y.renewableSharePercent} außerhalb [0, 100]`)
     } else {
-      // Rückrechnung des EE-Anteils aus den Summen
-      if (y.sources && typeof y.sources === 'object') {
-        const s = y.sources as EnergySourceValues
-        const renSum = calcRenewableSum(s)
-        const total = calcTotalSum(s)
-        if (total > 0) {
-          const computedPct = (renSum / total) * 100
-          if (Math.abs(computedPct - y.renewableSharePercent) > 0.1) {
-            err(`yearlyMix ${y.year}: berechneter EE-Anteil ${computedPct.toFixed(2)}% weicht von gespeichertem ${y.renewableSharePercent}% ab`)
-          }
+      const renSum = calcRenewableSum(y.sources)
+      const total = calcTotalSum(y.sources)
+      if (total > 0) {
+        const computedPct = (renSum / total) * 100
+        // Rundungstoleranz: 0.1 Prozentpunkt
+        if (Math.abs(computedPct - y.renewableSharePercent) > 0.1) {
+          err(`yearlyMix ${y.year}: berechneter EE-Anteil ${computedPct.toFixed(2)}% weicht von gespeichertem ${y.renewableSharePercent}% ab`)
         }
       }
     }
 
-    if (typeof y.co2GramsPerKwh !== 'number' || !Number.isFinite(y.co2GramsPerKwh)) {
+    if (!isFiniteNum(y.co2GramsPerKwh)) {
       err(`yearlyMix ${y.year}: co2GramsPerKwh ungültig`)
     } else if (y.co2GramsPerKwh < 0 || y.co2GramsPerKwh > 1200) {
       err(`yearlyMix ${y.year}: co2GramsPerKwh=${y.co2GramsPerKwh} außerhalb [0, 1200]`)
     }
 
-    // Stundenanzahl
+    // Stundenzahl
     const expectedHours = EXPECTED_YEARLY_HOURS[y.year]
     if (expectedHours !== undefined && y.availableHourCount !== expectedHours) {
       err(`yearlyMix ${y.year}: ${y.availableHourCount}h statt erwartet ${expectedHours}h`)
@@ -355,53 +411,54 @@ function validateYearlyMix(data: YearlyMixPoint[]): void {
       err(`yearlyMix ${y.year}: unbekannte Jahreszahl`)
     }
 
-    // Summen-Konsistenz
-    if (y.sources && typeof y.sources === 'object') {
-      const sumCheck = calcTotalSum(y.sources as EnergySourceValues)
-      if (Math.abs(sumCheck - y.totalGenerationMwh) > 0.1) {
-        err(`yearlyMix ${y.year}: Σ sources (${sumCheck.toFixed(2)}) weicht von totalGenerationMwh (${y.totalGenerationMwh.toFixed(2)}) ab`)
-      }
+    // Summen-Konsistenz: Rundungstoleranz 0.1 MWh
+    const sumCheck = calcTotalSum(y.sources)
+    if (Math.abs(sumCheck - y.totalGenerationMwh) > 0.1) {
+      err(`yearlyMix ${y.year}: Σ sources (${sumCheck.toFixed(2)}) weicht von totalGenerationMwh (${y.totalGenerationMwh.toFixed(2)}) ab`)
     }
   }
 
-  // Kernenergie 2024 = 0
+  // Kernenergie 2024 muss nach dem Atomausstieg exakt 0 sein
   const y2024 = data.find(y => y.year === 2024)
-  if (y2024 && y2024.sources) {
-    const nuclear = (y2024.sources as EnergySourceValues).nuclear
-    if (nuclear !== 0) err(`yearlyMix 2024: Kernenergie-Summe ist ${nuclear}, erwartet 0`)
+  if (y2024) {
+    if (y2024.sources.nuclear !== 0) {
+      err(`yearlyMix 2024: Kernenergie-Summe ist ${y2024.sources.nuclear}, erwartet 0`)
+    }
   }
 }
 
-// ---------------------------------------------------------------------------
-// Konsistenz Monats- ↔ Jahresdaten
-// ---------------------------------------------------------------------------
-function validateMonthYearConsistency(
+// ===========================================================================
+// Bereichsübergreifende Konsistenz
+// ===========================================================================
+
+/**
+ * Prüft, ob die Monatsdaten in der Summe mit den Jahresdaten
+ * übereinstimmen (Energieträger, Gesamterzeugung, Stundenzahlen).
+ *
+ * Toleranz 2.0 MWh: 12 Energieträger × 12 Monate × 0.01 Rundung pro
+ * Energieträger = 1.44 MWh + totalGenerationMwh-Rundung.
+ * Daher 2.0 MWh als Sicherheitspuffer.
+ */
+function validateCrossConsistency(
   monthly: MonthlyMixPoint[],
-  yearly: YearlyMixPoint[]
+  yearly: YearlyMixPoint[],
 ): void {
-  // Monatsdaten nach Jahr gruppieren
   const byYear = new Map<number, { totalGen: number; hours: number; sources: EnergySourceValues }>()
   for (const m of monthly) {
     const y = Number(m.month.slice(0, 4))
     if (!byYear.has(y)) {
-      byYear.set(y, { totalGen: 0, hours: 0, sources: { biomass: 0, hydro: 0, wind_onshore: 0, wind_offshore: 0, pv: 0, other_renewables: 0, lignite: 0, hardcoal: 0, gas: 0, nuclear: 0, other_fossil: 0, pumped_storage: 0 } })
+      byYear.set(y, { totalGen: 0, hours: 0, sources: emptyAccum() })
     }
     const acc = byYear.get(y)!
     acc.totalGen += m.totalGenerationMwh
     acc.hours += m.availableHourCount
-    if (m.sources && typeof m.sources === 'object') {
-      const s = m.sources as EnergySourceValues
-      for (const key of SOURCE_KEYS) acc.sources[key] += s[key]
-    }
+    for (const key of SOURCE_KEYS) acc.sources[key] += m.sources[key]
   }
 
   for (const y of yearly) {
     const acc = byYear.get(y.year)
     if (!acc) { err(`yearlyMix ${y.year}: keine Monatsdaten zum Vergleich`); continue }
 
-    // Toleranz: 0.1 MWh reicht nicht, weil 12 × monatliche Rundung (je 0.01)
-    // pro Energieträger aufsummiert wird: 12 Träger × 12 Monate × 0.01 = 1.44
-    // Zusätzlich totalGenerationMwh-Rundung. Daher 2.0 MWh Toleranz.
     const TOL_MWH = 2.0
     for (const key of SOURCE_KEYS) {
       const diff = Math.abs(acc.sources[key] - y.sources[key])
@@ -421,36 +478,21 @@ function validateMonthYearConsistency(
   }
 }
 
-// ---------------------------------------------------------------------------
+function emptyAccum(): EnergySourceValues {
+  return { biomass: 0, hydro: 0, wind_onshore: 0, wind_offshore: 0, pv: 0, other_renewables: 0, lignite: 0, hardcoal: 0, gas: 0, nuclear: 0, other_fossil: 0, pumped_storage: 0 }
+}
+
+// ===========================================================================
 // Hauptfunktion
-// ---------------------------------------------------------------------------
+// ===========================================================================
+
 async function main(): Promise<void> {
   console.log('Lade visualization-data.json...')
   const file = Bun.file('public/data/visualization-data.json')
   const raw: unknown = await file.json()
 
-  // Grundlegende Strukturprüfung
-  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
-    throw new Error('visualization-data.json ist kein Objekt')
-  }
-  const obj = raw as Record<string, unknown>
-
-  const requiredArrays = ['monthlyMix', 'heatmapCo2', 'scatterDaily', 'yearlyMix']
-  for (const key of requiredArrays) {
-    if (!(key in obj)) err(`Hauptstruktur: '${key}' fehlt`)
-    else if (!Array.isArray(obj[key])) err(`Hauptstruktur: '${key}' ist kein Array`)
-  }
-
-  // Verbotene Felder prüfen
-  checkForbiddenFields(obj, 'root')
-
-  // Frühzeitig abbrechen, wenn Kern-Arrays fehlen
-  if (errors.length > 0) {
-    printResults()
-    throw new Error('Grundlegende Strukturfehler – Abbruch')
-  }
-
-  const { monthlyMix, heatmapCo2, scatterDaily, yearlyMix } = obj as unknown as VisualizationData
+  const data = checkStructure(raw)
+  const { monthlyMix, heatmapCo2, scatterDaily, yearlyMix } = data
 
   console.log('\nValidiere Monatsdaten...')
   validateMonthlyMix(monthlyMix)
@@ -465,12 +507,12 @@ async function main(): Promise<void> {
   validateYearlyMix(yearlyMix)
 
   console.log('Validiere Konsistenz Monats- ↔ Jahresdaten...')
-  validateMonthYearConsistency(monthlyMix, yearlyMix)
+  validateCrossConsistency(monthlyMix, yearlyMix)
 
   printResults()
 
-  if (errors.length > 0) {
-    throw new Error(`${errors.length} Fehler gefunden – Datenprüfung fehlgeschlagen`)
+  if (result.errors.length > 0) {
+    throw new Error(`${result.errors.length} Fehler gefunden – Datenprüfung fehlgeschlagen`)
   }
   console.log('\nDatenprüfung erfolgreich.')
 }
@@ -480,19 +522,25 @@ function printResults(): void {
   console.log('ERGEBNIS DER DATENPRÜFUNG')
   console.log('='.repeat(50))
 
-  if (warnings.length > 0) {
-    console.log(`\nWarnungen (${warnings.length}):`)
-    for (const w of warnings) console.log(`  ⚠ ${w}`)
+  if (result.warnings.length > 0) {
+    console.log(`\nWarnungen (${result.warnings.length}):`)
+    for (const w of result.warnings) console.log(`  ⚠ ${w}`)
   }
 
-  if (errors.length > 0) {
-    console.log(`\nFehler (${errors.length}):`)
-    for (const e of errors) console.log(`  ❌ ${e}`)
+  if (result.errors.length > 0) {
+    console.log(`\nFehler (${result.errors.length}):`)
+    for (const e of result.errors) console.log(`  ❌ ${e}`)
   }
 
-  console.log(`\nFehler: ${errors.length}  Warnungen: ${warnings.length}`)
+  console.log(`\nFehler: ${result.errors.length}  Warnungen: ${result.warnings.length}`)
 }
 
-main().catch((err: Error) => {
-  console.error('Fehler:', err.message)
+// ===========================================================================
+// Einstieg
+// ===========================================================================
+
+main().catch((caughtError: unknown) => {
+  const message = caughtError instanceof Error ? caughtError.message : String(caughtError)
+  console.error('Fehler:', message)
+  process.exit(1)
 })
