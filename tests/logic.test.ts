@@ -134,22 +134,26 @@ describe('Vergleich 2015 vs 2024', () => {
   ]
 
   it('EE-Anteil 2015 → 2024: +23,6 PP', () => {
-    const y2015 = yearly.find(r => r.year === 2015)!
-    const y2024 = yearly.find(r => r.year === 2024)!
+    const y2015 = yearly.find(r => r.year === 2015)
+    const y2024 = yearly.find(r => r.year === 2024)
+    if (!y2015 || !y2024) throw new Error('Jahresdaten unvollständig')
     expect(y2024.ee - y2015.ee).toBeCloseTo(23.6, 1)
   })
 
   it('CO2 2015 → 2024: -130,2 g/kWh', () => {
-    const y2015 = yearly.find(r => r.year === 2015)!
-    const y2024 = yearly.find(r => r.year === 2024)!
+    const y2015 = yearly.find(r => r.year === 2015)
+    const y2024 = yearly.find(r => r.year === 2024)
+    if (!y2015 || !y2024) throw new Error('Jahresdaten unvollständig')
     expect(y2024.co2 - y2015.co2).toBeCloseTo(-130.2, 1)
   })
 
   it('EE-Anteil steigt über die Jahre (monoton steigend im Trend)', () => {
     const sorted = [...yearly].sort((a, b) => a.year - b.year)
-    const first = sorted[0].ee
-    const last = sorted[sorted.length - 1].ee
-    expect(last).toBeGreaterThan(first)
+    expect(sorted.length).toBeGreaterThanOrEqual(2)
+    const first = sorted[0]
+    const last = sorted[sorted.length - 1]
+    if (!first || !last) throw new Error('Nicht genug Daten')
+    expect(last.ee).toBeGreaterThan(first.ee)
   })
 })
 
@@ -182,16 +186,20 @@ describe('Trendlinie (OLS)', () => {
     const my = y.reduce((s, v) => s + v, 0) / n
     let num = 0, den = 0, totalSS = 0, residSS = 0
     for (let i = 0; i < n; i++) {
-      const dx = x[i] - mx, dy = y[i] - my
+      const xi = x[i]; const yi = y[i]
+      if (xi === undefined || yi === undefined) continue
+      const dx = xi - mx, dy = yi - my
       num += dx * dy
       den += dx * dx
     }
     const slope = den === 0 ? 0 : num / den
     const intercept = my - slope * mx
     for (let i = 0; i < n; i++) {
-      const pred = slope * x[i] + intercept
-      totalSS += (y[i] - my) ** 2
-      residSS += (y[i] - pred) ** 2
+      const xi = x[i]; const yi = y[i]
+      if (xi === undefined || yi === undefined) continue
+      const pred = slope * xi + intercept
+      totalSS += (yi - my) ** 2
+      residSS += (yi - pred) ** 2
     }
     const r2 = totalSS === 0 ? 0 : 1 - residSS / totalSS
     return { slope, intercept, r2 }
@@ -365,10 +373,12 @@ describe('Erzeugungsgewichtete CO₂-Intensität', () => {
       { gen: { lignite: 50, pv: 50 }, co2: calcCo2Weighted({ lignite: 50, pv: 50 }) },
       { gen: { lignite: 50, pv: 50 }, co2: calcCo2Weighted({ lignite: 50, pv: 50 }) },
     ]
+    const r0 = rows[0]; const r1 = rows[1]
+    if (!r0 || !r1) throw new Error('Testdaten unvollständig')
     const simpleAvg = rows.reduce((s, r) => s + r.co2, 0) / rows.length
     // Bei gleicher Zusammensetzung sind einfacher und gewichteter MW identisch
     const totalGen = 100 + 100 // MWh
-    const weightedNum = rows[0].co2 * 100 + rows[1].co2 * 100
+    const weightedNum = r0.co2 * 100 + r1.co2 * 100
     const weightedAvg = weightedNum / totalGen
     expect(simpleAvg).toBeCloseTo(weightedAvg, 5)
   })
@@ -380,8 +390,10 @@ describe('Erzeugungsgewichtete CO₂-Intensität', () => {
     ]
     // Stunde 1: 100 MWh, 80% Braunkohle → CO₂ = (80*1075 + 20*0)/100 = 860
     // Stunde 2:  40 MWh, 50% Braunkohle → CO₂ = (20*1075 + 20*0)/40 = 537,5
+    const r0 = rows[0]; const r1 = rows[1]
+    if (!r0 || !r1) throw new Error('Testdaten unvollständig')
     const simpleAvg = rows.reduce((s, r) => s + r.co2, 0) / rows.length // (860+537,5)/2 = 698,75
-    const weightedNum = rows[0].co2 * 100 + rows[1].co2 * 40
+    const weightedNum = r0.co2 * 100 + r1.co2 * 40
     const weightedAvg = weightedNum / 140
     expect(simpleAvg).not.toBeCloseTo(weightedAvg, 0)
     // Gewichteter MW ist niedriger, weil die CO₂-arme Stunde weniger erzeugt

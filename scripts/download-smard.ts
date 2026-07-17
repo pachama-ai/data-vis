@@ -1,4 +1,4 @@
-import fs from "fs";
+import fs from 'node:fs'
 
 const filters = {
   // Erzeugung
@@ -29,7 +29,7 @@ const REGION = "DE";
 const RESOLUTION = "hour";
 const START = Date.UTC(2015, 0, 1);
 
-async function fetchJSON(url) {
+async function fetchJSON(url: string): Promise<unknown> {
   const res = await fetch(url);
 
   if (res.status === 404) return null;
@@ -41,17 +41,18 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-async function getTimestamps(filter) {
+async function getTimestamps(filter: number): Promise<number[]> {
   const json = await fetchJSON(
     `${BASE}/${filter}/${REGION}/index_${RESOLUTION}.json`
   );
 
   if (!json) return [];
 
-  return json.timestamps.filter((t) => t >= START);
+  const ts = (json as { timestamps: number[] }).timestamps
+  return ts.filter((t: number) => t >= START);
 }
 
-async function fetchBlock(filter, timestamp) {
+async function fetchBlock(filter: number, timestamp: number): Promise<number[][]> {
   const url =
     `${BASE}/${filter}/${REGION}/` +
     `${filter}_${REGION}_${RESOLUTION}_${timestamp}.json`;
@@ -60,10 +61,10 @@ async function fetchBlock(filter, timestamp) {
 
   if (!json) return [];
 
-  return json.series ?? [];
+  return (json as { series?: number[][] }).series ?? [];
 }
 
-async function fetchFilter(name, filter) {
+async function fetchFilter(name: string, filter: number): Promise<number[][]> {
   console.log(`\n${name}`);
 
   const timestamps = await getTimestamps(filter);
@@ -78,7 +79,7 @@ async function fetchFilter(name, filter) {
     const chunk = timestamps.slice(i, i + concurrency);
 
     const data = await Promise.all(
-      chunk.map((ts) => fetchBlock(filter, ts))
+      chunk.map((ts: number) => fetchBlock(filter, ts))
     );
 
     for (const series of data) {
@@ -96,22 +97,29 @@ async function fetchFilter(name, filter) {
 }
 
 async function main() {
-  const merged = {};
+  const merged: Record<number, Record<string, number | string>> = {};
 
   for (const [name, filter] of Object.entries(filters)) {
     const series = await fetchFilter(name, filter);
 
-    for (const [timestamp, value] of series) {
-      if (!merged[timestamp]) {
-        merged[timestamp] = { timestamp };
+    for (const entry of series) {
+      const timestamp = entry[0];
+      const value = entry[1];
+      if (timestamp === undefined) continue;
+
+      let record = merged[timestamp];
+      if (!record) {
+        record = { timestamp };
+        merged[timestamp] = record;
       }
 
-      merged[timestamp][name] = value ?? 0;
+      record[name] = value ?? 0;
     }
   }
 
   const data = Object.values(merged).sort(
-    (a, b) => a.timestamp - b.timestamp
+    (a: Record<string, number | string>, b: Record<string, number | string>) =>
+      (a.timestamp as number) - (b.timestamp as number),
   );
 
   fs.mkdirSync("./public/data", { recursive: true });
