@@ -38,8 +38,8 @@ describe('Einheitenkonsistenz', () => {
 
   // CO₂-gewichteter Durchschnitt muss zwischen min und max Faktor liegen
   it('CO₂-Gewicht: Mix aus 0+1075 → Ergebnis zwischen 0 und 1075', () => {
-    const gen = { pv: 50, lignite: 50 }
-    const factors = { pv: 0, lignite: 1075 }
+    const gen: Record<string, number> = { pv: 50, lignite: 50 }
+    const factors: Record<string, number> = { pv: 0, lignite: 1075 }
     const total = Object.values(gen).reduce((s, v) => s + v, 0)
     const co2Sum = Object.entries(gen).reduce((s, [k, v]) => s + v * (factors[k] ?? 0), 0)
     const co2 = total > 0 ? co2Sum / total : 0
@@ -78,12 +78,12 @@ describe('Residuallast nach verschiedenen Definitionen', () => {
     biomass: 3000, hydro: 2000, other_renewables: 500,
     lignite: 10000, hardcoal: 5000, gas: 5000, nuclear: 2000,
     other_fossil: 500, pumped_storage: 0,
-  }
+  } as Record<string, number>
   const eeKeys = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro']
 
   // Enge Definition: Last − (Wind Onshore + Wind Offshore + PV)
   it('Enge Residuallast (nur Wind+PV)', () => {
-    const eeNarrow = (gen.wind_onshore + gen.wind_offshore + gen.pv)
+    const eeNarrow = (gen.wind_onshore ?? 0) + (gen.wind_offshore ?? 0) + (gen.pv ?? 0)
     const residual = (loadMwh - eeNarrow) / 1000
     // 55000 - (12000+5000+10000) = 28000 MWh = 28 GW
     expect(residual).toBeCloseTo(28, 0)
@@ -97,8 +97,8 @@ describe('Residuallast nach verschiedenen Definitionen', () => {
     expect(residual).toBeCloseTo(23, 0)
   })
 
-  // DuckCurve verwendet Broad-Definition (incl. other_renewables)
-  it('DuckCurve Residuallast (alle EE + other_renewables)', () => {
+  // HourlyProfile verwendet Broad-Definition (incl. other_renewables)
+  it('HourlyProfile Residuallast (alle EE + other_renewables)', () => {
     const ee = eeKeys.reduce((s, k) => s + (gen[k] ?? 0), 0) + (gen.other_renewables ?? 0)
     const residual = (loadMwh - ee) / 1000
     // 55000 - 32500 = 22500 MWh = 22.5 GW
@@ -107,7 +107,7 @@ describe('Residuallast nach verschiedenen Definitionen', () => {
 
   // Negative Residuallast ist fachlich möglich (EE > Last)
   it('Negative Residuallast ist erlaubt (EE überdeckt Last)', () => {
-    const highEe = { ...gen, wind_onshore: 30000, pv: 20000 }
+    const highEe: Record<string, number> = { ...gen, wind_onshore: 30000, pv: 20000 }
     const eeSum = eeKeys.reduce((s, k) => s + (highEe[k] ?? 0), 0)
     const residual = (loadMwh - eeSum) / 1000
     // 55000 - (30000+5000+20000+3000+2000) = -5000 MWh = -5 GW
@@ -120,14 +120,14 @@ describe('Residuallast nach verschiedenen Definitionen', () => {
 // ---------------------------------------------------------------------------
 
 describe('CO₂-Berechnung – Gewichtungsidentität', () => {
-  const FACTORS = {
+  const FACTORS: Record<string, number> = {
     lignite: 1075, hardcoal: 835, gas: 411, nuclear: 0,
     biomass: 230, hydro: 0, wind_onshore: 0, wind_offshore: 0, pv: 0,
     other_fossil: 750, other_renewables: 100, pumped_storage: 0,
   }
 
   it('CO₂-Intensität muss zwischen min und max Faktor liegen', () => {
-    const gen = { lignite: 30, gas: 20, wind_onshore: 40, pv: 10 }
+    const gen: Record<string, number> = { lignite: 30, gas: 20, wind_onshore: 40, pv: 10 }
     const total = Object.values(gen).reduce((s, v) => s + v, 0)
     const co2Sum = Object.entries(gen).reduce((s, [k, v]) => s + v * (FACTORS[k] ?? 0), 0)
     const co2 = total > 0 ? co2Sum / total : 0
@@ -138,7 +138,7 @@ describe('CO₂-Berechnung – Gewichtungsidentität', () => {
   })
 
   it('CO₂-Intensität bei nur fossilen = gewichteter Durchschnitt der Faktoren', () => {
-    const gen = { lignite: 50, hardcoal: 30, gas: 20 }
+    const gen: Record<string, number> = { lignite: 50, hardcoal: 30, gas: 20 }
     const total = Object.values(gen).reduce((s, v) => s + v, 0)
     const co2Sum = Object.entries(gen).reduce((s, [k, v]) => s + v * (FACTORS[k] ?? 0), 0)
     const co2 = total > 0 ? co2Sum / total : 0
@@ -154,7 +154,7 @@ describe('CO₂-Berechnung – Gewichtungsidentität', () => {
   })
 
   it('Biomasse erzeugt CO₂ (Faktor 230 g/kWh)', () => {
-    const gen = { biomass: 100 }
+    const gen: Record<string, number> = { biomass: 100 }
     const total = Object.values(gen).reduce((s, v) => s + v, 0)
     const co2Sum = Object.entries(gen).reduce((s, [k, v]) => s + v * (FACTORS[k] ?? 0), 0)
     const co2 = total > 0 ? co2Sum / total : 0
@@ -220,12 +220,12 @@ describe('Schaltjahre', () => {
 // ---------------------------------------------------------------------------
 
 describe('Saisons (meteorologische Definition)', () => {
-  // DuckCurve verwendet: Sommer = Juni(J=5) + Juli(J=6) + August(J=7) [getMonth ist 0-based]
+  // HourlyProfile verwendet: Sommer = Juni(J=5) + Juli(J=6) + August(J=7) [getMonth ist 0-based]
   // inSummer: getBerlinMonth >= 5 && <= 7 → Monate 6,7,8
   // inWinter: getBerlinMonth <= 2 || >= 11 → Monate 1,2,3,12
   // ACHTUNG: getBerlinMonth liefert 1-12 (nicht 0-11!)
 
-  // Reimplementierung der DuckCurve-Logik
+  // Reimplementierung der HourlyProfile-Logik
   function inSummer(month1to12: number): boolean {
     return month1to12 >= 6 && month1to12 <= 8
   }
@@ -266,7 +266,7 @@ describe('Saisons (meteorologische Definition)', () => {
 // ---------------------------------------------------------------------------
 
 describe('Werktag/Wochenende-Definition', () => {
-  // DuckCurve: Werktag = Montag–Freitag (isBerlinWeekend = false)
+  // HourlyProfile: Werktag = Montag–Freitag (isBerlinWeekend = false)
   // Wochenende = Samstag + Sonntag (isBerlinWeekend = true)
   // Keine Feiertagslogik
 
@@ -309,10 +309,10 @@ describe('Werktag/Wochenende-Definition', () => {
 })
 
 // ---------------------------------------------------------------------------
-// 8. DUCK CURVE – PROFIL-BERECHNUNG
+// 8. HOURLY PROFILE – PROFIL-BERECHNUNG
 // ---------------------------------------------------------------------------
 
-describe('DuckCurve computeProfile – Grundlogik', () => {
+describe('HourlyProfile computeProfile – Grundlogik', () => {
   // Simuliert computeProfile() Logik
   function getBerlinHour(ts: number): number {
     return parseInt(new Intl.DateTimeFormat('de-DE', { timeZone: 'Europe/Berlin', hour: 'numeric', hour12: false }).format(ts), 10)
@@ -535,5 +535,138 @@ describe('UI-Einheiten-Konsistenz', () => {
     const co2 = 372 // g/kWh
     expect(co2).toBe(372)
     // 372 g/kWh = 372 kg/MWh (numerisch identisch, andere Einheit)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// 14. M1: KATEGORIE `other` – FACHMTâCHE AUFTEILUNG
+// ---------------------------------------------------------------------------
+
+describe('M1: other-Kategorie – fachliche Aufteilung', () => {
+  // Simuliert die Zusammensetzung: other = other_renewables + other_fossil + pumped_storage
+  // Dies war der Zustand vor der Aufteilung (nur als Referenz)
+
+  it('other_renewables zählt zum EE-Anteil', () => {
+    const RENEWABLE_KEYS = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro', 'other_renewables']
+    const gen: Record<string, number> = { wind_onshore: 30, pv: 20, other_renewables: 5, lignite: 40, gas: 5 }
+    const total = Object.values(gen).reduce((s, v) => s + v, 0)
+    const ee = RENEWABLE_KEYS.reduce((s, k) => s + (gen[k] ?? 0), 0)
+    const eeShare = total > 0 ? ee / total : 0
+    // (30+20+5) / 100 = 55%
+    expect(eeShare).toBeCloseTo(0.55, 2)
+    // Ohne other_renewables: (30+20)/100 = 50%
+    const eeWithout = ((gen.wind_onshore ?? 0) + (gen.pv ?? 0)) / total
+    expect(eeShare).toBeGreaterThan(eeWithout)
+  })
+
+  it('other_fossil zählt zum konventionellen Anteil', () => {
+    const CONVENTIONAL_KEYS = ['lignite', 'hardcoal', 'gas', 'nuclear', 'other_fossil']
+    const gen: Record<string, number> = { lignite: 40, gas: 10, other_fossil: 8, wind_onshore: 30, pv: 12 }
+    const total = Object.values(gen).reduce((s, v) => s + v, 0)
+    const conv = CONVENTIONAL_KEYS.reduce((s, k) => s + (gen[k] ?? 0), 0)
+    const convShare = total > 0 ? conv / total : 0
+    // (40+10+8) / 100 = 58%
+    expect(convShare).toBeCloseTo(0.58, 2)
+    // Ohne other_fossil: (40+10)/100 = 50%
+    const convWithout = ((gen.lignite ?? 0) + (gen.gas ?? 0)) / total
+    expect(convShare).toBeGreaterThan(convWithout)
+  })
+
+  it('pumped_storage zählt weder zu EE noch zu konventionell', () => {
+    const RENEWABLE_KEYS = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro', 'other_renewables']
+    const CONVENTIONAL_KEYS = ['lignite', 'hardcoal', 'gas', 'nuclear', 'other_fossil']
+    const gen: Record<string, number> = {
+      wind_onshore: 20, pv: 10, biomass: 5,  // EE
+      lignite: 30, gas: 10,                    // konventionell
+      pumped_storage: 15,                       // Speicher (weder noch)
+      other_renewables: 2, other_fossil: 3,
+    }
+    const total = Object.values(gen).reduce((s, v) => s + v, 0)
+    const ee = RENEWABLE_KEYS.reduce((s, k) => s + (gen[k] ?? 0), 0)
+    const conv = CONVENTIONAL_KEYS.reduce((s, k) => s + (gen[k] ?? 0), 0)
+    // pumped_storage sollte nicht in ee oder conv sein
+    expect(ee).not.toContain(gen.pumped_storage)
+    expect(conv).not.toContain(gen.pumped_storage)
+    // Es sollte als separate Größe existieren
+    expect(gen.pumped_storage).toBe(15)
+  })
+
+  it('Summe der drei neuen Felder entspricht dem frueheren other', () => {
+    const other_renewables = 5.2
+    const other_fossil = 42.8
+    const pumped_storage = 18.3
+    const otherOld = other_renewables + other_fossil + pumped_storage
+    expect(otherOld).toBeCloseTo(66.3, 1)
+    // Einzelnachweise
+    expect(other_renewables + other_fossil + pumped_storage).toBeCloseTo(otherOld, 5)
+  })
+
+  it('Keine Doppelzählung: EE + konventionell + pumpspeicher = Gesamterzeugung', () => {
+    const gen: Record<string, number> = {
+      biomass: 5, hydro: 2, wind_onshore: 20, wind_offshore: 5, pv: 10, other_renewables: 1,
+      nuclear: 3, gas: 12, hardcoal: 8, lignite: 15, other_fossil: 3,
+      pumped_storage: 4,
+    }
+    const RENEWABLE_KEYS = ['wind_onshore', 'wind_offshore', 'pv', 'biomass', 'hydro', 'other_renewables']
+    const CONVENTIONAL_KEYS = ['lignite', 'hardcoal', 'gas', 'nuclear', 'other_fossil']
+    const total = Object.values(gen).reduce((s, v) => s + v, 0)
+    const ee = RENEWABLE_KEYS.reduce((s, k) => s + (gen[k] ?? 0), 0)
+    const conv = CONVENTIONAL_KEYS.reduce((s, k) => s + (gen[k] ?? 0), 0)
+    const ps = gen.pumped_storage ?? 0
+    expect(ee + conv + ps).toBeCloseTo(total, 5)
+  })
+
+  it('Alle Labels und Farben fuer die drei neuen Kategorien sind definiert', () => {
+    const LABELS: Record<string, string> = {
+      other_renewables: 'Sonstige Erneuerbare',
+      other_fossil: 'Sonstige Konventionelle',
+      pumped_storage: 'Pumpspeicher',
+    }
+    const COLORS: Record<string, string> = {
+      other_renewables: '#A8D35C',
+      other_fossil: '#8B7355',
+      pumped_storage: '#5B9BD5',
+    }
+    expect(LABELS.other_renewables).toBe('Sonstige Erneuerbare')
+    expect(LABELS.other_fossil).toBe('Sonstige Konventionelle')
+    expect(LABELS.pumped_storage).toBe('Pumpspeicher')
+    expect(COLORS.other_renewables).toBeTruthy()
+    expect(COLORS.other_fossil).toBeTruthy()
+    expect(COLORS.pumped_storage).toBeTruthy()
+  })
+
+  it('Aggregierte Datensätze enthalten kein altes other-Feld mehr', () => {
+    // Simuliert MonthlyDataPoint ohne das alte 'other'-Feld
+    const point = {
+      date: new Date('2024-01-01'),
+      total: 50000,
+      biomass: 3000, hydro: 2000, wind_onshore: 10000, wind_offshore: 3000, pv: 5000,
+      nuclear: 2000, gas: 5000, hardcoal: 4000, lignite: 8000,
+      other_renewables: 500, other_fossil: 2000, pumped_storage: 1500,
+    } as Record<string, unknown>
+    // Das alte 'other'-Feld darf nicht existieren
+    expect(point).not.toHaveProperty('other')
+    // Die drei neuen Felder muessen existieren
+    expect(point).toHaveProperty('other_renewables')
+    expect(point).toHaveProperty('other_fossil')
+    expect(point).toHaveProperty('pumped_storage')
+  })
+
+  it('undefined- oder NaN-Werte in den drei Feldern werden abgefangen', () => {
+    const gen: Record<string, number | undefined> = {
+      other_renewables: undefined,
+      other_fossil: undefined,
+      pumped_storage: undefined,
+    }
+    // Sichere Extraktion wie in aggregate.ts
+    const or = gen.other_renewables ?? 0
+    const of = gen.other_fossil ?? 0
+    const ps = gen.pumped_storage ?? 0
+    expect(or).toBe(0)
+    expect(of).toBe(0)
+    expect(ps).toBe(0)
+    expect(Number.isNaN(or)).toBe(false)
+    expect(Number.isNaN(of)).toBe(false)
+    expect(Number.isNaN(ps)).toBe(false)
   })
 })

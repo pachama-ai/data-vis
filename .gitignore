@@ -32,6 +32,9 @@ reports
 coverage
 *.lcov
 .nyc_output
+vitest-current.txt
+typecheck-current.txt
+generate-current.txt
 
 # VSCode
 .vscode/*
