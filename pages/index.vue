@@ -9,11 +9,9 @@
 
 import { ref, onMounted } from 'vue'
 import { useVisualizationData } from '~/composables/useVisualizationData'
-import { useData } from '~/composables/useData'
 import type { YearlyMixPoint } from '~/types/visualization-data'
 
 const { loadVisualizationData } = useVisualizationData()
-const { loadHourly } = useData()
 
 const yearlyData = ref<{ year2015: YearlyMixPoint; year2024: YearlyMixPoint } | null>(null)
 const loading = ref(true)
@@ -39,9 +37,9 @@ onMounted(async () => {
 
   // Dashboard-Daten im Hintergrund vorladen (kein Fehler nötig)
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(() => { loadHourly().catch(() => {}) }, { timeout: 5000 })
+    requestIdleCallback(() => { loadVisualizationData().catch(() => {}) }, { timeout: 5000 })
   } else {
-    setTimeout(() => { loadHourly().catch(() => {}) }, 2000)
+    setTimeout(() => { loadVisualizationData().catch(() => {}) }, 2000)
   }
 })
 </script>
