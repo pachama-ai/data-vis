@@ -4,10 +4,10 @@
  * Sans-serif, body-farben, mit Hover-Unterstrich und animiertem Pfeil.
  */
 
-import { useData } from '~/composables/useData'
+import { useVisualizationData } from '~/composables/useVisualizationData'
 
-const { loadHourly } = useData()
-function preloadDashboard() { loadHourly().catch(() => {}) }
+const { loadVisualizationData } = useVisualizationData()
+function preloadDashboard() { loadVisualizationData().catch(() => {}) }
 </script>
 
 <template>
