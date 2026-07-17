@@ -10,21 +10,12 @@
     "typecheck": "npx nuxi typecheck",
     "test": "vitest run",
     "check": "npx nuxi typecheck && vitest run && nuxt build",
-    "pipeline:hourly": "bun run scripts/build_hourly.ts",
-    "pipeline:yearly": "bun run scripts/build_yearly.ts",
-    "pipeline": "bun run scripts/build_hourly.ts; bun run scripts/build_yearly.ts",
-    "download:prices": "bun run scripts/download-prices.ts",
-    "download:smard": "bun run scripts/download-smard.ts",
-    "validate": "bun run scripts/validate-data.ts",
-    "check:data": "bun run scripts/check-dashboard-data.ts",
-    "audit:level1": "bun run scripts/audit/level1-integrity.ts",
-    "audit:level2": "vitest run",
-    "audit:level3": "bun run scripts/audit/level3-consistency.ts",
-    "audit": "bun run scripts/audit/level1-integrity.ts && vitest run && bun run scripts/audit/level3-consistency.ts"
+    "data:download": "bun run scripts/download-smard.ts",
+    "data:build": "bun run scripts/build-data.ts",
+    "data:check": "bun run scripts/check-data.ts"
   },
   "dependencies": {
     "d3": "^7.9.0",
-    "d3-hexbin": "^0.2.2",
     "nuxt": "^4.4.8"
   },
   "devDependencies": {
