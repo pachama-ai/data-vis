@@ -4,34 +4,42 @@
  * ======================================================
  * Zeigt den Wandel des deutschen Strommix 2015->2024 als
  * horizontales Barbell-Chart (D3). Lädt Dashboard-Daten
- * im Hintergrund vor.
+ * im Hintergrund vor (requestIdleCallback).
  */
 
 import { ref, onMounted } from 'vue'
-import { useEnergyMixData } from '~/composables/useEnergyMixData'
+import { useVisualizationData } from '~/composables/useVisualizationData'
 import { useData } from '~/composables/useData'
-import type { EnergyMixRow } from '~/composables/useEnergyMixData'
+import type { YearlyMixPoint } from '~/types/visualization-data'
 
-const { load } = useEnergyMixData()
+const { loadVisualizationData } = useVisualizationData()
 const { loadHourly } = useData()
 
-const rows = ref<EnergyMixRow[]>([])
+const yearlyData = ref<{ year2015: YearlyMixPoint; year2024: YearlyMixPoint } | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
 
-onMounted(() => {
-  load().then((data) => {
-    rows.value = data.rows
-  }).catch((e: any) => {
-    error.value = e.message ?? 'Fehler'
-  }).finally(() => {
+onMounted(async () => {
+  try {
+    const data = await loadVisualizationData()
+    const y2015 = data.yearlyMix.find((y) => y.year === 2015)
+    const y2024 = data.yearlyMix.find((y) => y.year === 2024)
+    if (!y2015 || !y2024) {
+      throw new Error('Jahresdaten unvollständig')
+    }
+    yearlyData.value = { year2015: y2015, year2024: y2024 }
+  } catch (caughtError: unknown) {
+    error.value =
+      caughtError instanceof Error
+        ? caughtError.message
+        : 'Die Visualisierungsdaten konnten nicht geladen werden.'
+  } finally {
     loading.value = false
-  })
+  }
 
+  // Dashboard-Daten im Hintergrund vorladen (kein Fehler nötig)
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(() => {
-      loadHourly().catch(() => {})
-    }, { timeout: 5000 })
+    requestIdleCallback(() => { loadHourly().catch(() => {}) }, { timeout: 5000 })
   } else {
     setTimeout(() => { loadHourly().catch(() => {}) }, 2000)
   }
@@ -46,9 +54,12 @@ onMounted(() => {
       <div class="chart-skeleton"></div>
     </div>
     <div v-else-if="error" class="chart-error">
-      Daten konnten nicht geladen werden.
+      {{ error }}
     </div>
-    <IntroBarbellChart v-else :rows="rows" />
+    <div v-else-if="!yearlyData" class="chart-error">
+      Für den Vergleich 2015–2024 sind keine vollständigen Daten verfügbar.
+    </div>
+    <IntroBarbellChart v-else :yearly-data="yearlyData" />
     <IntroCTA />
     <IntroMethodology />
   </div>
