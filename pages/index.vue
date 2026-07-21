@@ -1,21 +1,39 @@
 ﻿<script setup lang="ts">
 /**
- * pages/index.vue — Intro-Landingpage (Barbell-Version)
- * ======================================================
- * Zeigt den Wandel des deutschen Strommix 2015->2024 als
- * horizontales Barbell-Chart (D3). Lädt Dashboard-Daten
- * im Hintergrund vor (requestIdleCallback).
+ * pages/index.vue — Intro-Landingpage (GroupedBar-Version)
+ * =========================================================
+ * Zeigt den Wandel des deutschen Strommix 2015→2024 als
+ * horizontales gruppiertes Balkendiagramm (D3). Lädt Dashboard-
+ * Daten im Hintergrund vor (requestIdleCallback).
  */
 
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useVisualizationData } from '~/composables/useVisualizationData'
 import type { YearlyMixPoint } from '~/types/visualization-data'
+import type { EnergyDataPoint } from '~/components/intro/GroupedBarChart.vue'
+import {
+  ITEM_CONFIG,
+  calculateSharePercent,
+  transformYearlyDataToChartData,
+} from '~/pages/index.transform'
 
 const { loadVisualizationData } = useVisualizationData()
 
 const yearlyData = ref<{ year2015: YearlyMixPoint; year2024: YearlyMixPoint } | null>(null)
 const loading = ref(true)
 const error = ref<string | null>(null)
+
+// ── Transformation: YearlyMixPoint → EnergyDataPoint[] ──
+// Die Logik (calculateSharePercent, ITEM_CONFIG) ist in
+// pages/index.transform.ts ausgelagert und dort getestet.
+
+const strommixData = computed<EnergyDataPoint[]>(() => {
+  const yearlyDataValue = yearlyData.value
+  if (yearlyDataValue === null) {
+    return []
+  }
+  return transformYearlyDataToChartData(yearlyDataValue.year2015, yearlyDataValue.year2024)
+})
 
 onMounted(async () => {
   try {
@@ -57,26 +75,34 @@ onMounted(async () => {
     <div v-else-if="!yearlyData" class="chart-error">
       Für den Vergleich 2015–2024 sind keine vollständigen Daten verfügbar.
     </div>
-    <IntroBarbellChart v-else :yearly-data="yearlyData" />
-    <IntroCTA />
+    <GroupedBarChart v-else :data="strommixData" />
+    <p class="chart-footnote">
+      Dargestellt sind die Anteile an der öffentlichen Nettostromerzeugung nach SMARD.
+      Die Werte sind auf eine Nachkommastelle gerundet, daher kann die Summe
+      leicht von 100 % abweichen.
+    </p>
+    <NuxtLink to="/dashboard" class="dashboard-link">
+      Entwicklung von 2015 bis 2024 erkunden
+      <span class="dashboard-link-arrow" aria-hidden="true">→</span>
+    </NuxtLink>
     <IntroMethodology />
   </div>
 </template>
 
 <style scoped>
 .intro-page {
-  max-width: 1100px;
+  max-width: 900px;
   margin: 0 auto;
-  padding: 48px 32px 80px;
+  padding: 48px 24px 64px;
 }
 .intro-page > :deep(*) {
-  margin-bottom: 96px;
+  margin-bottom: 48px;
 }
 .intro-page > :deep(:last-child) {
   margin-bottom: 0;
 }
 .chart-loading {
-  margin-bottom: 96px;
+  margin-bottom: 48px;
 }
 .chart-skeleton {
   width: 100%;
@@ -98,4 +124,49 @@ onMounted(async () => {
   color: var(--fg-muted);
   margin-bottom: 96px;
 }
+
+.chart-footnote {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  color: var(--fg-muted);
+  line-height: 1.55;
+  max-width: 62ch;
+  margin-bottom: 48px;
+}
+
+.dashboard-link {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  transition: border-color 300ms ease-out;
+  margin-top: 40px;
+  margin-bottom: 96px;
+}
+
+.dashboard-link:hover {
+  border-bottom-color: var(--fg);
+}
+
+.dashboard-link-arrow {
+  display: inline-block;
+  transition: transform 300ms ease-out;
+}
+
+.dashboard-link:hover .dashboard-link-arrow {
+  transform: translateX(4px);
+}
+
+.dashboard-link:focus-visible {
+  outline: 2px solid rgba(122, 158, 110, 0.6);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
 </style>

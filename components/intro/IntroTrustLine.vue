@@ -10,16 +10,16 @@
 <template>
   <div class="trust-line">
     <div class="trust-col">
-      <span class="trust-label">Datenquellen</span>
-      <span class="trust-value">SMARD (Bundesnetzagentur) · ENTSO-E Transparency Platform</span>
+      <span class="trust-label">Datenquelle</span>
+      <span class="trust-value">SMARD der Bundesnetzagentur</span>
     </div>
     <div class="trust-col">
-      <span class="trust-label">Zeitraum</span>
-      <span class="trust-value">01.01.2015 bis 31.12.2024</span>
+      <span class="trust-label">Vergleichszeitraum</span>
+      <span class="trust-value">Jahreswerte 2015 und 2024</span>
     </div>
     <div class="trust-col">
-      <span class="trust-label">Auflösung</span>
-      <span class="trust-value">Stündliche Daten, zu Jahreswerten zusammengefasst</span>
+      <span class="trust-label">Datengrundlage</span>
+      <span class="trust-value">Stündliche Erzeugungsdaten, zu Jahreswerten summiert</span>
     </div>
   </div>
 </template>
@@ -28,39 +28,33 @@
 .trust-line {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
-  gap: 24px;
-  padding: 20px 0;
+  gap: 32px;
+  padding: 24px 0;
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
-  margin-bottom: 96px;
+  margin-bottom: 64px;
 }
 
 .trust-col {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
 }
 
 .trust-label {
   font-family: var(--font-sans);
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 600;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--fg-muted);
-}
-
-.trust-col:first-child .trust-label {
-  font-size: 14px;
-  color: var(--fg);
-  letter-spacing: 0.02em;
 }
 
 .trust-value {
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--fg);
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
 @media (max-width: 768px) {

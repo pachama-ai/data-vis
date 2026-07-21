@@ -1,0 +1,23 @@
+{
+  "source": {
+    "title": "Entwicklung der spezifischen Treibhausgas-Emissionen des deutschen Strommix in den Jahren 1990–2025",
+    "publisher": "Umweltbundesamt (UBA)",
+    "authors": "Petra Icha, Dr. Thomas Lauf",
+    "publication": "Climate Change 16/2026",
+    "url": "https://www.umweltbundesamt.de/publikationen/entwicklung-der-spezifischen-treibhausgas-0",
+    "note": "Die Emissionsfaktoren je Energieträger basieren auf den Standardwerten des UBA für direkte CO₂-Emissionen (ohne Vorketten). Erneuerbare und Kernenergie haben in dieser Bilanz direkte CO₂-Emissionen von 0 g/kWh."
+  },
+  "factors": {
+    "hydro": 0,
+    "biomass": 0,
+    "wind_offshore": 0,
+    "wind_onshore": 0,
+    "pv": 0,
+    "nuclear": 0,
+    "gas": 411,
+    "other_fossil": 750,
+    "hardcoal": 835,
+    "lignite": 1075
+  },
+  "unit": "g CO₂ / kWh (direct emissions)"
+}

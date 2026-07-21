@@ -9,47 +9,29 @@
 <template>
   <details class="intro-methodology">
     <summary class="method-summary">
-      <span class="method-chevron">▶</span>
-      Methodische Hinweise
-    </summary>
-    <div class="method-content">
-      <p>
-        <strong>Datenverarbeitung.</strong>
-        Die stündlichen Daten zur Stromerzeugung stammen von SMARD und sind nach Energieträgern aufgeteilt.
-        Die Day-Ahead-Preise wurden über die ENTSO-E API ergänzt.
-        Für die Landingpage wurden die Stundenwerte zu Jahreswerten zusammengefasst und in prozentuale Anteile umgerechnet.
-        Im Dashboard werden die Daten je nach Ansicht täglich, wöchentlich, monatlich oder quartalsweise ausgewertet.
-      </p>
-      <p>
-        <strong>Marktgebietswechsel 2018.</strong>
-        Im Oktober 2018 wurde das gemeinsame Marktgebiet Deutschland–Österreich–Luxemburg neu zugeschnitten.
-        Dieser Wechsel wurde bei der Aufbereitung der Preisdaten berücksichtigt.
-        Die SMARD-Erzeugungsdaten sind vollständig; im zusammengeführten Datensatz mit ENTSO-E-Preisen
-        fehlen ab Oktober jedoch rund 25 % der Stunden.
-      </p>
-    </div>
-  </details>
-
-  <details class="intro-methodology">
-    <summary class="method-summary">
-      <span class="method-chevron">▶</span>
+      <span class="method-chevron">
+        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
       Begriffe &amp; Definitionen
     </summary>
     <div class="method-content">
+      <p><strong>Prozentpunkte (pp)</strong> – Absolute Differenz zwischen den Anteilen von 2015 und 2024. Beispiel: Steigt ein Anteil von 20 % auf 25 %, ist das ein Zuwachs von 5 Prozentpunkten (nicht 25 %).</p>
+      <p><strong>Sonstige konventionelle Energieträger</strong> – Nicht-erneuerbare Energieträger außerhalb von Kohle, Erdgas und Kernenergie. Umfasst insbesondere Mineralöl, Grubengas und nicht erneuerbare Abfälle. Zusammen tragen sie in Deutschland typischerweise unter 5 % zur öffentlichen Nettostromerzeugung bei.</p>
+      <p><strong>Öffentliche Nettostromerzeugung</strong> – In das öffentliche Stromnetz eingespeister Strom. Der industrielle Eigenverbrauch (zum Beispiel werkseigene Kraftwerke, Photovoltaik-Eigenverbrauch privater Haushalte) ist nicht enthalten.</p>
       <p><strong>CO₂-Intensität</strong> – Gramm CO₂ pro erzeugter Kilowattstunde Strom. Berechnet aus dem stündlichen Erzeugungsmix und den Emissionsfaktoren des Umweltbundesamts.</p>
       <p><strong>EE-Anteil (Erneuerbare Energien)</strong> – Anteil aus Wind (Onshore + Offshore), Photovoltaik, Wasserkraft und Biomasse an der Gesamterzeugung.</p>
       <p><strong>Konventioneller Anteil</strong> – Alle nicht-erneuerbaren Erzeugungsarten: Braunkohle, Steinkohle, Erdgas, Kernkraft und Sonstige Konventionelle. <em>Nicht identisch mit „fossil" – Kernkraft ist enthalten.</em></p>
       <p><strong>Fossiler Anteil</strong> – Nur Braunkohle, Steinkohle, Erdgas und Öl. Ohne Kernkraft.</p>
-      <p><strong>Stromnachfrage</strong> – Netzlast in Gigawatt (GW), gemittelt über die Stunde.</p>
-      <p><strong>Day-Ahead-Preis</strong> – Großhandelspreis für Strom, festgestellt am Vortag am EPEX-Spotmarkt. Kann negativ werden bei EE-Überschuss.</p>
-      <p><strong>Stunden im Perzentil (Top/Bottom 10 %)</strong> – Die 10 % der Stunden im Zeitraum mit den höchsten bzw. niedrigsten Werten der jeweiligen Kennzahl.</p>
+
     </div>
   </details>
 </template>
 
 <style scoped>
 .intro-methodology {
-  margin-bottom: 96px;
+  margin-bottom: 48px;
   border-top: 1px solid var(--hairline);
   padding-top: 24px;
 }
@@ -65,10 +47,14 @@
   align-items: center;
   gap: 8px;
   user-select: none;
+  padding: 8px 0;
+  border-radius: 4px;
+  transition: color 200ms ease-out, background 200ms ease-out;
 }
 
 .method-summary:hover {
   color: var(--fg);
+  background: rgba(0,0,0,0.03);
 }
 
 .method-summary::-webkit-details-marker {
@@ -76,9 +62,13 @@
 }
 
 .method-chevron {
-  font-size: 10px;
-  transition: transform 0.2s;
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  transition: transform 200ms ease-out;
+  flex-shrink: 0;
 }
 
 details[open] .method-chevron {
@@ -87,7 +77,8 @@ details[open] .method-chevron {
 
 .method-content {
   max-width: 720px;
-  margin-top: 16px;
+  margin-top: 20px;
+  padding-bottom: 12px;
   font-family: var(--font-sans);
   font-size: 14px;
   color: var(--fg-muted);

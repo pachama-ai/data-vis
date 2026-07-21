@@ -78,7 +78,7 @@ data-vis/
 │   │   ├── StackedArea.vue    # Strommix-Entwicklung
 │   │   ├── ScatterAnalysis.vue# Einflussfaktoren
 │   │   ├── HeatmapCO2.vue     # Tagesmuster
-│   │   └── DuckCurve.vue      # Tagesprofil-Vergleich
+│   │   └── HourlyProfile.vue      # Tagesprofil-Vergleich
 │   └── intro/                 # Landingpage-Komponenten
 ├── composables/               # Geteilte Logik
 │   ├── useData.ts             # Daten-Loader mit Cache
@@ -113,7 +113,7 @@ Vergleicht den Strommix 2015 vs. 2024. Jeder Energieträger wird als Kapsel darg
 | **Strommix** | `StackedArea.vue` | Gestapelte Fläche des Erzeugungsmix 2015–2024, absolut oder in Prozent. Annotationen für Atomausstieg (2023) und Kohleausstiegsbeschluss (2020). |
 | **Einflussfaktoren** | `ScatterAnalysis.vue` | Scatterplot: CO₂-Intensität vs. EE-Anteil, Preis, Last oder konventionellem Anteil. Mit Zeitraum-Slider, Regressionslinie und Erklärzonen. |
 | **Tagesmuster** | `HeatmapCO2.vue` | 24h × 365-Tage-Heatmap. Metriken: CO₂, EE-Anteil, Konventioneller Anteil, Preis. Perzentil-Clipping für Ausreißer. |
-| **Markt & Preise** | `DuckCurve.vue` | Tagesprofile mit Zeitregler. 4 KPI-Karten (PV, Residuallast, Preis, CO₂). Vergleichsmodus mit zwei unabhängigen Timelines. |
+| **Markt & Preise** | `HourlyProfile.vue` | Tagesprofile mit Zeitregler. 4 KPI-Karten (PV, Residuallast, Preis, CO₂). Vergleichsmodus mit zwei unabhängigen Timelines. |
 
 ### KPI-Kacheln
 
@@ -167,7 +167,7 @@ Das Lehrskript (Singer, „Visualisierung mit Type-/JavaScript und D3", 2026) sc
 | `d3.create("svg")` + `onMounted`-Append | Gleiches Pattern in `KpiCard.vue` | Übernommen, da es die saubere Trennung von Vue- und D3-DOM gewährleistet |
 | Klassenbasierte Charts (`BaseChart`, Vererbung) | Funktionale Komponenten mit `computed`/`watch` | Vue 3 idiomatischer. Klassen sind nicht nötig, solange keine wiederverwendbare Chart-Familie entsteht |
 | `d3.csv()` zum Datenladen | Composables (`useData`) mit `fetch` + Cache | `shallowRef` und geteilte Promises sind für 85k Zeilen performanter; `d3.csv` blockt den Hauptthread |
-| Enter/Update/Exit mit Key-Accessor | Nur in `ScatterAnalysis.vue` (Punkte-Join) | Bei Aggregatswechsel (DuckCurve, Heatmap) ist komplettes Neuzeichnen nötig und schneller als diff |
+| Enter/Update/Exit mit Key-Accessor | Nur in `ScatterAnalysis.vue` (Punkte-Join) | Bei Aggregatswechsel (HourlyProfile, Heatmap) ist komplettes Neuzeichnen nötig und schneller als diff |
 | Animation mit `.transition()` | Nur auf der Landing-Page | Dashboard-Charts zeigen statische Zustände; Animation würde beim Slider-Ziehen stören |
 | SFC-Reihenfolge `<template> → <style> → <script>` | Nur in `KpiCard.vue` | Der Rest folgt Vite-Default. Konsistent innerhalb des Projekts |
 

@@ -1,0 +1,36 @@
+/* assets/css/chart-styles.css
+ * Allgemeine Chart-Grundstile für D3-Visualisierungen.
+ * Noch nicht in nuxt.config.ts eingebunden – wird später aktiviert.
+ *
+ * Verwendet nur CSS-Variablen, die in assets/css/main.css definiert sind:
+ * --font-sans, --fg-muted, --hairline, --bg
+ */
+
+.chart-container {
+  width: 100%;
+  min-width: 0;
+}
+
+.chart-container svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.chart-container .x-axis text,
+.chart-container .y-axis text {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  fill: var(--fg-muted);
+}
+
+.chart-container .x-axis path,
+.chart-container .x-axis line,
+.chart-container .y-axis path,
+.chart-container .y-axis line {
+  stroke: var(--hairline);
+}
+
+.chart-container .layer {
+  shape-rendering: geometricPrecision;
+}

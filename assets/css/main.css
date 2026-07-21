@@ -61,14 +61,11 @@
 }
 
 :root {
-  --bg:        #F2F3F5;
-  --fg:        #111318;
-  --fg-muted:  #6B7280;
+  --bg:        #faf8f4;
+  --fg:        #2a2a26;
+  --fg-muted:  #8a8a85;
   --accent:    #2D6A4F;
-  --teal:      #0D9488;
-  --amber:     #D97706;
-  --border:    #D1D5DB;
-  --hairline:  #E2E4E8;
+  --hairline:  #e8e6e0;
   --font-sans: 'Inter', 'Plus Jakarta Sans', -apple-system, sans-serif;
   --font-serif:'Source Serif 4', 'Spectral', Georgia, serif;
 }
@@ -86,7 +83,16 @@ body {
   line-height: 1.6;
 }
 
-h1, h2, h3, .heading-serif {
+*:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
+
+a, button, summary, [tabindex] {
+  transition: all 200ms ease-out;
+}
+
+h1, h2, h3 {
   font-family: var(--font-serif);
   font-weight: 700;
   color: var(--fg);
@@ -100,12 +106,3 @@ p { margin-bottom: 1rem; color: var(--fg-muted); }
 
 a { color: var(--accent); text-decoration: none; }
 a:hover { text-decoration: underline; }
-
-.label-uppercase {
-  font-family: var(--font-sans);
-  font-size: 0.62rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.15em;
-  color: var(--fg-muted);
-}

@@ -1,0 +1,222 @@
+<script setup lang="ts">
+/**
+ * StackedAreaLegend.vue – Klickbare Legende für den Stacked-Area-Chart.
+ *
+ * Zeigt alle zehn Energieträger nach Gruppen geordnet.
+ * Klick auf einen Chip emittiert den Source-Key.
+ * Die Toggle-Logik liegt in useMixSelection, nicht hier.
+ */
+
+import {
+  GROUP_OF,
+  MIX_COLORS,
+  MIX_GROUP_LABELS,
+  MIX_GROUP_ORDER,
+  MIX_LABELS,
+  STACK_ORDER,
+} from '~/utils/mix-config'
+
+import type { MixGroup, MixSourceKey } from '~/types/mix'
+
+defineProps<{
+  highlighted: MixSourceKey | null
+}>()
+
+const emit = defineEmits<{
+  select: [sourceKey: MixSourceKey | null]
+}>()
+
+function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
+  const sources: MixSourceKey[] = []
+
+  for (const sourceKey of STACK_ORDER) {
+    if (GROUP_OF[sourceKey] === group) {
+      sources.push(sourceKey)
+    }
+  }
+
+  return sources
+}
+
+function handleSelect(sourceKey: MixSourceKey): void {
+  emit('select', sourceKey)
+}
+
+function handleShowAll(): void {
+  emit('select', null)
+}
+</script>
+
+<template>
+  <div class="stacked-area-legend" aria-label="Energieträger auswählen">
+    <button
+      type="button"
+      class="legend-chip legend-all-button"
+      :class="{
+        'legend-chip--active': highlighted === null,
+      }"
+      :aria-pressed="highlighted === null"
+      aria-label="Alle Energieträger anzeigen"
+      @click="handleShowAll"
+    >
+      <span class="legend-all-colors" aria-hidden="true">
+        <span class="legend-all-color legend-all-color--renewable" />
+        <span class="legend-all-color legend-all-color--nuclear" />
+        <span class="legend-all-color legend-all-color--fossil" />
+      </span>
+
+      <span class="legend-label">
+        Alle anzeigen
+      </span>
+    </button>
+
+    <section
+      v-for="group in MIX_GROUP_ORDER"
+      :key="group"
+      class="legend-group"
+    >
+      <h3 class="legend-group-title">
+        {{ MIX_GROUP_LABELS[group] }}
+      </h3>
+
+      <div class="legend-items">
+        <button
+          v-for="sourceKey in getSourcesForGroup(group)"
+          :key="sourceKey"
+          type="button"
+          class="legend-chip"
+          :class="{
+            'legend-chip--active': highlighted === sourceKey,
+          }"
+          :aria-pressed="highlighted === sourceKey"
+          @click="handleSelect(sourceKey)"
+        >
+          <span
+            class="legend-color"
+            :style="{ backgroundColor: MIX_COLORS[sourceKey] }"
+            aria-hidden="true"
+          />
+
+          <span class="legend-label">
+            {{ MIX_LABELS[sourceKey] }}
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <p class="legend-hint">
+      Energieträger anklicken, um ihn hervorzuheben.
+    </p>
+  </div>
+</template>
+
+<style scoped>
+.stacked-area-legend {
+  margin-top: 32px;
+}
+
+.legend-group {
+  margin-bottom: 14px;
+}
+
+.legend-group:last-child {
+  margin-bottom: 0;
+}
+
+.legend-group-title {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin: 0 0 4px;
+}
+
+.legend-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--hairline);
+  border-radius: 4px;
+  background: transparent;
+  font-family: var(--font-sans);
+  font-size: 11px;
+  color: var(--fg-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.legend-chip:hover {
+  color: var(--fg);
+  border-color: var(--fg-muted);
+}
+
+.legend-chip--active {
+  color: var(--fg);
+  border-color: var(--accent);
+  background: rgba(45, 106, 79, 0.06);
+}
+
+.legend-chip:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.legend-color {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.legend-label {
+  font-weight: 400;
+}
+
+.legend-hint {
+  display: inline-block;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f2efe8;
+  color: var(--fg-muted);
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin: 20px 0 8px;
+}
+
+.legend-all-button {
+  margin-bottom: 20px;
+}
+
+.legend-all-colors {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.legend-all-color {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.legend-all-color--renewable {
+  background-color: #4fa8a0;
+}
+
+.legend-all-color--nuclear {
+  background-color: #8e5a9e;
+}
+
+.legend-all-color--fossil {
+  background-color: #8a5a3c;
+}
+</style>
