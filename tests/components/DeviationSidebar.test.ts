@@ -64,6 +64,7 @@ describe('DeviationSidebar', () => {
     baseYear: null as DeviationYear | null,
     hoveredRow: null as EmissionRow | null,
     selectedRow: null as EmissionRow | null,
+    selectedRowBaseShare: null as number | null,
     largestMismatch: null as EmissionRow | null,
     emissionIntensity: 0,
     renewableShare: 0,

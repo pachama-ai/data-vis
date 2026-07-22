@@ -241,7 +241,7 @@ export class DeviationChart extends BaseChart {
 
   setSubtitle(text: string): void {
     this.#subtitle = text
-    this.#renderSubtitle()
+    this.#renderYAxisLabel()
   }
 
   // =======================================================================
@@ -297,8 +297,8 @@ export class DeviationChart extends BaseChart {
     // Gruppentrennlinien einmalig anlegen
     this.#renderGroupSeparators()
 
-    // Subtitle einmalig anlegen
-    this.#renderSubtitle()
+    // y-Achsenbeschriftung einmalig anlegen
+    this.#renderYAxisLabel()
 
     // Richtungsbeschriftungen einmalig anlegen
     this.#renderDirectionLabels()
@@ -723,24 +723,25 @@ export class DeviationChart extends BaseChart {
   }
 
   /**
-   * Rendert den Subtitle-Text im SVG (oberhalb der Zeichenfläche).
+   * Rendert die y-Achsenbeschriftung als rotierten Text links neben der Achse.
    */
-  #renderSubtitle(): void {
+  #renderYAxisLabel(): void {
     if (!this.#svg) {
       return
     }
 
-    this.#svg.selectAll('.chart-subtitle-svg').remove()
+    this.#svg.selectAll('.y-axis-label').remove()
 
     this.#svg
       .append('text')
-      .attr('class', 'chart-subtitle-svg')
-      .attr('x', this.margin.left)
-      .attr('y', this.margin.top - 8)
+      .attr('class', 'y-axis-label')
+      .attr('transform', `rotate(-90)`)
+      .attr('x', -(this.innerHeight / 2))
+      .attr('y', -(this.margin.left - 15))
+      .attr('text-anchor', 'middle')
       .attr('font-family', 'var(--font-sans)')
       .attr('font-size', '13px')
       .attr('fill', '#8a8a85')
-      .attr('text-anchor', 'start')
       .text(this.#subtitle)
   }
 

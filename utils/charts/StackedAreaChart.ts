@@ -201,7 +201,7 @@ export class StackedAreaChart extends BaseChart {
 
   setSubtitle(text: string): void {
     this.#subtitle = text
-    this.#renderSubtitle()
+    this.#renderYAxisLabel()
   }
 
   // =======================================================================
@@ -235,8 +235,8 @@ export class StackedAreaChart extends BaseChart {
     // Outline-Gruppe für Highlight-Kontur einmalig anlegen
     this.#outlineGroup = chartGroup.append('g').attr('class', 'highlight-outlines')
 
-    // Subtitle einmalig anlegen
-    this.#renderSubtitle()
+    // y-Achsenbeschriftung einmalig anlegen
+    this.#renderYAxisLabel()
 
     // Hover-Elemente einmalig anlegen
     this.#createHoverElements()
@@ -511,18 +511,23 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Rendert den Subtitle-Text im SVG (oberhalb der Zeichenfläche).
    */
-  #renderSubtitle(): void {
+  /**
+   * Rendert die y-Achsenbeschriftung als rotierten Text links neben der Achse.
+   */
+  #renderYAxisLabel(): void {
     if (!this.#svg) {
       return
     }
 
-    this.#svg.selectAll('.chart-subtitle-svg').remove()
+    this.#svg.selectAll('.y-axis-label').remove()
 
     this.#svg
       .append('text')
-      .attr('class', 'chart-subtitle-svg')
-      .attr('x', this.margin.left)
-      .attr('y', this.margin.top - 22)
+      .attr('class', 'y-axis-label')
+      .attr('transform', `rotate(-90)`)
+      .attr('x', -(this.innerHeight / 2))
+      .attr('y', -(this.margin.left - 15))
+      .attr('text-anchor', 'middle')
       .attr('font-family', 'var(--font-sans)')
       .attr('font-size', '13px')
       .attr('fill', '#8a8a85')

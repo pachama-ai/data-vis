@@ -22,6 +22,7 @@ interface DeviationSidebarProps {
   baseYear: DeviationYear | null
   hoveredRow: EmissionRow | null
   selectedRow: EmissionRow | null
+  selectedRowBaseShare: number | null
   largestMismatch: EmissionRow | null
   emissionIntensity: number
   renewableShare: number
@@ -132,6 +133,22 @@ const showsSelection = computed(() => {
 const showsDefault = computed(() => {
   return hasData.value && !showsHover.value && !showsSelection.value
 })
+
+const deviationSentence = computed<string>(() => {
+  if (!props.selectedRow) return ''
+  const pp = props.selectedRow.deviationPp
+  const name = MIX_LABELS[props.selectedRow.sourceKey]
+
+  if (pp > 1) {
+    return `verursacht anteilig mehr CO₂-Emissionen, als sie Strom erzeugt.`
+  }
+
+  if (pp < -1) {
+    return `verursacht anteilig weniger CO₂-Emissionen, als sie Strom erzeugt.`
+  }
+
+  return `verursacht anteilig etwa so viel CO₂-Emissionen, wie sie Strom erzeugt.`
+})
 </script>
 
 <template>
@@ -169,42 +186,83 @@ const showsDefault = computed(() => {
     <!-- ========================================================= -->
     <!-- Ausgewählter Energieträger (Klick)                        -->
     <!-- ========================================================= -->
-    <div v-if="showsSelection && selectedRow" class="sidebar-section">
-      <div class="sidebar-hover-block">
-        <span
-          class="sidebar-color"
-          :style="{
-            backgroundColor: MIX_COLORS[selectedRow.sourceKey],
-          }"
-          aria-hidden="true"
-        />
+    <template v-if="showsSelection && selectedRow">
+      <p class="sidebar-year">{{ activeYear?.year }}</p>
 
-        <h3 class="sidebar-hover-title">
+      <div class="sidebar-divider" />
+
+      <section class="sidebar-section">
+        <div class="sidebar-mismatch-block">
+          <span
+            class="sidebar-color"
+            :style="{
+              backgroundColor: MIX_COLORS[selectedRow.sourceKey],
+            }"
+            aria-hidden="true"
+          />
+          <h3 class="sidebar-source-name">
+            {{ MIX_LABELS[selectedRow.sourceKey] }}
+          </h3>
+        </div>
+      </section>
+
+      <div class="sidebar-divider" />
+
+      <section class="sidebar-section">
+        <p class="sidebar-eyebrow">Anteil an der Stromerzeugung</p>
+        <p class="sidebar-value-large">
+          {{ formatPercent(selectedRow.generationShare * 100) }}
+        </p>
+      </section>
+
+      <div class="sidebar-divider" />
+
+      <section class="sidebar-section">
+        <p class="sidebar-eyebrow">Anteil an den CO₂-Emissionen</p>
+        <p class="sidebar-value-large">
+          {{ formatPercent(selectedRow.emissionShare * 100) }}
+        </p>
+      </section>
+
+      <div class="sidebar-divider" />
+
+      <section class="sidebar-section">
+        <p class="sidebar-eyebrow">Unterschied</p>
+        <p class="sidebar-value-large"
+           :class="{
+             'sidebar-positive': selectedRow.deviationPp > 0,
+             'sidebar-negative': selectedRow.deviationPp < 0,
+           }"
+        >
+          {{ formatPercentagePoints(selectedRow.deviationPp) }}
+        </p>
+        <p class="sidebar-sentence">
           {{ MIX_LABELS[selectedRow.sourceKey] }}
-        </h3>
-      </div>
+          {{ deviationSentence }}
+        </p>
+      </section>
 
-      <p class="sidebar-mismatch-detail">
-        {{ formatPercent(selectedRow.emissionShare * 100) }}
-        der direkten CO₂-Emissionen
-        <br>
-        bei
-        {{ formatPercent(selectedRow.generationShare * 100) }}
-        Anteil an der Stromerzeugung
-      </p>
+      <template v-if="selectedRowBaseShare !== null">
+        <div class="sidebar-divider" />
 
-      <p class="sidebar-hover-text">
-        Abweichung:
-        {{ formatPercentagePoints(selectedRow.deviationPp) }}
-      </p>
-    </div>
+        <section class="sidebar-section">
+          <p class="sidebar-eyebrow">Entwicklung seit 2015</p>
+          <p class="sidebar-sentence">
+            Der Anteil an der Stromerzeugung sank von
+            {{ formatPercent(selectedRowBaseShare * 100) }}
+            auf
+            {{ formatPercent(selectedRow.generationShare * 100) }}.
+          </p>
+        </section>
+      </template>
+    </template>
 
     <!-- ========================================================= -->
     <!-- Standard-Zustand                                           -->
     <!-- ========================================================= -->
     <template v-if="showsDefault && activeYear">
       <!-- Jahr -->
-      <p class="sidebar-year">{{ activeYear.year }}</p>
+      <p class="sidebar-year">{{ activeYear?.year }}</p>
 
       <div class="sidebar-divider" />
 
@@ -251,7 +309,7 @@ const showsDefault = computed(() => {
         </p>
 
         <p class="sidebar-sentence">
-          Im Jahr {{ activeYear.year }} entstanden durchschnittlich
+          Im Jahr {{ activeYear?.year }} entstanden durchschnittlich
           {{ formatIntensityRaw(emissionIntensity) }}
           Gramm direkte CO₂-Emissionen je erzeugter Kilowattstunde Strom.
         </p>
@@ -269,7 +327,7 @@ const showsDefault = computed(() => {
             {{ formatPercent(baseRenewableShare) }}
             im Jahr 2015 auf
             {{ formatPercent(renewableShare) }}
-            im Jahr {{ activeYear.year }}.
+            im Jahr {{ activeYear?.year }}.
           </p>
 
           <div style="height: 16px;" />
@@ -403,6 +461,14 @@ const showsDefault = computed(() => {
   font-weight: 600;
   color: var(--fg);
   margin: 0;
+}
+
+.sidebar-positive {
+  color: #b33;
+}
+
+.sidebar-negative {
+  color: var(--accent);
 }
 
 .sidebar-comparison {

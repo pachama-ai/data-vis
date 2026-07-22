@@ -234,6 +234,18 @@ const selectedRow = computed(() => {
   )
 })
 
+const selectedRowBaseShare = computed(() => {
+  if (selectedSourceKey.value === null || !baseYear.value) {
+    return null
+  }
+
+  const baseRow = baseYear.value.rows.find((row) => {
+    return row.sourceKey === selectedSourceKey.value
+  })
+
+  return baseRow?.generationShare ?? null
+})
+
 // =========================================================================
 // Slider-Handler
 // =========================================================================
@@ -386,6 +398,7 @@ watch(colorMode, (updatedMode) => {
         :base-year="baseYear"
         :hovered-row="hoverPayload?.row ?? null"
         :selected-row="selectedRow"
+        :selected-row-base-share="selectedRowBaseShare"
         :largest-mismatch="largestMismatch"
         :emission-intensity="emissionIntensity"
         :renewable-share="renewableShare"
