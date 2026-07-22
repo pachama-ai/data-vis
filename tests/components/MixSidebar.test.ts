@@ -115,7 +115,7 @@ describe('MixSidebar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Veränderungen 2015–2024')
+    expect(wrapper.text()).toContain('Vergleich zwischen 2015 und 2024')
     expect(wrapper.text()).toContain('Größter absoluter Zuwachs')
     expect(wrapper.text()).toContain('Größter absoluter Rückgang')
   })

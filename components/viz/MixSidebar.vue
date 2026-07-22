@@ -287,13 +287,7 @@ function formatMonth(date: Date): string {
       class="sidebar-state"
     >
       <template v-if="overviewMetrics">
-        <h2 class="sidebar-title">Veränderungen 2015–2024</h2>
-
-        <p class="sidebar-eyebrow">Jahresvergleich 2015 und 2024</p>
-
-        <p class="comparison-note">
-          Vergleich der Jahresanteile und Erzeugungsmengen.
-        </p>
+        <h2 class="sidebar-title">Vergleich zwischen 2015 und 2024</h2>
 
         <div class="sidebar-section">
           <div

@@ -171,7 +171,7 @@ describe('StackedArea', () => {
     const wrapper = mount(StackedArea)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Veränderungen 2015–2024')
+    expect(wrapper.text()).toContain('Vergleich zwischen 2015 und 2024')
   })
 
   it('zeigt Quellenzustand bei Legendenklick', async () => {
@@ -204,7 +204,7 @@ describe('StackedArea', () => {
     await pvButton?.trigger('click')
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Veränderungen 2015–2024')
+    expect(wrapper.text()).toContain('Vergleich zwischen 2015 und 2024')
   })
 
   it('zeigt Annotation-Zustand bei Marker-Klick', async () => {

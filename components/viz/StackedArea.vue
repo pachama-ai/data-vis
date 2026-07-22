@@ -155,7 +155,7 @@ function initializeChart(): void {
   chart.setBackgroundClickHandler(handleChartBackgroundClick)
   chart.setHighlightedSources(highlightedSources.value)
   chart.setColors(colorMode.value)
-  chart.setSubtitle(mode.value === 'absolute' ? 'Erzeugung in TWh' : 'Anteil in Prozent')
+  chart.setSubtitle('')
   chart.setMode(mode.value)
   chart.setData(monthRows.value)
   chart.setAnnotations(annotations.value)
@@ -228,7 +228,7 @@ watch(monthRows, (updatedMonthRows) => {
 
 watch(mode, (updatedMode) => {
   chart?.setMode(updatedMode)
-  chart?.setSubtitle(updatedMode === 'absolute' ? 'Erzeugung in TWh' : 'Anteil in Prozent')
+  chart?.setSubtitle('')
 })
 
 watch(highlightedSources, (updatedSources) => {

@@ -201,7 +201,6 @@ export class StackedAreaChart extends BaseChart {
 
   setSubtitle(text: string): void {
     this.#subtitle = text
-    this.#renderYAxisLabel()
   }
 
   // =======================================================================
@@ -234,9 +233,6 @@ export class StackedAreaChart extends BaseChart {
 
     // Outline-Gruppe für Highlight-Kontur einmalig anlegen
     this.#outlineGroup = chartGroup.append('g').attr('class', 'highlight-outlines')
-
-    // y-Achsenbeschriftung einmalig anlegen
-    this.#renderYAxisLabel()
 
     // this.update() wird hier nicht aufgerufen, weil beim ersten render
     // noch keine Daten vorhanden sind. Der erste update() erfolgt aus setData().
@@ -512,29 +508,6 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Rendert den Subtitle-Text im SVG (oberhalb der Zeichenfläche).
    */
-  /**
-   * Rendert die y-Achsenbeschriftung als rotierten Text links neben der Achse.
-   */
-  #renderYAxisLabel(): void {
-    if (!this.#svg) {
-      return
-    }
-
-    this.#svg.selectAll('.y-axis-label').remove()
-
-    this.#svg
-      .append('text')
-      .attr('class', 'y-axis-label')
-      .attr('transform', `rotate(-90)`)
-      .attr('x', -(this.innerHeight / 2))
-      .attr('y', 18)
-      .attr('text-anchor', 'middle')
-      .attr('font-family', 'var(--font-sans)')
-      .attr('font-size', '13px')
-      .attr('fill', '#8a8a85')
-      .text(this.#subtitle)
-  }
-
   /**
    * Rendert die Y-Achse (links) mit Werten in TWh.
    */
