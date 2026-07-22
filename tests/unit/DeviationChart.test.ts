@@ -153,11 +153,11 @@ describe('formatPercentagePoints', () => {
   })
 
   it('formatiert positive Werte mit Plus', () => {
-    expect(formatPercentagePoints(20)).toBe('+20 pp')
+    expect(formatPercentagePoints(20)).toBe('+20,0 pp')
   })
 
   it('formatiert negative Werte mit Minuszeichen', () => {
-    expect(formatPercentagePoints(-20)).toBe('−20 pp')
+    expect(formatPercentagePoints(-20)).toBe('−20,0 pp')
   })
 })
 

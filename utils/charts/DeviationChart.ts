@@ -218,6 +218,12 @@ export class DeviationChart extends BaseChart {
     this.#updateHighlight()
   }
 
+  setSelectedSource(sourceKey: MixSourceKey | null): void {
+    this.#selectedSource = sourceKey
+    this.#updateHighlight()
+    this.#selectionHandler?.(sourceKey)
+  }
+
   setHoverHandler(handler: HoverHandler | null): void {
     this.#hoverHandler = handler
   }
@@ -279,7 +285,7 @@ export class DeviationChart extends BaseChart {
     this.#barsGroup = chartGroup.append('g').attr('class', 'bars-group')
     this.#labelsGroup = chartGroup.append('g').attr('class', 'labels-group')
 
-    // Hintergrund-Overlay für Klick außerhalb der Balken
+    // Klick auf leere Fläche (Hintergrund) — per .lower() hinter die Balken
     chartGroup
       .append('rect')
       .attr('class', 'chart-background')
@@ -289,6 +295,7 @@ export class DeviationChart extends BaseChart {
       .attr('height', this.innerHeight)
       .attr('fill', 'transparent')
       .style('pointer-events', 'all')
+      .lower()
       .on('click', () => { this.#handleBackgroundClick() })
 
     // Nulllinie einmalig anlegen
@@ -303,7 +310,8 @@ export class DeviationChart extends BaseChart {
     // Richtungsbeschriftungen einmalig anlegen
     this.#renderDirectionLabels()
 
-    this.update()
+    // this.update() wird hier nicht aufgerufen, weil beim ersten render
+    // noch keine Daten vorhanden sind. Der erste update() erfolgt aus setData().
   }
 
   // =======================================================================
@@ -737,7 +745,7 @@ export class DeviationChart extends BaseChart {
       .attr('class', 'y-axis-label')
       .attr('transform', `rotate(-90)`)
       .attr('x', -(this.innerHeight / 2))
-      .attr('y', -(this.margin.left - 15))
+      .attr('y', 18)
       .attr('text-anchor', 'middle')
       .attr('font-family', 'var(--font-sans)')
       .attr('font-size', '13px')
@@ -803,7 +811,8 @@ export class DeviationChart extends BaseChart {
       return
     }
 
-    const selectedKey = this.#selectedSource
+    // Sowohl per setHighlight (Hover) als auch per Klick (selected) dimmen
+    const selectedKey = this.#selectedSource ?? this.#highlightedSource
 
     this.#barsGroup
       .selectAll<SVGRectElement, EmissionRow>('rect.deviation-bar')

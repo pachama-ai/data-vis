@@ -238,10 +238,11 @@ export class StackedAreaChart extends BaseChart {
     // y-Achsenbeschriftung einmalig anlegen
     this.#renderYAxisLabel()
 
+    // this.update() wird hier nicht aufgerufen, weil beim ersten render
+    // noch keine Daten vorhanden sind. Der erste update() erfolgt aus setData().
+
     // Hover-Elemente einmalig anlegen
     this.#createHoverElements()
-
-    this.update()
   }
 
   // =======================================================================
@@ -526,7 +527,7 @@ export class StackedAreaChart extends BaseChart {
       .attr('class', 'y-axis-label')
       .attr('transform', `rotate(-90)`)
       .attr('x', -(this.innerHeight / 2))
-      .attr('y', -(this.margin.left - 15))
+      .attr('y', 18)
       .attr('text-anchor', 'middle')
       .attr('font-family', 'var(--font-sans)')
       .attr('font-size', '13px')
