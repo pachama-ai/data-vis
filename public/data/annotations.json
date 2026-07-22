@@ -3,7 +3,7 @@
     "id": 1,
     "date": "2015-12",
     "title": "Pariser Klimaabkommen beschlossen",
-    "text": "Am 12. Dezember 2015 ist das Pariser Klimaabkommen beschlossen worden. Es hat den internationalen Rahmen geschaffen und die politische Bedeutung der Dekarbonisierung weiter erhöht. Eine unmittelbare Veränderung im Monatsverlauf lässt sich daraus nicht direkt ablesen.",
+    "text": "Am 12. Dezember 2015 wurde das Pariser Klimaabkommen beschlossen. Es setzte ein gemeinsames internationales Zeichen für mehr Klimaschutz.",
     "highlight": [
       "hydro",
       "biomass",
@@ -16,7 +16,7 @@
     "id": 2,
     "date": "2020-07",
     "title": "Kohleausstiegsgesetz beschlossen",
-    "text": "Am 3. Juli 2020 ist das Kohleausstiegsgesetz beschlossen worden. Es hat einen schrittweisen Stilllegungspfad für Braun- und Steinkohlekraftwerke festgelegt.",
+    "text": "Am 3. Juli 2020 wurde das Kohleausstiegsgesetz beschlossen. Es legt fest, dass Braun- und Steinkohlekraftwerke schrittweise stillgelegt werden.",
     "highlight": [
       "hardcoal",
       "lignite"
@@ -26,7 +26,7 @@
     "id": 3,
     "date": "2021-12",
     "title": "Drei Kernkraftwerke wurden abgeschaltet",
-    "text": "Am 31. Dezember 2021 sind die Kernkraftwerke Brokdorf, Grohnde und Gundremmingen C abgeschaltet worden. Ab Anfang 2022 ist die Kernenergie-Fläche deshalb deutlich kleiner geworden.",
+    "text": "Am 31. Dezember 2021 wurden die Kernkraftwerke Brokdorf, Grohnde und Gundremmingen C abgeschaltet. Ab Anfang 2022 ist der Anteil der Kernenergie deshalb deutlich kleiner.",
     "highlight": [
       "nuclear"
     ]
@@ -35,7 +35,7 @@
     "id": 4,
     "date": "2022-02",
     "title": "Ukrainekrieg verschärfte die Energiekrise",
-    "text": "Der russische Angriff auf die Ukraine am 24. Februar 2022 hat die bereits angespannte Lage auf den Energiemarkten weiter verschärft. Hohe Gaspreise und Versorgungsrisiken haben dazu beigetragen, dass Kohlekraftwerke zeitweise wieder stärker genutzt worden sind.",
+    "text": "Mit dem russischen Angriff auf die Ukraine am 24. Februar 2022 verschärfte sich die Energiekrise. Hohe Gaspreise und Sorgen um die Versorgung führten dazu, dass Kohlekraftwerke zeitweise wieder stärker genutzt wurden.",
     "highlight": [
       "gas",
       "hardcoal",
@@ -46,7 +46,7 @@
     "id": 5,
     "date": "2023-04",
     "title": "Atomausstieg wurde abgeschlossen",
-    "text": "Am 15. April 2023 sind die letzten drei deutschen Kernkraftwerke Isar 2, Emsland und Neckarwestheim 2 abgeschaltet worden. Da die Abschaltung in der Monatsmitte erfolgte, enthält der April noch einen Teilmonat Kernenergie.",
+    "text": "Am 15. April 2023 wurden die letzten drei deutschen Kernkraftwerke Isar 2, Emsland und Neckarwestheim 2 abgeschaltet. Da dies Mitte April geschah, ist für diesen Monat noch ein kleiner Anteil Kernenergie zu sehen.",
     "highlight": [
       "nuclear"
     ]

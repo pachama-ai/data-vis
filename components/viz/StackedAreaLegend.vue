@@ -95,11 +95,6 @@ function handleShowAll(): void {
       </span>
     </button>
 
-    <p class="legend-hint">
-      <span class="legend-hint-arrow" aria-hidden="true">↳</span>
-      Energieträger anklicken, um ihn hervorzuheben.
-    </p>
-
     <section
       v-for="group in MIX_GROUP_ORDER"
       :key="group"
@@ -141,8 +136,12 @@ function handleShowAll(): void {
   margin-top: 32px;
 }
 
+.stacked-area-legend + :deep(*) {
+  margin-top: 32px;
+}
+
 .legend-group {
-  margin-bottom: 14px;
+  margin-bottom: 18px;
 }
 
 .legend-group:last-child {

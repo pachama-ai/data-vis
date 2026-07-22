@@ -522,7 +522,7 @@ export class StackedAreaChart extends BaseChart {
       .append('text')
       .attr('class', 'chart-subtitle-svg')
       .attr('x', this.margin.left)
-      .attr('y', this.margin.top - 8)
+      .attr('y', this.margin.top - 22)
       .attr('font-family', 'var(--font-sans)')
       .attr('font-size', '13px')
       .attr('fill', '#8a8a85')

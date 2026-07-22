@@ -318,6 +318,10 @@ const showsDefault = computed(() => {
   font-size: 13px;
   line-height: 1.5;
   color: var(--fg);
+  background: var(--bg);
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  padding: 20px;
 }
 
 .sidebar-empty {
@@ -345,7 +349,7 @@ const showsDefault = computed(() => {
 .sidebar-divider {
   height: 1px;
   background: var(--hairline);
-  margin: 12px 0;
+  margin: 24px 0;
 }
 
 .sidebar-section {
@@ -358,7 +362,7 @@ const showsDefault = computed(() => {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--fg-muted);
-  margin: 0 0 8px;
+  margin: 0 0 12px;
 }
 
 .sidebar-color {

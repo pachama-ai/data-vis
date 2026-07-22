@@ -347,25 +347,24 @@ watch(colorMode, (updatedMode) => {
             />
           </template>
 
-          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <button
-              type="button"
-              class="legend-chip legend-contrast-button"
-              :class="{ 'legend-chip--active': colorMode === 'accessible' }"
-              :aria-pressed="colorMode === 'accessible'"
-              aria-label="Kontrastfarben umschalten"
-              @click="toggleColorMode"
-            >
-              <span class="legend-label">Kontrastfarben</span>
-            </button>
+          <button
+            type="button"
+            class="legend-chip legend-contrast-button"
+            :class="{ 'legend-chip--active': colorMode === 'accessible' }"
+            :aria-pressed="colorMode === 'accessible'"
+            aria-label="Kontrastfarben umschalten"
+            style="margin-bottom: 16px;"
+            @click="toggleColorMode"
+          >
+            <span class="legend-label">Kontrastfarben</span>
+          </button>
 
-            <YearSlider
-              v-if="activeYearNumber !== null"
-              :years="availableYears"
-              :selected-year="activeYearNumber"
-              @change="handleYearChange"
-            />
-          </div>
+          <YearSlider
+            v-if="activeYearNumber !== null"
+            :years="availableYears"
+            :selected-year="activeYearNumber"
+            @change="handleYearChange"
+          />
 
           <details class="reading-help">
             <summary class="reading-help-summary">So liest du das Diagramm</summary>
