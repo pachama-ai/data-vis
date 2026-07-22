@@ -24,13 +24,13 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
           id="emission-panel-title"
           class="emission-panel-title"
         >
-          Vergleich von Strom- und Emissionsanteil
+          Stromerzeugung und CO₂-Emissionen im Vergleich
         </h1>
 
         <p class="emission-panel-subtitle">
-          Wie stark unterscheidet sich der Anteil eines Energieträgers
-          an der Stromerzeugung von seinem Anteil an den direkten
-          CO₂-Emissionen?
+          Das Diagramm zeigt, wie viel Strom die einzelnen
+          Energieträger erzeugen und welchen Anteil sie an den
+          direkten CO₂-Emissionen haben.
         </p>
       </div>
 

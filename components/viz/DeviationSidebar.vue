@@ -57,6 +57,10 @@ function formatIntensity(value: number): string {
   return `${formattedValue} g CO₂/kWh`
 }
 
+function formatIntensityRaw(value: number): string {
+  return integerFormatter.format(value)
+}
+
 function formatPercentagePoints(value: number): string {
   const formattedValue = numberFormatter.format(Math.abs(value))
 
@@ -209,7 +213,7 @@ const showsDefault = computed(() => {
         v-if="largestMismatch"
         class="sidebar-section"
       >
-        <p class="sidebar-eyebrow">Größte Abweichung</p>
+        <p class="sidebar-eyebrow">Größter Unterschied</p>
 
         <div class="sidebar-mismatch-block">
           <span
@@ -227,12 +231,12 @@ const showsDefault = computed(() => {
         </div>
 
         <p class="sidebar-mismatch-detail">
+          {{ MIX_LABELS[largestMismatch.sourceKey] }}
+          verursacht
           {{ formatPercent(largestMismatch.emissionShare * 100) }}
-          der direkten CO₂-Emissionen
-          <br>
-          bei
+          der direkten CO₂-Emissionen, liefert aber nur
           {{ formatPercent(largestMismatch.generationShare * 100) }}
-          Anteil an der Stromerzeugung.
+          der Stromerzeugung.
         </p>
       </section>
 
@@ -240,10 +244,16 @@ const showsDefault = computed(() => {
 
       <!-- Emissionsintensität -->
       <section class="sidebar-section">
-        <p class="sidebar-eyebrow">Durchschnittliche Emissionsintensität</p>
+        <p class="sidebar-eyebrow">CO₂-Emissionen je Kilowattstunde</p>
 
         <p class="sidebar-value-large">
           {{ formatIntensity(emissionIntensity) }}
+        </p>
+
+        <p class="sidebar-sentence">
+          Im Jahr {{ activeYear.year }} entstanden durchschnittlich
+          {{ formatIntensityRaw(emissionIntensity) }}
+          Gramm direkte CO₂-Emissionen je erzeugter Kilowattstunde Strom.
         </p>
       </section>
 
@@ -251,24 +261,20 @@ const showsDefault = computed(() => {
 
       <!-- Vergleich mit 2015 -->
       <section class="sidebar-section">
-        <p class="sidebar-eyebrow">Veränderung seit 2015</p>
+        <p class="sidebar-eyebrow">Entwicklung seit 2015</p>
 
         <div class="sidebar-comparison">
-          <div class="sidebar-comparison-row">
-            <span class="sidebar-comparison-label">
-              Anteil erneuerbarer Energien
-            </span>
-
-            <span class="sidebar-comparison-values">
-              {{ formatPercent(baseRenewableShare) }}
-              →
-              {{ formatPercent(renewableShare) }}
-            </span>
-          </div>
+          <p class="sidebar-sentence">
+            Der Anteil erneuerbarer Energien stieg von
+            {{ formatPercent(baseRenewableShare) }}
+            im Jahr 2015 auf
+            {{ formatPercent(renewableShare) }}
+            im Jahr {{ activeYear.year }}.
+          </p>
 
           <div class="sidebar-comparison-row">
             <span class="sidebar-comparison-label">
-              Emissionsintensität
+              CO₂-Emissionen je Kilowattstunde
             </span>
 
             <span class="sidebar-comparison-values">
@@ -289,6 +295,16 @@ const showsDefault = computed(() => {
               }}
             </span>
           </div>
+
+          <p class="sidebar-sentence">
+            Die durchschnittlichen direkten CO₂-Emissionen sanken von
+            {{ formatIntensityRaw(baseEmissionIntensity) }}
+            auf
+            {{ formatIntensityRaw(emissionIntensity) }}
+            g CO₂/kWh. Das entspricht einem Rückgang um
+            {{ formatIntensityRaw(Math.abs(baseEmissionIntensity - emissionIntensity)) }}
+            g CO₂/kWh.
+          </p>
         </div>
       </section>
     </template>
@@ -317,6 +333,13 @@ const showsDefault = computed(() => {
   color: var(--fg);
   margin: 0 0 8px;
   line-height: 1.1;
+}
+
+.sidebar-sentence {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--fg-muted);
 }
 
 .sidebar-divider {

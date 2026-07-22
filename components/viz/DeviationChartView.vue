@@ -271,7 +271,7 @@ function initializeChart(): void {
   chart.setHoverEndHandler(handleChartLeave)
   chart.setColors(colorMode.value)
   chart.setSelectionHandler(handleChartSelection)
-  chart.setSubtitle('Dargestellt ist die Differenz zwischen Emissionsanteil und Stromanteil in Prozentpunkten')
+  chart.setSubtitle('Differenz in Prozentpunkten')
 
   chart.render(container)
   chart.setXDomain(xDomain)
@@ -379,11 +379,6 @@ watch(colorMode, (updatedMode) => {
               ist der Unterschied.
             </p>
           </details>
-
-          <p class="deviation-note">
-            Die direkten CO₂-Emissionen wurden aus den SMARD-Erzeugungsdaten und
-            Emissionsfaktoren des Umweltbundesamtes berechnet.
-          </p>
         </ChartTemplate>
       </div>
 
@@ -435,14 +430,6 @@ watch(colorMode, (updatedMode) => {
 
 .deviation-error {
   color: #b33;
-}
-
-.deviation-note {
-  font-family: var(--font-sans);
-  font-size: 12px;
-  color: var(--fg-muted);
-  margin: 8px 0 0;
-  line-height: 1.4;
 }
 
 .reading-help {

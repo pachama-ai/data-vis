@@ -33,7 +33,7 @@ describe('EmissionPanel', () => {
     })
 
     expect(wrapper.text()).toContain(
-      'Vergleich von Strom- und Emissionsanteil',
+      'Stromerzeugung und CO₂-Emissionen im Vergleich',
     )
   })
 

@@ -54,7 +54,7 @@ function handleSelect(annotation: MixAnnotation): void {
       </button>
     </div>
 
-    <p class="sidebar-eyebrow">Wichtige Zeitpunkte</p>
+    <p class="sidebar-eyebrow">Wendepunkte</p>
 
     <p class="annotation-help">
       {{ selectedAnnotation === null ? 'Zahl anklicken, um den Zeitpunkt im Chart zu markieren' : 'Nochmal klicken, um wieder alle Energieträger zu sehen' }}

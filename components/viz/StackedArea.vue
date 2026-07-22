@@ -155,7 +155,7 @@ function initializeChart(): void {
   chart.setBackgroundClickHandler(handleChartBackgroundClick)
   chart.setHighlightedSources(highlightedSources.value)
   chart.setColors(colorMode.value)
-  chart.setSubtitle('Monatliche Entwicklung der öffentlichen Nettostromerzeugung in Deutschland, dargestellt nach Energieträgern auf Basis von SMARD-Daten')
+  chart.setSubtitle(mode.value === 'absolute' ? 'Erzeugung in TWh' : 'Anteil in Prozent')
   chart.setMode(mode.value)
   chart.setData(monthRows.value)
   chart.setAnnotations(annotations.value)
@@ -228,6 +228,7 @@ watch(monthRows, (updatedMonthRows) => {
 
 watch(mode, (updatedMode) => {
   chart?.setMode(updatedMode)
+  chart?.setSubtitle(updatedMode === 'absolute' ? 'Erzeugung in TWh' : 'Anteil in Prozent')
 })
 
 watch(highlightedSources, (updatedSources) => {

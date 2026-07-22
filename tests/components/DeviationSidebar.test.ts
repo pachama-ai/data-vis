@@ -88,9 +88,9 @@ describe('DeviationSidebar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Größte Abweichung')
-    expect(wrapper.text()).toContain('Durchschnittliche Emissionsintensität')
-    expect(wrapper.text()).toContain('Veränderung seit 2015')
+    expect(wrapper.text()).toContain('Größter Unterschied')
+    expect(wrapper.text()).toContain('CO₂-Emissionen je Kilowattstunde')
+    expect(wrapper.text()).toContain('Entwicklung seit 2015')
   })
 
   it('zeigt das größte Missverhältnis (Braunkohle)', () => {
