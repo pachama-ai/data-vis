@@ -31,7 +31,7 @@ type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 const chartTemplate = ref<ChartTemplateInstance | null>(null)
 
 const { monthRows, yearRows, pending, error, loadData } = useMixData()
-const { mode, highlighted, selectedAnnotation, selectedYear, setMode, setHighlighted, setSelectedAnnotation, setSelectedYear, toggleHighlighted, toggleAnnotation } = useMixSelection()
+const { mode, colorMode, highlighted, selectedAnnotation, selectedYear, setMode, setColorMode, toggleColorMode, setHighlighted, setSelectedAnnotation, setSelectedYear, toggleHighlighted, toggleAnnotation } = useMixSelection()
 
 const hoverPayload = ref<MixHoverPayload | null>(null)
 
@@ -154,6 +154,7 @@ function initializeChart(): void {
   chart.setHoverEndHandler(handleChartLeave)
   chart.setBackgroundClickHandler(handleChartBackgroundClick)
   chart.setHighlightedSources(highlightedSources.value)
+  chart.setColors(colorMode.value)
   chart.setMode(mode.value)
   chart.setData(monthRows.value)
   chart.setAnnotations(annotations.value)
@@ -240,6 +241,10 @@ watch(selectedAnnotation, (updatedId) => {
   chart?.setSelectedAnnotation(updatedId)
 })
 
+watch(colorMode, (updatedMode) => {
+  chart?.setColors(updatedMode)
+})
+
 // =========================================================================
 // Aufräumen
 // =========================================================================
@@ -279,7 +284,7 @@ onBeforeUnmount(() => {
               :aria-pressed="mode === 'share'"
               @click="handleModeChange('share')"
             >
-              Anteil in %
+              Anteil
             </button>
           </div>
         </template>
@@ -296,7 +301,9 @@ onBeforeUnmount(() => {
 
         <StackedAreaLegend
           :highlighted="highlighted"
+          :color-mode="colorMode"
           @select="handleSourceSelect"
+          @toggle-color-mode="toggleColorMode"
         />
 
         <p v-if="pending" class="chart-note">Daten werden geladen …</p>
@@ -347,8 +354,10 @@ onBeforeUnmount(() => {
 
 .mode-toggle {
   display: inline-flex;
-  gap: 4px;
-  /* Rechte Kante an der Plotfläche ausrichten (margin.right = 20px bei 900px Breite = ~2.2%) */
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  overflow: hidden;
+  /* Rechte Kante an der Plotfläche ausrichten */
   padding-right: 2.3%;
 }
 
@@ -356,30 +365,37 @@ onBeforeUnmount(() => {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 400;
-  padding: 4px 12px;
-  border: 1px solid var(--hairline);
-  border-radius: 4px;
+  padding: 10px 18px;
+  border: none;
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
   transition: all 0.15s;
+  white-space: nowrap;
+  min-width: 80px;
+}
+
+.mode-button + .mode-button {
+  border-left: 1px solid var(--hairline);
 }
 
 .mode-button:hover {
-  color: var(--fg);
-  border-color: var(--fg-muted);
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .mode-button--active {
-  color: var(--fg);
-  border-color: var(--accent);
-  background: rgba(45, 106, 79, 0.06);
+  background: var(--accent);
+  color: #fff;
   font-weight: 500;
+}
+
+.mode-button--active:hover {
+  background: var(--accent);
 }
 
 .mode-button:focus-visible {
   outline: 2px solid var(--accent);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 @media (max-width: 900px) {

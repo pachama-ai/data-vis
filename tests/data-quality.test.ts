@@ -616,7 +616,7 @@ describe('M1: other-Kategorie – fachliche Aufteilung', () => {
     expect(ee + conv + ps).toBeCloseTo(total, 5)
   })
 
-  it('Alle Labels und Farben fuer die drei neuen Kategorien sind definiert', () => {
+  it('Alle Labels und Farben für die drei neuen Kategorien sind definiert', () => {
     const LABELS: Record<string, string> = {
       other_renewables: 'Sonstige Erneuerbare',
       other_fossil: 'Sonstige Konventionelle',

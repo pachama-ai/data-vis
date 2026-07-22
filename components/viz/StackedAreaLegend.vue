@@ -7,24 +7,33 @@
  * Die Toggle-Logik liegt in useMixSelection, nicht hier.
  */
 
+import { computed } from 'vue'
+
 import {
   GROUP_OF,
   MIX_COLORS,
+  MIX_COLORS_ACCESSIBLE,
   MIX_GROUP_LABELS,
   MIX_GROUP_ORDER,
   MIX_LABELS,
   STACK_ORDER,
 } from '~/utils/mix-config'
 
-import type { MixGroup, MixSourceKey } from '~/types/mix'
+import type { ColorMode, MixGroup, MixSourceKey } from '~/types/mix'
 
-defineProps<{
+const props = defineProps<{
   highlighted: MixSourceKey | null
+  colorMode: ColorMode
 }>()
 
 const emit = defineEmits<{
   select: [sourceKey: MixSourceKey | null]
+  toggleColorMode: []
 }>()
+
+const activeColors = computed(() => {
+  return props.colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
+})
 
 function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   const sources: MixSourceKey[] = []
@@ -70,6 +79,21 @@ function handleShowAll(): void {
       </span>
     </button>
 
+    <button
+      type="button"
+      class="legend-chip legend-contrast-button"
+      :class="{
+        'legend-chip--active': colorMode === 'accessible',
+      }"
+      :aria-pressed="colorMode === 'accessible'"
+      aria-label="Kontrastfarben umschalten"
+      @click="emit('toggleColorMode')"
+    >
+      <span class="legend-label">
+        Kontrastfarben
+      </span>
+    </button>
+
     <section
       v-for="group in MIX_GROUP_ORDER"
       :key="group"
@@ -93,7 +117,7 @@ function handleShowAll(): void {
         >
           <span
             class="legend-color"
-            :style="{ backgroundColor: MIX_COLORS[sourceKey] }"
+            :style="{ backgroundColor: activeColors[sourceKey] }"
             aria-hidden="true"
           />
 

@@ -46,7 +46,7 @@ type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 const chartTemplate = ref<ChartTemplateInstance | null>(null)
 
 const { monthRows, yearRows, pending, error, loadData } = useMixData()
-const { selectedYear, setSelectedYear } = useMixSelection()
+const { selectedYear, colorMode, setSelectedYear, toggleColorMode } = useMixSelection()
 
 const hoverPayload = ref<DeviationHoverPayload | null>(null)
 
@@ -261,6 +261,7 @@ function initializeChart(): void {
 
   chart.setHoverHandler(handleChartHover)
   chart.setHoverEndHandler(handleChartLeave)
+  chart.setColors(colorMode.value)
 
   chart.render(container)
   chart.setXDomain(xDomain.value)
@@ -298,6 +299,10 @@ watch(activeYear, (updatedYear) => {
   chart?.setData(rows)
 
   hoverPayload.value = null
+})
+
+watch(colorMode, (updatedMode) => {
+  chart?.setColors(updatedMode)
 })
 </script>
 

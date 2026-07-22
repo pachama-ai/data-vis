@@ -62,6 +62,23 @@ export const MIX_COLORS: Record<MixSourceKey, string> = {
   lignite: '#8a5a34',
 }
 
+/**
+ * Kontrastreiche Alternative (Okabe-Ito-Palette) für Farbfehlsichtigkeit.
+ * Blau-Orange-Achse statt Grün-Braun, mit Helligkeitsabstufungen.
+ */
+export const MIX_COLORS_ACCESSIBLE: Record<MixSourceKey, string> = {
+  hydro: '#0d3b66',
+  biomass: '#1a6f8f',
+  wind_offshore: '#56b4e9',
+  wind_onshore: '#a6dcf5',
+  pv: '#f0e442',
+  nuclear: '#cc79a7',
+  gas: '#e69f00',
+  other_fossil: '#d9cdbf',
+  hardcoal: '#4a4a4a',
+  lignite: '#d55e00',
+}
+
 // =========================================================================
 // Gruppenzuordnung
 // =========================================================================

@@ -202,8 +202,8 @@ const tooltipStyle = computed(() => {
             {{ MIX_GROUP_LABELS[groupValue.group] }}
           </dt>
 
-          <dd>
-            <span>
+          <dd class="tooltip-dd">
+            <span class="tooltip-value">
               {{ formatTwh(groupValue.valueTwh) }}
             </span>
 
@@ -222,7 +222,8 @@ const tooltipStyle = computed(() => {
   position: absolute;
   z-index: 1000;
   pointer-events: none;
-  min-width: 160px;
+  min-width: 220px;
+  white-space: nowrap;
   background: #ffffff;
   border: 1px solid var(--hairline);
   border-radius: 6px;

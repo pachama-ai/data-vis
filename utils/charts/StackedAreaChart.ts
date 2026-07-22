@@ -8,7 +8,7 @@
 import * as d3 from 'd3'
 
 import { BaseChart } from '~/utils/charts/BaseChart'
-import { MIX_COLORS, STACK_ORDER } from '~/utils/mix-config'
+import { MIX_COLORS, MIX_COLORS_ACCESSIBLE, STACK_ORDER } from '~/utils/mix-config'
 
 import type { MixMode, MixMonthRow, MixSourceKey, MixAnnotation } from '~/types/mix'
 
@@ -132,6 +132,9 @@ export class StackedAreaChart extends BaseChart {
   /** Aktuelle x-Skala für Hover-Berechnungen */
   #xScale: d3.ScaleTime<number, number> | null = null
 
+  /** Aktive Farbpalette (kann über setColors gewechselt werden) */
+  #colors: Record<MixSourceKey, string> = MIX_COLORS
+
   /** Externer Callback für Pointer-Bewegung */
   #hoverHandler: HoverHandler | null = null
 
@@ -186,6 +189,11 @@ export class StackedAreaChart extends BaseChart {
   setSelectedAnnotation(annotationId: number | null): void {
     this.#selectedAnnotationId = annotationId
     this.#updateFixedAnnotationLine()
+  }
+
+  setColors(colorMode: 'default' | 'accessible'): void {
+    this.#colors = colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
+    this.update()
   }
 
   // =======================================================================
@@ -348,9 +356,15 @@ export class StackedAreaChart extends BaseChart {
       )
     }
 
+    // Domain bis Januar des Folgejahres erweitern,
+    // damit der 2025-Tick sichtbar ist und kein zweiter
+    // Tick am Domain-Ende entsteht.
+    const lastYear = dateExtent[1].getFullYear()
+    const domainEnd = new Date(lastYear + 1, 0, 1)
+
     const xScale = d3
       .scaleTime()
-      .domain([dateExtent[0], dateExtent[1]])
+      .domain([dateExtent[0], domainEnd])
       .range([0, this.innerWidth])
 
     return xScale
@@ -435,14 +449,14 @@ export class StackedAreaChart extends BaseChart {
           .attr('data-series-key', (series) => series.key)
           .attr('fill', (series) => {
             const seriesKey = series.key as MixSourceKey
-            return MIX_COLORS[seriesKey]
+            return this.#colors[seriesKey]
           })
           .attr('d', (series) => areaGenerator(series)),
       (update) =>
         update
           .attr('fill', (series) => {
             const seriesKey = series.key as MixSourceKey
-            return MIX_COLORS[seriesKey]
+            return this.#colors[seriesKey]
           })
           .attr('d', (series) => areaGenerator(series)),
       (exit) => exit.remove(),

@@ -38,6 +38,9 @@ export type MixGroup = 'renewable' | 'nuclear' | 'fossil'
 /** Anzeigemodus: absolute Werte oder prozentuale Anteile. */
 export type MixMode = 'absolute' | 'share'
 
+/** Farbmodus: Standard oder kontrastreich. */
+export type ColorMode = 'default' | 'accessible'
+
 /**
  * Eine bereits normalisierte Monatszeile für die Chart-Klasse.
  * Die Werte liegen in der Einheit vor, die bei der späteren

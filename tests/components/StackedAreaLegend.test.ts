@@ -12,16 +12,16 @@ import StackedAreaLegend from '~/components/viz/StackedAreaLegend.vue'
 describe('StackedAreaLegend', () => {
   it('zeigt alle zehn Energieträger plus "Alle"-Button', () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: null },
+      props: { highlighted: null, colorMode: 'default' },
     })
 
     const buttons = wrapper.findAll('button')
-    expect(buttons.length).toBe(11)
+    expect(buttons.length).toBe(12)
   })
 
   it('zeigt die drei Gruppenüberschriften an', () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: null },
+      props: { highlighted: null, colorMode: 'default' },
     })
 
     expect(wrapper.text()).toContain('Erneuerbare')
@@ -31,7 +31,7 @@ describe('StackedAreaLegend', () => {
 
   it('emittiert den Source-Key bei Klick', async () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: null },
+      props: { highlighted: null, colorMode: 'default' },
     })
 
     const buttons = wrapper.findAll('button')
@@ -44,7 +44,7 @@ describe('StackedAreaLegend', () => {
 
   it('setzt aria-pressed auf dem aktiven Chip', () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: 'pv' },
+      props: { highlighted: 'pv', colorMode: 'default' },
     })
 
     const buttons = wrapper.findAll('button')
@@ -55,7 +55,7 @@ describe('StackedAreaLegend', () => {
 
   it('zeigt den "Alle"-Button mit aria-label', () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: null },
+      props: { highlighted: null, colorMode: 'default' },
     })
 
     const allButton = wrapper.find('.legend-all-button')
@@ -68,7 +68,7 @@ describe('StackedAreaLegend', () => {
 
   it('"Alle" ist standardmäßig aktiv bei highlighted=null', () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: null },
+      props: { highlighted: null, colorMode: 'default' },
     })
 
     const allButton = wrapper.find('.legend-all-button')
@@ -78,7 +78,7 @@ describe('StackedAreaLegend', () => {
 
   it('"Alle" emittiert null bei Klick', async () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: null },
+      props: { highlighted: null, colorMode: 'default' },
     })
 
     const allButton = wrapper.find('.legend-all-button')
@@ -89,7 +89,7 @@ describe('StackedAreaLegend', () => {
 
   it('"Alle" ist nicht aktiv, wenn eine Quelle hervorgehoben ist', () => {
     const wrapper = mount(StackedAreaLegend, {
-      props: { highlighted: 'pv' },
+      props: { highlighted: 'pv', colorMode: 'default' },
     })
 
     const allButton = wrapper.find('.legend-all-button')

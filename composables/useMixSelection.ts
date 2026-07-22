@@ -7,13 +7,14 @@
 
 import { ref } from 'vue'
 
-import type { MixMode, MixSourceKey } from '~/types/mix'
+import type { ColorMode, MixMode, MixSourceKey } from '~/types/mix'
 
 // =========================================================================
 // Modulweite Refs (geteilter Zustand)
 // =========================================================================
 
 const mode = ref<MixMode>('absolute')
+const colorMode = ref<ColorMode>('default')
 const highlighted = ref<MixSourceKey | null>(null)
 const selectedYear = ref<number | null>(null)
 const selectedAnnotation = ref<number | null>(null)
@@ -62,14 +63,27 @@ export function useMixSelection() {
     selectedAnnotation.value = annotationId
   }
 
+  function setColorMode(nextMode: ColorMode): void {
+    colorMode.value = nextMode
+  }
+
+  function toggleColorMode(): void {
+    colorMode.value = colorMode.value === 'default' ? 'accessible' : 'default'
+  }
+
   return {
     mode,
+    colorMode,
     highlighted,
     selectedYear,
     selectedAnnotation,
     setMode,
+    setColorMode,
+    toggleColorMode,
     setHighlighted,
-    toggleHighlighted,    toggleAnnotation,    setSelectedYear,
+    toggleHighlighted,
+    toggleAnnotation,
+    setSelectedYear,
     setSelectedAnnotation,
   }
 }

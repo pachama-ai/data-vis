@@ -14,7 +14,7 @@
 import * as d3 from 'd3'
 
 import { BaseChart } from '~/utils/charts/BaseChart'
-import { MIX_COLORS, MIX_LABELS, STACK_ORDER } from '~/utils/mix-config'
+import { MIX_COLORS, MIX_COLORS_ACCESSIBLE, MIX_LABELS, STACK_ORDER } from '~/utils/mix-config'
 
 import type { EmissionRow, MixSourceKey } from '~/types/mix'
 
@@ -175,6 +175,9 @@ export class DeviationChart extends BaseChart {
   /** Externer Hover-Ende-Callback */
   #hoverEndHandler: HoverEndHandler | null = null
 
+  /** Aktive Farbpalette (Standard oder kontrastreich) */
+  #colors: Record<MixSourceKey, string> = MIX_COLORS
+
   // =======================================================================
   // Konstruktor
   // =======================================================================
@@ -209,6 +212,11 @@ export class DeviationChart extends BaseChart {
 
   setHoverEndHandler(handler: HoverEndHandler | null): void {
     this.#hoverEndHandler = handler
+  }
+
+  setColors(colorMode: 'default' | 'accessible'): void {
+    this.#colors = colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
+    this.update()
   }
 
   // =======================================================================
@@ -515,7 +523,7 @@ export class DeviationChart extends BaseChart {
           .attr('data-source-key', (row) => row.sourceKey)
           .attr('y', (row) => yScale(row.sourceKey) ?? 0)
           .attr('height', yScale.bandwidth())
-          .attr('fill', (row) => MIX_COLORS[row.sourceKey])
+          .attr('fill', (row) => this.#colors[row.sourceKey])
           .attr('x', xScale(0))
           .attr('width', 0)
           .on('pointerenter', (event: PointerEvent, row: EmissionRow) => {
@@ -544,7 +552,7 @@ export class DeviationChart extends BaseChart {
           .duration(600)
           .attr('y', (row) => yScale(row.sourceKey) ?? 0)
           .attr('height', yScale.bandwidth())
-          .attr('fill', (row) => MIX_COLORS[row.sourceKey])
+          .attr('fill', (row) => this.#colors[row.sourceKey])
           .attr('x', (row) => getDeviationBarX(row.deviationPp, xScale))
           .attr('width', (row) =>
             getDeviationBarWidth(row.deviationPp, xScale),

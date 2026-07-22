@@ -156,7 +156,7 @@ describe('transformYearlyDataToChartData', () => {
     expect(windLand.displayedDelta).toBe(5.0)
   })
 
-  it('berechnet displayedDelta fuer Kernenergie als -20,0 pp', () => {
+  it('berechnet displayedDelta für Kernenergie als -20,0 pp', () => {
     const result = transformYearlyDataToChartData(year2015, year2024)
 
     // Kernenergie: 2015 = 20,0 %, 2024 = 0,0 %, Delta = 0,0 - 20,0 = -20,0 pp
@@ -165,7 +165,7 @@ describe('transformYearlyDataToChartData', () => {
     expect(kernenergie.displayedDelta).toBe(-20.0)
   })
 
-  it('setzt value2024 fuer Kernenergie auf 0', () => {
+  it('setzt value2024 für Kernenergie auf 0', () => {
     const result = transformYearlyDataToChartData(year2015, year2024)
     const kernenergie = result[result.length - 1]!
     expect(kernenergie.id).toBe('kernenergie')

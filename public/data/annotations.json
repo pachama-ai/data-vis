@@ -16,7 +16,7 @@
     "id": 2,
     "date": "2020-07",
     "title": "Kohleausstiegsgesetz beschlossen",
-    "text": "Am 3. Juli 2020 ist das Kohleausstiegsgesetz beschlossen worden. Es hat einen schrittweisen Stilllegungspfad fuer Braun- und Steinkohlekraftwerke festgelegt.",
+    "text": "Am 3. Juli 2020 ist das Kohleausstiegsgesetz beschlossen worden. Es hat einen schrittweisen Stilllegungspfad für Braun- und Steinkohlekraftwerke festgelegt.",
     "highlight": [
       "hardcoal",
       "lignite"
@@ -26,7 +26,7 @@
     "id": 3,
     "date": "2021-12",
     "title": "Drei Kernkraftwerke wurden abgeschaltet",
-    "text": "Am 31. Dezember 2021 sind die Kernkraftwerke Brokdorf, Grohnde und Gundremmingen C abgeschaltet worden. Ab Anfang 2022 ist die Kernenergie-Flaeche deshalb deutlich kleiner geworden.",
+    "text": "Am 31. Dezember 2021 sind die Kernkraftwerke Brokdorf, Grohnde und Gundremmingen C abgeschaltet worden. Ab Anfang 2022 ist die Kernenergie-Fläche deshalb deutlich kleiner geworden.",
     "highlight": [
       "nuclear"
     ]
@@ -34,8 +34,8 @@
   {
     "id": 4,
     "date": "2022-02",
-    "title": "Ukrainekrieg verschaechte die Energiekrise",
-    "text": "Der russische Angriff auf die Ukraine am 24. Februar 2022 hat die bereits angespannte Lage auf den Energiemarkten weiter verschaerft. Hohe Gaspreise und Versorgungsrisiken haben dazu beigetragen, dass Kohlekraftwerke zeitweise wieder staerker genutzt worden sind.",
+    "title": "Ukrainekrieg verschärfte die Energiekrise",
+    "text": "Der russische Angriff auf die Ukraine am 24. Februar 2022 hat die bereits angespannte Lage auf den Energiemarkten weiter verschärft. Hohe Gaspreise und Versorgungsrisiken haben dazu beigetragen, dass Kohlekraftwerke zeitweise wieder stärker genutzt worden sind.",
     "highlight": [
       "gas",
       "hardcoal",
@@ -46,7 +46,7 @@
     "id": 5,
     "date": "2023-04",
     "title": "Atomausstieg wurde abgeschlossen",
-    "text": "Am 15. April 2023 sind die letzten drei deutschen Kernkraftwerke Isar 2, Emsland und Neckarwestheim 2 abgeschaltet worden. Da die Abschaltung in der Monatsmitte erfolgte, enthaelt der April noch einen Teilmonat Kernenergie.",
+    "text": "Am 15. April 2023 sind die letzten drei deutschen Kernkraftwerke Isar 2, Emsland und Neckarwestheim 2 abgeschaltet worden. Da die Abschaltung in der Monatsmitte erfolgte, enthält der April noch einen Teilmonat Kernenergie.",
     "highlight": [
       "nuclear"
     ]

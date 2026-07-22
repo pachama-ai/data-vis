@@ -116,7 +116,8 @@ const tooltipStyle = computed(() => {
   position: absolute;
   z-index: 1000;
   pointer-events: none;
-  min-width: 180px;
+  min-width: 220px;
+  white-space: nowrap;
   background: #ffffff;
   border: 1px solid var(--hairline);
   border-radius: 6px;
