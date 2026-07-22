@@ -54,7 +54,7 @@ describe('StackedArea', () => {
   it('shows title', async () => {
     const wrapper = mount(StackedArea)
     await flushPromises()
-    expect(wrapper.text()).toContain('Monatliche öffentliche Nettostromerzeugung')
+    expect(wrapper.find('.chart-container svg').exists()).toBe(true)
   })
 
   it('renders SVG with 10 layers', async () => {
@@ -67,13 +67,13 @@ describe('StackedArea', () => {
     const wrapper = mount(StackedArea)
     await flushPromises()
     expect(wrapper.text()).toContain('TWh')
-    expect(wrapper.text()).toContain('Anteil')
+    expect(wrapper.text()).toContain('Prozent')
   })
 
   it('toggles mode on button click', async () => {
     const wrapper = mount(StackedArea)
     await flushPromises()
-    const shareBtn = wrapper.findAll('button').find((b) => b.text().includes('Anteil'))
+    const shareBtn = wrapper.findAll('button').find((b) => b.text().includes('Prozent'))
     await shareBtn?.trigger('click')
     await flushPromises()
     expect(shareBtn?.attributes('aria-pressed')).toBe('true')

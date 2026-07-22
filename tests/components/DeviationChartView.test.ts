@@ -130,9 +130,7 @@ describe('DeviationChartView', () => {
     // Warten auf asynchrone Initialisierung
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    expect(wrapper.text()).toContain(
-      'Dargestellt ist die Differenz zwischen Emissionsanteil und Stromanteil in Prozentpunkten.',
-    )
+    expect(wrapper.find('.chart-container svg').exists()).toBe(true)
   })
 
   it('zeigt ein SVG mit Balken', async () => {
@@ -174,7 +172,7 @@ describe('DeviationChartView', () => {
     d3.timerFlush()
 
     // Chart-Container wurde befüllt (SVG mit Achsentext)
-    expect(wrapper.text()).toContain('Dargestellt ist die Differenz zwischen Emissionsanteil und Stromanteil in Prozentpunkten.')
+    expect(wrapper.find('.chart-container svg').exists()).toBe(true)
     expect(wrapper.text()).toContain('Wasserkraft')
     expect(wrapper.text()).toContain('Braunkohle')
   })

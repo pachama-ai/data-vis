@@ -144,6 +144,9 @@ export class StackedAreaChart extends BaseChart {
   /** Externer Callback für Hintergrundklick */
   #backgroundClickHandler: (() => void) | null = null
 
+  /** Subtitle-Text (wird im SVG gerendert) */
+  #subtitle: string = ''
+
   /** Geladene Annotationen */
   #annotations: MixAnnotation[] = []
 
@@ -196,6 +199,11 @@ export class StackedAreaChart extends BaseChart {
     this.update()
   }
 
+  setSubtitle(text: string): void {
+    this.#subtitle = text
+    this.#renderSubtitle()
+  }
+
   // =======================================================================
   // render – SVG anlegen
   // =======================================================================
@@ -226,6 +234,9 @@ export class StackedAreaChart extends BaseChart {
 
     // Outline-Gruppe für Highlight-Kontur einmalig anlegen
     this.#outlineGroup = chartGroup.append('g').attr('class', 'highlight-outlines')
+
+    // Subtitle einmalig anlegen
+    this.#renderSubtitle()
 
     // Hover-Elemente einmalig anlegen
     this.#createHoverElements()
@@ -495,6 +506,27 @@ export class StackedAreaChart extends BaseChart {
       .attr('class', 'x-axis')
       .attr('transform', `translate(0, ${this.innerHeight})`)
       .call(xAxis)
+  }
+
+  /**
+   * Rendert den Subtitle-Text im SVG (oberhalb der Zeichenfläche).
+   */
+  #renderSubtitle(): void {
+    if (!this.#svg) {
+      return
+    }
+
+    this.#svg.selectAll('.chart-subtitle-svg').remove()
+
+    this.#svg
+      .append('text')
+      .attr('class', 'chart-subtitle-svg')
+      .attr('x', this.margin.left)
+      .attr('y', this.margin.top - 8)
+      .attr('font-family', 'var(--font-sans)')
+      .attr('font-size', '13px')
+      .attr('fill', '#8a8a85')
+      .text(this.#subtitle)
   }
 
   /**

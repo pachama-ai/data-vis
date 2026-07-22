@@ -17,7 +17,7 @@ import StackedArea from '~/components/viz/StackedArea.vue'
     <header class="strommix-panel-header">
       <div class="strommix-panel-heading">
         <p class="strommix-panel-eyebrow">
-          Deutscher Strommix
+          Strom und Klimaneutralität
         </p>
 
         <h1

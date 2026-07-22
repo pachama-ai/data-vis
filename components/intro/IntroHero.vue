@@ -9,7 +9,7 @@
 
 <template>
   <section class="intro-hero">
-    <span class="eyebrow">Strommix 2015 und 2024</span>
+    <span class="eyebrow">Strom und Klimaneutralität</span>
     <h1 class="hero-headline">Wie sich der deutsche Strommix verändert hat</h1>
     <p class="hero-subline">Auf dem Weg zur Klimaneutralität muss Strom zunehmend aus emissionsarmen Quellen erzeugt werden. Die Visualisierung vergleicht die Anteile der Energieträger in den Jahren 2015 und 2024.</p>
   </section>

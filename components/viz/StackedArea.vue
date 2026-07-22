@@ -155,6 +155,7 @@ function initializeChart(): void {
   chart.setBackgroundClickHandler(handleChartBackgroundClick)
   chart.setHighlightedSources(highlightedSources.value)
   chart.setColors(colorMode.value)
+  chart.setSubtitle('Monatliche Entwicklung der öffentlichen Nettostromerzeugung in Deutschland, dargestellt nach Energieträgern auf Basis von SMARD-Daten')
   chart.setMode(mode.value)
   chart.setData(monthRows.value)
   chart.setAnnotations(annotations.value)
@@ -263,7 +264,6 @@ onBeforeUnmount(() => {
       <ChartTemplate
         ref="chartTemplate"
         title=""
-        subtitle="Monatliche öffentliche Nettostromerzeugung nach Energieträgern in TWh"
         wrapper-class="stacked-area-chart"
       >
         <template #controls>
@@ -284,7 +284,7 @@ onBeforeUnmount(() => {
               :aria-pressed="mode === 'share'"
               @click="handleModeChange('share')"
             >
-              Anteil
+              Prozent
             </button>
           </div>
         </template>

@@ -66,6 +66,10 @@ onMounted(async () => {
   <div class="intro-page">
     <IntroHero />
     <IntroTrustLine />
+    <NuxtLink to="/dashboard" class="page-navigation-button page-navigation-button--top">
+      Zum Dashboard
+      <span aria-hidden="true">→</span>
+    </NuxtLink>
     <div v-if="loading" class="chart-loading">
       <div class="chart-skeleton"></div>
     </div>
@@ -167,6 +171,35 @@ onMounted(async () => {
   outline: 2px solid rgba(122, 158, 110, 0.6);
   outline-offset: 4px;
   border-radius: 2px;
+}
+
+.page-navigation-button {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  color: var(--fg);
+  text-decoration: none;
+  padding-bottom: 2px;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+}
+
+.page-navigation-button:hover {
+  border-bottom-color: var(--fg);
+}
+
+.page-navigation-button:focus-visible {
+  outline: 2px solid rgba(122, 158, 110, 0.6);
+  outline-offset: 4px;
+  border-radius: 2px;
+}
+
+.page-navigation-button--top {
+  float: right;
+  margin-bottom: 24px;
 }
 
 </style>

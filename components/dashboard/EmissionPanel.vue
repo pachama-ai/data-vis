@@ -17,7 +17,7 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
     <header class="emission-panel-header">
       <div class="emission-panel-heading">
         <p class="emission-panel-eyebrow">
-          Stromerzeugung und direkte CO₂-Emissionen
+          Strom und Klimaneutralität
         </p>
 
         <h1
@@ -49,15 +49,15 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
 
     <footer class="emission-panel-footer">
       <p class="emission-panel-method">
-        Die Emissionswerte sind berechnet. Grundlage sind die
-        Stromerzeugung je Energieträger und die direkten
-        Emissionsfaktoren des Umweltbundesamtes. Emissionen aus
-        Herstellung, Transport und Entsorgung sind nicht enthalten.
+        Die CO₂-Emissionen wurden anhand der SMARD-Erzeugungsdaten
+        und direkter Emissionsfaktoren des Umweltbundesamtes
+        berechnet. Emissionen aus Herstellung, Transport und
+        Entsorgung sind nicht enthalten.
       </p>
 
       <p class="emission-panel-source">
-        Quellen: SMARD der Bundesnetzagentur und Umweltbundesamt,
-        Climate Change 16/2026.
+        Quellen: SMARD, Bundesnetzagentur; Umweltbundesamt, Climate
+        Change 16/2026.
       </p>
     </footer>
   </section>

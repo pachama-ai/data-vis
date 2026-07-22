@@ -50,33 +50,33 @@ export const MIX_LABELS: Record<MixSourceKey, string> = {
 // =========================================================================
 
 export const MIX_COLORS: Record<MixSourceKey, string> = {
-  hydro: '#3d6b4a',
-  biomass: '#6b9c5e',
-  wind_offshore: '#98bd7e',
-  wind_onshore: '#c2d6a0',
-  pv: '#e8c55f',
-  nuclear: '#b5628f',
-  gas: '#c99a5e',
-  other_fossil: '#ddd0b8',
-  hardcoal: '#6b5744',
-  lignite: '#9c5f30',
+  hydro: '#4a7c59',
+  biomass: '#6b9e6b',
+  wind_offshore: '#9ac088',
+  wind_onshore: '#c8dcb0',
+  pv: '#dfb54a',
+  nuclear: '#b0648f',
+  gas: '#cc9a52',
+  other_fossil: '#e3d9c6',
+  hardcoal: '#5c5147',
+  lignite: '#9d6234',
 }
 
 /**
- * Entsättigte Kontrastpalette für Farbfehlsichtigkeit.
- * Blau-Orange-Achse, ruhiger als die Okabe-Ito-Originale.
+ * Kontrastpalette für Farbfehlsichtigkeit.
+ * Blaugrün-verschobene Grüntöne, Helligkeitsabstufungen.
  */
 export const MIX_COLORS_ACCESSIBLE: Record<MixSourceKey, string> = {
-  hydro: '#1b4468',
-  biomass: '#2b7a9b',
-  wind_offshore: '#6bb3d6',
-  wind_onshore: '#b3d9ea',
-  pv: '#ddd45c',
-  nuclear: '#c084a8',
-  gas: '#d9a442',
-  other_fossil: '#ddd4c6',
-  hardcoal: '#55555a',
-  lignite: '#c4703f',
+  hydro: '#1a3f5c',
+  biomass: '#3d7d5a',
+  wind_offshore: '#4a90b8',
+  wind_onshore: '#a8cfe0',
+  pv: '#e8c547',
+  nuclear: '#c2669b',
+  gas: '#d2833c',
+  other_fossil: '#ddd8cc',
+  hardcoal: '#3f3f44',
+  lignite: '#8b5a2b',
 }
 
 // =========================================================================

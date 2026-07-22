@@ -178,6 +178,9 @@ export class DeviationChart extends BaseChart {
   /** Aktive Farbpalette (Standard oder kontrastreich) */
   #colors: Record<MixSourceKey, string> = MIX_COLORS
 
+  /** Subtitle-Text (wird im SVG gerendert) */
+  #subtitle: string = ''
+
   // =======================================================================
   // Konstruktor
   // =======================================================================
@@ -217,6 +220,11 @@ export class DeviationChart extends BaseChart {
   setColors(colorMode: 'default' | 'accessible'): void {
     this.#colors = colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
     this.update()
+  }
+
+  setSubtitle(text: string): void {
+    this.#subtitle = text
+    this.#renderSubtitle()
   }
 
   // =======================================================================
@@ -259,6 +267,9 @@ export class DeviationChart extends BaseChart {
 
     // Gruppentrennlinien einmalig anlegen
     this.#renderGroupSeparators()
+
+    // Subtitle einmalig anlegen
+    this.#renderSubtitle()
 
     // Richtungsbeschriftungen einmalig anlegen
     this.#renderDirectionLabels()
@@ -597,7 +608,7 @@ export class DeviationChart extends BaseChart {
             const bandCenter = yScale(row.sourceKey) ?? 0
             return bandCenter + yScale.bandwidth() / 2
           })
-          .text((row) => formatPercentagePoints(row.deviationPp * 100))
+          .text((row) => formatPercentagePoints(row.deviationPp))
 
         return enterLabels
       },
@@ -610,7 +621,7 @@ export class DeviationChart extends BaseChart {
             const bandCenter = yScale(row.sourceKey) ?? 0
             return bandCenter + yScale.bandwidth() / 2
           })
-          .text((row) => formatPercentagePoints(row.deviationPp * 100))
+          .text((row) => formatPercentagePoints(row.deviationPp))
       },
       (exit) => {
         return exit.remove()
@@ -659,6 +670,27 @@ export class DeviationChart extends BaseChart {
     }
 
     return 'start'
+  }
+
+  /**
+   * Rendert den Subtitle-Text im SVG (oberhalb der Zeichenfläche).
+   */
+  #renderSubtitle(): void {
+    if (!this.#svg) {
+      return
+    }
+
+    this.#svg.selectAll('.chart-subtitle-svg').remove()
+
+    this.#svg
+      .append('text')
+      .attr('class', 'chart-subtitle-svg')
+      .attr('x', this.margin.left)
+      .attr('y', this.margin.top - 8)
+      .attr('font-family', 'var(--font-sans)')
+      .attr('font-size', '13px')
+      .attr('fill', '#8a8a85')
+      .text(this.#subtitle)
   }
 
   /**

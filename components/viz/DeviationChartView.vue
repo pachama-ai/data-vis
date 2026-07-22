@@ -262,6 +262,7 @@ function initializeChart(): void {
   chart.setHoverHandler(handleChartHover)
   chart.setHoverEndHandler(handleChartLeave)
   chart.setColors(colorMode.value)
+  chart.setSubtitle('Dargestellt ist die Differenz zwischen Emissionsanteil und Stromanteil in Prozentpunkten')
 
   chart.render(container)
   chart.setXDomain(xDomain.value)
@@ -330,7 +331,7 @@ watch(colorMode, (updatedMode) => {
         <ChartTemplate
           ref="chartTemplate"
           title=""
-          subtitle="Dargestellt ist die Differenz zwischen Emissionsanteil und Stromanteil in Prozentpunkten."
+          subtitle=""
         >
           <template #overlay>
             <DeviationTooltip

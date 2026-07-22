@@ -82,6 +82,7 @@ function handleShowAll(): void {
     <button
       type="button"
       class="legend-chip legend-contrast-button"
+      style="margin-left: 16px;"
       :class="{
         'legend-chip--active': colorMode === 'accessible',
       }"
@@ -129,6 +130,7 @@ function handleShowAll(): void {
     </section>
 
     <p class="legend-hint">
+      <span class="legend-hint-arrow" aria-hidden="true">↳</span>
       Energieträger anklicken, um ihn hervorzuheben.
     </p>
   </div>
@@ -206,15 +208,24 @@ function handleShowAll(): void {
 }
 
 .legend-hint {
-  display: inline-block;
-  padding: 6px 10px;
-  border-radius: 6px;
-  background: #f2efe8;
-  color: var(--fg-muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   font-family: var(--font-sans);
-  font-size: 0.78rem;
-  line-height: 1.4;
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
   margin: 20px 0 8px;
+  font-style: normal;
+}
+
+.legend-hint-arrow {
+  font-size: 11px;
+  opacity: 0.6;
 }
 
 .legend-all-button {
