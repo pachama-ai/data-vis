@@ -21,6 +21,7 @@ interface DeviationSidebarProps {
   activeYear: DeviationYear | null
   baseYear: DeviationYear | null
   hoveredRow: EmissionRow | null
+  selectedRow: EmissionRow | null
   largestMismatch: EmissionRow | null
   emissionIntensity: number
   renewableShare: number
@@ -120,8 +121,12 @@ const showsHover = computed(() => {
   return props.hoveredRow !== null
 })
 
+const showsSelection = computed(() => {
+  return props.selectedRow !== null
+})
+
 const showsDefault = computed(() => {
-  return hasData.value && !showsHover.value
+  return hasData.value && !showsHover.value && !showsSelection.value
 })
 </script>
 
@@ -154,6 +159,39 @@ const showsDefault = computed(() => {
 
       <p class="sidebar-hover-text">
         {{ hoverSentence }}
+      </p>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- Ausgewählter Energieträger (Klick)                        -->
+    <!-- ========================================================= -->
+    <div v-if="showsSelection && selectedRow" class="sidebar-section">
+      <div class="sidebar-hover-block">
+        <span
+          class="sidebar-color"
+          :style="{
+            backgroundColor: MIX_COLORS[selectedRow.sourceKey],
+          }"
+          aria-hidden="true"
+        />
+
+        <h3 class="sidebar-hover-title">
+          {{ MIX_LABELS[selectedRow.sourceKey] }}
+        </h3>
+      </div>
+
+      <p class="sidebar-mismatch-detail">
+        {{ formatPercent(selectedRow.emissionShare * 100) }}
+        der direkten CO₂-Emissionen
+        <br>
+        bei
+        {{ formatPercent(selectedRow.generationShare * 100) }}
+        Anteil an der Stromerzeugung
+      </p>
+
+      <p class="sidebar-hover-text">
+        Abweichung:
+        {{ formatPercentagePoints(selectedRow.deviationPp) }}
       </p>
     </div>
 

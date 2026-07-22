@@ -60,7 +60,7 @@ function handleInput(event: Event): void {
         for="deviation-year"
         class="year-slider-label"
       >
-        Vergleichsjahr auswählen
+        Jahr der Darstellung
       </label>
 
       <output

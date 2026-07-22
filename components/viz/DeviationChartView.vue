@@ -38,7 +38,7 @@ import {
   findMaximumAbsoluteDeviation,
 } from '~/utils/charts/DeviationChart'
 
-import type { EmissionFactorsFile, EmissionRow } from '~/types/mix'
+import type { EmissionFactorsFile, EmissionRow, MixSourceKey } from '~/types/mix'
 import type { DeviationHoverPayload } from '~/utils/charts/DeviationChart'
 
 type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
@@ -49,6 +49,7 @@ const { monthRows, yearRows, pending, error, loadData } = useMixData()
 const { selectedYear, colorMode, setSelectedYear, toggleColorMode } = useMixSelection()
 
 const hoverPayload = ref<DeviationHoverPayload | null>(null)
+const selectedSourceKey = ref<MixSourceKey | null>(null)
 
 // =========================================================================
 // Emissionsfaktoren laden
@@ -146,17 +147,8 @@ const baseYear = computed(() => {
 // Feste x-Domain über alle Jahre
 // =========================================================================
 
-const xDomain = computed<[number, number]>(() => {
-  const rowsByYear: EmissionRow[][] = []
-
-  for (const yearData of deviationYears.value) {
-    rowsByYear.push(yearData.rows)
-  }
-
-  const maximumDeviation = findMaximumAbsoluteDeviation(rowsByYear)
-
-  return createSymmetricDomain(maximumDeviation)
-})
+// Feste x-Achse von −50 bis +50 pp für ehrlichen Jahresvergleich
+const xDomain: [number, number] = [-50, 50]
 
 // =========================================================================
 // Sidebar-Werte
@@ -226,6 +218,22 @@ function handleChartLeave(): void {
   hoverPayload.value = null
 }
 
+function handleChartSelection(sourceKey: MixSourceKey | null): void {
+  selectedSourceKey.value = sourceKey
+}
+
+const selectedRow = computed(() => {
+  if (selectedSourceKey.value === null || !activeYear.value) {
+    return null
+  }
+
+  return (
+    activeYear.value.rows.find((row) => {
+      return row.sourceKey === selectedSourceKey.value
+    }) ?? null
+  )
+})
+
 // =========================================================================
 // Slider-Handler
 // =========================================================================
@@ -262,10 +270,11 @@ function initializeChart(): void {
   chart.setHoverHandler(handleChartHover)
   chart.setHoverEndHandler(handleChartLeave)
   chart.setColors(colorMode.value)
+  chart.setSelectionHandler(handleChartSelection)
   chart.setSubtitle('Dargestellt ist die Differenz zwischen Emissionsanteil und Stromanteil in Prozentpunkten')
 
   chart.render(container)
-  chart.setXDomain(xDomain.value)
+  chart.setXDomain(xDomain)
 
   if (activeYear.value) {
     chart.setData(activeYear.value.rows)
@@ -289,10 +298,6 @@ onBeforeUnmount(() => {
 // =========================================================================
 // Watcher
 // =========================================================================
-
-watch(xDomain, (updatedDomain) => {
-  chart?.setXDomain(updatedDomain)
-})
 
 watch(activeYear, (updatedYear) => {
   const rows = updatedYear?.rows ?? []
@@ -342,12 +347,38 @@ watch(colorMode, (updatedMode) => {
             />
           </template>
 
-          <YearSlider
-            v-if="activeYearNumber !== null"
-            :years="availableYears"
-            :selected-year="activeYearNumber"
-            @change="handleYearChange"
-          />
+          <div style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <button
+              type="button"
+              class="legend-chip legend-contrast-button"
+              :class="{ 'legend-chip--active': colorMode === 'accessible' }"
+              :aria-pressed="colorMode === 'accessible'"
+              aria-label="Kontrastfarben umschalten"
+              @click="toggleColorMode"
+            >
+              <span class="legend-label">Kontrastfarben</span>
+            </button>
+
+            <YearSlider
+              v-if="activeYearNumber !== null"
+              :years="availableYears"
+              :selected-year="activeYearNumber"
+              @change="handleYearChange"
+            />
+          </div>
+
+          <details class="reading-help">
+            <summary class="reading-help-summary">So liest du das Diagramm</summary>
+            <p class="reading-help-text">
+              Die Balken vergleichen den Anteil eines Energieträgers an der
+              Stromerzeugung mit seinem Anteil an den direkten
+              CO₂-Emissionen. Balken links von 0 bedeuten: Der
+              Energieträger verursacht anteilig weniger Emissionen, als er
+              Strom erzeugt. Balken rechts von 0 bedeuten: Er verursacht
+              anteilig mehr Emissionen. Je länger der Balken, desto größer
+              ist der Unterschied.
+            </p>
+          </details>
 
           <p class="deviation-note">
             Die direkten CO₂-Emissionen wurden aus den SMARD-Erzeugungsdaten und
@@ -360,6 +391,7 @@ watch(colorMode, (updatedMode) => {
         :active-year="activeYear"
         :base-year="baseYear"
         :hovered-row="hoverPayload?.row ?? null"
+        :selected-row="selectedRow"
         :largest-mismatch="largestMismatch"
         :emission-intensity="emissionIntensity"
         :renewable-share="renewableShare"
@@ -411,6 +443,66 @@ watch(colorMode, (updatedMode) => {
   color: var(--fg-muted);
   margin: 8px 0 0;
   line-height: 1.4;
+}
+
+.reading-help {
+  margin: 16px 0 0;
+  font-family: var(--font-sans);
+}
+
+.reading-help-summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  letter-spacing: 0.03em;
+  color: var(--fg-muted);
+  padding: 6px 14px;
+  background: rgba(0, 0, 0, 0.03);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 999px;
+  cursor: pointer;
+  font-style: normal;
+}
+
+.reading-help-summary:hover {
+  background: rgba(0, 0, 0, 0.06);
+}
+
+.reading-help-text {
+  margin: 12px 0 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--fg);
+  max-width: 600px;
+}
+
+.legend-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  padding: 6px 12px;
+  border: 1px solid var(--hairline);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg-muted);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.legend-chip:hover {
+  border-color: var(--fg-muted);
+}
+
+.legend-chip--active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  font-weight: 500;
 }
 
 @media (max-width: 900px) {

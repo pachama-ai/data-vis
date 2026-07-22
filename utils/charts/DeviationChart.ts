@@ -117,8 +117,8 @@ export function findMaximumAbsoluteDeviation(
 // =========================================================================
 
 const percentFormatter = new Intl.NumberFormat('de-DE', {
-  minimumFractionDigits: 0,
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
 })
 
 /**
@@ -175,6 +175,15 @@ export class DeviationChart extends BaseChart {
   /** Externer Hover-Ende-Callback */
   #hoverEndHandler: HoverEndHandler | null = null
 
+  /** Externer Klick-Callback für Balkenauswahl */
+  #selectionHandler: ((sourceKey: MixSourceKey | null) => void) | null = null
+
+  /** Aktuell ausgewählte Quelle (Klick) */
+  #selectedSource: MixSourceKey | null = null
+
+  /** Background-Klick-Handler */
+  #backgroundClickHandler: (() => void) | null = null
+
   /** Aktive Farbpalette (Standard oder kontrastreich) */
   #colors: Record<MixSourceKey, string> = MIX_COLORS
 
@@ -215,6 +224,14 @@ export class DeviationChart extends BaseChart {
 
   setHoverEndHandler(handler: HoverEndHandler | null): void {
     this.#hoverEndHandler = handler
+  }
+
+  setSelectionHandler(handler: ((sourceKey: MixSourceKey | null) => void) | null): void {
+    this.#selectionHandler = handler
+  }
+
+  setBackgroundClickHandler(handler: (() => void) | null): void {
+    this.#backgroundClickHandler = handler
   }
 
   setColors(colorMode: 'default' | 'accessible'): void {
@@ -261,6 +278,18 @@ export class DeviationChart extends BaseChart {
     // Untergruppen einmalig anlegen
     this.#barsGroup = chartGroup.append('g').attr('class', 'bars-group')
     this.#labelsGroup = chartGroup.append('g').attr('class', 'labels-group')
+
+    // Hintergrund-Overlay für Klick außerhalb der Balken
+    chartGroup
+      .append('rect')
+      .attr('class', 'chart-background')
+      .attr('x', 0)
+      .attr('y', 0)
+      .attr('width', this.innerWidth)
+      .attr('height', this.innerHeight)
+      .attr('fill', 'transparent')
+      .style('pointer-events', 'all')
+      .on('click', () => { this.#handleBackgroundClick() })
 
     // Nulllinie einmalig anlegen
     this.#renderZeroLine()
@@ -528,45 +557,51 @@ export class DeviationChart extends BaseChart {
 
     bars.join(
       (enter) => {
+        const hasGen = (row: EmissionRow) => row.generationTwh > 0
+
         const enterBars = enter
           .append('rect')
           .attr('class', 'deviation-bar')
           .attr('data-source-key', (row) => row.sourceKey)
           .attr('y', (row) => yScale(row.sourceKey) ?? 0)
-          .attr('height', yScale.bandwidth())
-          .attr('fill', (row) => this.#colors[row.sourceKey])
+          .attr('height', (row) => hasGen(row) ? yScale.bandwidth() : 1)
+          .attr('fill', (row) => {
+            if (!hasGen(row)) return '#c0c0c0'
+            return this.#colors[row.sourceKey]
+          })
           .attr('x', xScale(0))
           .attr('width', 0)
-          .on('pointerenter', (event: PointerEvent, row: EmissionRow) => {
-            this.#handlePointerMove(event, row)
-          })
-          .on('pointermove', (event: PointerEvent, row: EmissionRow) => {
-            this.#handlePointerMove(event, row)
-          })
-          .on('pointerleave', () => {
-            this.#handlePointerLeave()
+          .attr('opacity', (row) => hasGen(row) ? 1 : 0.4)
+          .on('click', (_event: PointerEvent, row: EmissionRow) => {
+            this.#handleBarClick(row)
           })
 
         enterBars
           .transition()
           .duration(600)
-          .attr('x', (row) => getDeviationBarX(row.deviationPp, xScale))
+          .attr('x', (row) => hasGen(row) ? getDeviationBarX(row.deviationPp, xScale) : xScale(0) - 0.5)
           .attr('width', (row) =>
-            getDeviationBarWidth(row.deviationPp, xScale),
+            hasGen(row) ? getDeviationBarWidth(row.deviationPp, xScale) : 1,
           )
 
         return enterBars
       },
       (update) => {
+        const hasGen = (row: EmissionRow) => row.generationTwh > 0
+
         return update
           .transition()
           .duration(600)
           .attr('y', (row) => yScale(row.sourceKey) ?? 0)
-          .attr('height', yScale.bandwidth())
-          .attr('fill', (row) => this.#colors[row.sourceKey])
-          .attr('x', (row) => getDeviationBarX(row.deviationPp, xScale))
+          .attr('height', (row) => hasGen(row) ? yScale.bandwidth() : 1)
+          .attr('fill', (row) => {
+            if (!hasGen(row)) return '#c0c0c0'
+            return this.#colors[row.sourceKey]
+          })
+          .attr('opacity', (row) => hasGen(row) ? 1 : 0.4)
+          .attr('x', (row) => hasGen(row) ? getDeviationBarX(row.deviationPp, xScale) : xScale(0) - 0.5)
           .attr('width', (row) =>
-            getDeviationBarWidth(row.deviationPp, xScale),
+            hasGen(row) ? getDeviationBarWidth(row.deviationPp, xScale) : 1,
           )
       },
       (exit) => {
@@ -608,7 +643,10 @@ export class DeviationChart extends BaseChart {
             const bandCenter = yScale(row.sourceKey) ?? 0
             return bandCenter + yScale.bandwidth() / 2
           })
-          .text((row) => formatPercentagePoints(row.deviationPp))
+          .text((row) => {
+            if (row.generationTwh === 0) return 'keine Erzeugung'
+            return formatPercentagePoints(row.deviationPp)
+          })
 
         return enterLabels
       },
@@ -621,7 +659,10 @@ export class DeviationChart extends BaseChart {
             const bandCenter = yScale(row.sourceKey) ?? 0
             return bandCenter + yScale.bandwidth() / 2
           })
-          .text((row) => formatPercentagePoints(row.deviationPp))
+          .text((row) => {
+            if (row.generationTwh === 0) return 'keine Erzeugung'
+            return formatPercentagePoints(row.deviationPp)
+          })
       },
       (exit) => {
         return exit.remove()
@@ -690,6 +731,7 @@ export class DeviationChart extends BaseChart {
       .attr('font-family', 'var(--font-sans)')
       .attr('font-size', '13px')
       .attr('fill', '#8a8a85')
+      .attr('text-anchor', 'start')
       .text(this.#subtitle)
   }
 
@@ -739,81 +781,62 @@ export class DeviationChart extends BaseChart {
       .attr('font-size', '11px')
       .attr('fill', 'currentColor')
       .attr('opacity', 0.5)
-      .text('0 Prozentpunkte bedeutet, dass Strom- und Emissionsanteil gleich hoch sind.')
+      .text('0 pp = gleicher Anteil')
   }
 
   /**
    * Aktualisiert die Opazität aller Balken, Wertelabels und
-   * y-Achsen-Beschriftungen basierend auf dem Highlight.
+   * y-Achsen-Beschriftungen basierend auf der Auswahl.
    */
   #updateHighlight(): void {
     if (!this.#barsGroup || !this.#labelsGroup || !this.#chartGroup) {
       return
     }
 
-    const highlightKey = this.#highlightedSource
+    const selectedKey = this.#selectedSource
 
-    // Balken-Opazität
     this.#barsGroup
       .selectAll<SVGRectElement, EmissionRow>('rect.deviation-bar')
       .attr('opacity', (row) => {
-        if (highlightKey === null) {
-          return 1
-        }
-
-        return row.sourceKey === highlightKey ? 1 : 0.3
+        if (selectedKey === null) return 1
+        return row.sourceKey === selectedKey ? 1 : 0.3
       })
 
-    // Wertelabel-Opazität
     this.#labelsGroup
       .selectAll<SVGTextElement, EmissionRow>('text.deviation-value')
       .attr('opacity', (row) => {
-        if (highlightKey === null) {
-          return 1
-        }
-
-        return row.sourceKey === highlightKey ? 1 : 0.3
+        if (selectedKey === null) return 1
+        return row.sourceKey === selectedKey ? 1 : 0.3
       })
 
-    // y-Achsen-Beschriftungen mitdimmen
     this.#chartGroup
       .selectAll<SVGTextElement, MixSourceKey>('g.y-axis .tick text')
       .attr('opacity', (sourceKey) => {
-        if (highlightKey === null) {
-          return 1
-        }
-
-        return sourceKey === highlightKey ? 1 : 0.3
+        if (selectedKey === null) return 1
+        return sourceKey === selectedKey ? 1 : 0.3
       })
   }
 
-  // =======================================================================
-  // Hover-Ereignisse
-  // =======================================================================
-
   /**
-   * Behandelt Pointer-Bewegung auf einem Balken.
+   * Behandelt Klick auf einen Balken.
+   * Schaltet die Auswahl um oder setzt zurück.
    */
-  #handlePointerMove(event: PointerEvent, row: EmissionRow): void {
-    this.setHighlight(row.sourceKey)
+  #handleBarClick(row: EmissionRow): void {
+    const alreadySelected = this.#selectedSource === row.sourceKey
+    const newSelection = alreadySelected ? null : row.sourceKey
 
-    const chartRect =
-      this.#svg?.node()?.getBoundingClientRect() ?? null
-
-    if (chartRect) {
-      this.#hoverHandler?.({
-        row,
-        chartX: event.clientX - chartRect.left,
-        chartY: event.clientY - chartRect.top,
-      })
-    }
+    this.#selectedSource = newSelection
+    this.#updateHighlight()
+    this.#selectionHandler?.(newSelection)
   }
 
   /**
-   * Behandelt Pointer-Verlassen eines Balkens.
+   * Setzt die Auswahl zurück (bei Klick auf leere Fläche).
    */
-  #handlePointerLeave(): void {
-    this.setHighlight(null)
-    this.#hoverEndHandler?.()
+  #handleBackgroundClick(): void {
+    this.#selectedSource = null
+    this.#updateHighlight()
+    this.#selectionHandler?.(null)
+    this.#backgroundClickHandler?.()
   }
 }
