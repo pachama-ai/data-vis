@@ -29,7 +29,8 @@ import StackedArea from '~/components/viz/StackedArea.vue'
 
         <p class="strommix-panel-subtitle">
           Monatliche Entwicklung der öffentlichen Nettostromerzeugung
-          in Deutschland auf Basis von SMARD-Daten.
+          in Deutschland auf Basis von SMARD-Daten, in
+          Terawattstunden (TWh).
         </p>
       </div>
 
