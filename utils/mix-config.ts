@@ -50,16 +50,16 @@ export const MIX_LABELS: Record<MixSourceKey, string> = {
 // =========================================================================
 
 export const MIX_COLORS: Record<MixSourceKey, string> = {
-  hydro: '#2e6e5e',
-  biomass: '#4a8b6a',
-  wind_offshore: '#5aa896',
-  wind_onshore: '#8bc5b4',
-  pv: '#e0b13c',
-  nuclear: '#9c6b9e',
-  gas: '#d08a4a',
-  other_fossil: '#c9b79a',
-  hardcoal: '#6b5d4f',
-  lignite: '#8a5a34',
+  hydro: '#6b8f5e',
+  biomass: '#86a86f',
+  wind_offshore: '#9dbb85',
+  wind_onshore: '#b8cfa2',
+  pv: '#d9c47a',
+  nuclear: '#b8709a',
+  gas: '#c2a173',
+  other_fossil: '#d4c3a5',
+  hardcoal: '#7a6248',
+  lignite: '#a37348',
 }
 
 /**

@@ -78,6 +78,7 @@ defineExpose({
   font-weight: 500;
   color: var(--fg);
   margin: 0 0 4px;
+  text-align: left;
 }
 
 .chart-subtitle {

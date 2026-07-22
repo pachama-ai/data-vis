@@ -263,7 +263,7 @@ onBeforeUnmount(() => {
       <ChartTemplate
         ref="chartTemplate"
         title=""
-        subtitle="Monatliche öffentliche Nettostromerzeugung nach Energieträgern in TWh."
+        subtitle="Monatliche öffentliche Nettostromerzeugung nach Energieträgern in TWh"
         wrapper-class="stacked-area-chart"
       >
         <template #controls>
@@ -365,14 +365,14 @@ onBeforeUnmount(() => {
   font-family: var(--font-sans);
   font-size: 12px;
   font-weight: 400;
-  padding: 10px 18px;
+  padding: 10px 12px;
   border: none;
   background: transparent;
   color: var(--fg-muted);
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
-  min-width: 80px;
+  min-width: 60px;
 }
 
 .mode-button + .mode-button {

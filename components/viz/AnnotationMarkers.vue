@@ -55,7 +55,7 @@ function handleSelect(annotation: MixAnnotation): void {
     </div>
 
     <p class="annotation-help">
-      Auf eine Zahl klicken
+      {{ selectedAnnotation === null ? 'Auf eine Zahl klicken, um ein Ereignis zu sehen' : 'Nochmal klicken, um wieder alle Energieträger zu sehen' }}
     </p>
   </div>
 </template>
