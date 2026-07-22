@@ -87,6 +87,7 @@ defineExpose({
   color: var(--fg-muted);
   margin: 0;
   line-height: 1.4;
+  padding-left: 60px;
 }
 
 .chart-controls {

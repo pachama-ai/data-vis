@@ -96,9 +96,9 @@ describe('MixTooltip', () => {
       props: createDefaultProps({ highlightedSource: null }),
     })
 
-    expect(wrapper.text()).toContain('60 %')
-    expect(wrapper.text()).toContain('10 %')
-    expect(wrapper.text()).toContain('30 %')
+    expect(wrapper.text()).toContain('60,0 %')
+    expect(wrapper.text()).toContain('10,0 %')
+    expect(wrapper.text()).toContain('30,0 %')
   })
 
   it('zeigt keine zehn Einzelquellen an', () => {
@@ -127,9 +127,9 @@ describe('MixTooltip', () => {
       props: createDefaultProps({ highlightedSource: 'pv' }),
     })
 
-    // pv = 1.0 von 10 = 10 %
+    // pv = 1.0 von 10 = 10,0 %
     expect(wrapper.text()).toContain('1,0 TWh')
-    expect(wrapper.text()).toContain('10 %')
+    expect(wrapper.text()).toContain('10,0 %')
     expect(wrapper.text()).toContain('des Monats')
   })
 
@@ -162,7 +162,7 @@ describe('MixTooltip', () => {
     // Jetzt: Einzelmodus
     expect(wrapper.text()).toContain('Photovoltaik')
     expect(wrapper.text()).toContain('1,0 TWh')
-    expect(wrapper.text()).toContain('10 %')
+    expect(wrapper.text()).toContain('10,0 %')
     expect(wrapper.text()).not.toContain('Gesamt')
 
     // Prop zurück auf null

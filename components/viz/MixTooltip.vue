@@ -42,7 +42,8 @@ const twhFormatter = new Intl.NumberFormat('de-DE', {
 })
 
 const percentFormatter = new Intl.NumberFormat('de-DE', {
-  maximumFractionDigits: 0,
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
 })
 
 const germanMonthFormatter = new Intl.DateTimeFormat('de-DE', {
@@ -172,7 +173,7 @@ const tooltipStyle = computed(() => {
           ·
         </span>
 
-        <span>
+        <span class="tooltip-source-pct">
           {{ formatPercent(selectedSourceValue.share) }}
           des Monats
         </span>
@@ -187,9 +188,10 @@ const tooltipStyle = computed(() => {
 
       <dl class="tooltip-summary">
         <div class="tooltip-row tooltip-row--total">
-          <dt>Gesamt</dt>
-          <dd>
-            {{ formatTwh(totalValue) }}
+          <dt class="tooltip-label">Gesamt</dt>
+          <dd class="tooltip-value-cell">
+            <span class="tooltip-twh">{{ formatTwh(totalValue) }}</span>
+            <span class="tooltip-pct">100,0 %</span>
           </dd>
         </div>
 
@@ -198,16 +200,16 @@ const tooltipStyle = computed(() => {
           :key="groupValue.group"
           class="tooltip-row"
         >
-          <dt>
+          <dt class="tooltip-label">
             {{ MIX_GROUP_LABELS[groupValue.group] }}
           </dt>
 
-          <dd class="tooltip-dd">
-            <span class="tooltip-value">
+          <dd class="tooltip-value-cell">
+            <span class="tooltip-twh">
               {{ formatTwh(groupValue.valueTwh) }}
             </span>
 
-            <span class="tooltip-share">
+            <span class="tooltip-pct">
               {{ formatPercent(groupValue.share) }}
             </span>
           </dd>
@@ -222,7 +224,7 @@ const tooltipStyle = computed(() => {
   position: absolute;
   z-index: 1000;
   pointer-events: none;
-  min-width: 220px;
+  min-width: 300px;
   white-space: nowrap;
   background: #ffffff;
   border: 1px solid var(--hairline);
@@ -240,16 +242,22 @@ const tooltipStyle = computed(() => {
   font-weight: 600;
   color: var(--fg);
   margin: 0;
+  white-space: nowrap;
 }
 
 .tooltip-source-value {
   margin: 6px 0 0;
   color: var(--fg);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .tooltip-source-value strong {
   font-weight: 600;
+}
+
+.tooltip-source-pct {
+  white-space: nowrap;
 }
 
 .tooltip-summary {
@@ -257,11 +265,11 @@ const tooltipStyle = computed(() => {
 }
 
 .tooltip-row {
-  display: grid;
-  grid-template-columns: minmax(90px, 1fr) auto;
-  gap: 14px;
+  display: flex;
   align-items: baseline;
+  gap: 16px;
   padding: 2px 0;
+  white-space: nowrap;
 }
 
 .tooltip-row--total {
@@ -270,20 +278,32 @@ const tooltipStyle = computed(() => {
   margin-bottom: 4px;
 }
 
-.tooltip-row dt {
+.tooltip-label {
+  flex: 0 1 auto;
+  min-width: 0;
   color: var(--fg-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.tooltip-row dd {
+.tooltip-value-cell {
   display: flex;
-  gap: 8px;
-  margin: 0;
+  gap: 16px;
+  margin: 0 0 0 auto;
   text-align: right;
+  flex-shrink: 0;
 }
 
-.tooltip-share {
-  min-width: 40px;
-  color: var(--fg-muted);
+.tooltip-twh {
+  min-width: 70px;
   text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.tooltip-pct {
+  min-width: 55px;
+  text-align: right;
+  color: var(--fg-muted);
+  font-variant-numeric: tabular-nums;
 }
 </style>
