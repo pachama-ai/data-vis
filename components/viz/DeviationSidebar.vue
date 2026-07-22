@@ -272,6 +272,8 @@ const showsDefault = computed(() => {
             im Jahr {{ activeYear.year }}.
           </p>
 
+          <div style="height: 16px;" />
+
           <div class="sidebar-comparison-row">
             <span class="sidebar-comparison-label">
               CO₂-Emissionen je Kilowattstunde
@@ -321,7 +323,7 @@ const showsDefault = computed(() => {
   background: var(--bg);
   border: 1px solid var(--hairline);
   border-radius: 6px;
-  padding: 20px;
+  padding: 24px;
 }
 
 .sidebar-empty {
@@ -342,14 +344,14 @@ const showsDefault = computed(() => {
 .sidebar-sentence {
   margin: 8px 0 0;
   font-size: 12px;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--fg-muted);
 }
 
 .sidebar-divider {
   height: 1px;
   background: var(--hairline);
-  margin: 24px 0;
+  margin: 28px 0;
 }
 
 .sidebar-section {
