@@ -67,16 +67,16 @@ export const MIX_COLORS: Record<MixSourceKey, string> = {
  * Blau-Orange-Achse, ruhiger als die Okabe-Ito-Originale.
  */
 export const MIX_COLORS_ACCESSIBLE: Record<MixSourceKey, string> = {
-  hydro: '#1b4468',
-  biomass: '#2b7a9b',
-  wind_offshore: '#6bb3d6',
-  wind_onshore: '#b3d9ea',
-  pv: '#ddd45c',
-  nuclear: '#c084a8',
-  gas: '#d9a442',
-  other_fossil: '#ddd4c6',
-  hardcoal: '#55555a',
-  lignite: '#c4703f',
+  hydro: '#2f5d4a',
+  biomass: '#4f8a5c',
+  wind_offshore: '#7fb185',
+  wind_onshore: '#c3dcbc',
+  pv: '#d4a234',
+  nuclear: '#a8558c',
+  gas: '#d99a4e',
+  other_fossil: '#e0d6c2',
+  hardcoal: '#4a423a',
+  lignite: '#a05a2c',
 }
 
 // =========================================================================

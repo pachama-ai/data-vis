@@ -364,16 +364,7 @@ function formatMonth(date: Date): string {
           </div>
         </div>
 
-        <div class="sidebar-notes">
-          <p class="sidebar-note">
-            Prozentpunkte bezeichnen die absolute Differenz zwischen
-            zwei Prozentwerten.
-          </p>
-          <p class="sidebar-note">
-            Die Seitenleiste vergleicht die vollständigen Jahre 2015
-            und 2024.
-          </p>
-        </div>
+
       </template>
 
       <p
