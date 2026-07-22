@@ -642,6 +642,7 @@ export class DeviationChart extends BaseChart {
           .attr('font-size', '12px')
           .attr('font-family', 'var(--font-sans, sans-serif)')
           .attr('fill', 'currentColor')
+          .attr('pointer-events', 'none')
           .attr('x', (row) => this.#getLabelX(row, xScale))
           .attr('y', (row) => {
             const bandCenter = yScale(row.sourceKey) ?? 0
