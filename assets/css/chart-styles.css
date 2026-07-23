@@ -24,11 +24,29 @@
   fill: var(--fg-muted);
 }
 
+/* Wertelabels im Abweichungsdiagramm */
+.chart-container text.deviation-value {
+  font-size: 12px;
+  fill: currentColor;
+}
+
+/* Richtungsbeschriftungen unter der x-Achse */
+.chart-container .direction-label {
+  font-size: 11px;
+  fill: currentColor;
+}
+
 .chart-container .x-axis path,
 .chart-container .x-axis line,
 .chart-container .y-axis path,
 .chart-container .y-axis line {
   stroke: var(--hairline);
+}
+
+/* Im Kontrastmodus kräftigere Achsenlinien */
+[data-contrast='on'] .chart-container .x-axis line,
+[data-contrast='on'] .chart-container .y-axis line {
+  stroke: #b8b6b0;
 }
 
 .chart-container .layer {

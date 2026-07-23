@@ -1,10 +1,11 @@
 /**
  * tests/components/DashboardPage.test.ts
  *
- * Testet die Dashboard-Seite mit Tab-Navigation.
+ * Testet die Dashboard-Seite – der aktive Tab wird jetzt über den
+ * Query-Parameter ?tab=emissions gesteuert (useRoute).
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DashboardPage from '~/pages/dashboard.vue'
 
@@ -18,8 +19,17 @@ const EmissionPanelStub = {
     '<div data-testid="emission-panel-stub">EmissionPanel</div>',
 }
 
+// useRoute simulieren
+const mockRoute = vi.fn(() => ({ path: '/dashboard', query: {} }))
+
+vi.mock('nuxt/app', () => ({
+  useRoute: () => mockRoute(),
+}))
+
 describe('DashboardPage', () => {
-  it('zeigt beide Tab-Buttons', () => {
+  it('zeigt standardmäßig das Erzeugungs-Panel', () => {
+    mockRoute.mockReturnValue({ path: '/dashboard', query: {} })
+
     const wrapper = mount(DashboardPage, {
       global: {
         stubs: {
@@ -28,39 +38,21 @@ describe('DashboardPage', () => {
         },
       },
     })
-
-    expect(wrapper.text()).toContain('Erzeugung')
-    expect(wrapper.text()).toContain('Emissionen')
-  })
-
-  it('Erzeugung ist standardmäßig aktiv', () => {
-    const wrapper = mount(DashboardPage, {
-      global: {
-        stubs: {
-          StrommixPanel: StrommixPanelStub,
-          EmissionPanel: EmissionPanelStub,
-        },
-      },
-    })
-
-    const generationButton = wrapper.findAll('button')[0]!
 
     expect(
-      generationButton.attributes('aria-pressed'),
-    ).toBe('true')
-
-    const strommixPanel = wrapper.find(
-      '[data-testid="strommix-panel-stub"]',
-    )
-    const emissionPanel = wrapper.find(
-      '[data-testid="emission-panel-stub"]',
-    )
-
-    expect(strommixPanel.exists()).toBe(true)
-    expect(emissionPanel.exists()).toBe(false)
+      wrapper.find('[data-testid="strommix-panel-stub"]').exists(),
+    ).toBe(true)
+    expect(
+      wrapper.find('[data-testid="emission-panel-stub"]').exists(),
+    ).toBe(false)
   })
 
-  it('Emissionen-Tab aktiviert Emissions-Panel', async () => {
+  it('zeigt Emissions-Panel bei ?tab=emissions', () => {
+    mockRoute.mockReturnValue({
+      path: '/dashboard',
+      query: { tab: 'emissions' },
+    })
+
     const wrapper = mount(DashboardPage, {
       global: {
         stubs: {
@@ -70,63 +62,17 @@ describe('DashboardPage', () => {
       },
     })
 
-    const emissionButton = wrapper.findAll('button')[1]!
-
-    await emissionButton.trigger('click')
-
-    const emissionsButton = wrapper.findAll('button')[1]!
-
     expect(
-      emissionsButton.attributes('aria-pressed'),
-    ).toBe('true')
-
-    const generationButton = wrapper.findAll('button')[0]!
-
+      wrapper.find('[data-testid="strommix-panel-stub"]').exists(),
+    ).toBe(false)
     expect(
-      generationButton.attributes('aria-pressed'),
-    ).toBe('false')
-
-    const strommixPanel = wrapper.find(
-      '[data-testid="strommix-panel-stub"]',
-    )
-    const emissionPanel = wrapper.find(
-      '[data-testid="emission-panel-stub"]',
-    )
-
-    expect(strommixPanel.exists()).toBe(false)
-    expect(emissionPanel.exists()).toBe(true)
+      wrapper.find('[data-testid="emission-panel-stub"]').exists(),
+    ).toBe(true)
   })
 
-  it('zurück zu Erzeugung funktioniert', async () => {
-    const wrapper = mount(DashboardPage, {
-      global: {
-        stubs: {
-          StrommixPanel: StrommixPanelStub,
-          EmissionPanel: EmissionPanelStub,
-        },
-      },
-    })
+  it('enthält keine Tab-Buttons mehr (Navigation über SiteNav)', () => {
+    mockRoute.mockReturnValue({ path: '/dashboard', query: {} })
 
-    // Erst zu Emissionen wechseln
-    const buttons = wrapper.findAll('button')
-
-    await buttons[1]!.trigger('click')
-
-    // Dann zurück zu Erzeugung
-    await buttons[0]!.trigger('click')
-
-    const strommixPanel = wrapper.find(
-      '[data-testid="strommix-panel-stub"]',
-    )
-    const emissionPanel = wrapper.find(
-      '[data-testid="emission-panel-stub"]',
-    )
-
-    expect(strommixPanel.exists()).toBe(true)
-    expect(emissionPanel.exists()).toBe(false)
-  })
-
-  it('nach jedem Wechsel ist genau ein Panel sichtbar', async () => {
     const wrapper = mount(DashboardPage, {
       global: {
         stubs: {
@@ -137,42 +83,8 @@ describe('DashboardPage', () => {
     })
 
     const buttons = wrapper.findAll('button')
-
-    // Erzeugung aktiv
-    let strommixPanel = wrapper.find(
-      '[data-testid="strommix-panel-stub"]',
-    )
-    let emissionPanel = wrapper.find(
-      '[data-testid="emission-panel-stub"]',
-    )
-
-    expect(strommixPanel.exists()).toBe(true)
-    expect(emissionPanel.exists()).toBe(false)
-
-    // Zu Emissionen wechseln
-    await buttons[1]!.trigger('click')
-
-    strommixPanel = wrapper.find(
-      '[data-testid="strommix-panel-stub"]',
-    )
-    emissionPanel = wrapper.find(
-      '[data-testid="emission-panel-stub"]',
-    )
-
-    expect(strommixPanel.exists()).toBe(false)
-    expect(emissionPanel.exists()).toBe(true)
-
-    // Zurück zu Erzeugung
-    await buttons[0]!.trigger('click')
-
-    strommixPanel = wrapper.find(
-      '[data-testid="strommix-panel-stub"]',
-    )
-    emissionPanel = wrapper.find(
-      '[data-testid="emission-panel-stub"]',
-    )
-
-    expect(strommixPanel.exists()).toBe(true)
-    expect(emissionPanel.exists()).toBe(false)
+    const buttonTexts = buttons.map((b) => b.text())
+    expect(buttonTexts).not.toContain('Erzeugung')
+    expect(buttonTexts).not.toContain('Emissionen')
   })
 })

@@ -270,7 +270,6 @@ onBeforeUnmount(() => {
           :color-mode="colorMode"
           :has-active-annotation="selectedAnnotation !== null"
           @select="handleSourceSelect"
-          @toggle-color-mode="toggleColorMode"
         />
 
         <p v-if="pending" class="chart-note">Daten werden geladen …</p>

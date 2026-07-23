@@ -46,11 +46,16 @@ type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 const chartTemplate = ref<ChartTemplateInstance | null>(null)
 
 const { monthRows, yearRows, pending, error, loadData } = useMixData()
-const { selectedYear, colorMode, setSelectedYear, toggleColorMode } = useMixSelection()
+const { selectedYear, colorMode, setSelectedYear } = useMixSelection()
 
 const hoverPayload = ref<DeviationHoverPayload | null>(null)
 const selectedSourceKey = ref<MixSourceKey | null>(null)
 const sortMode = ref<'category' | 'impact'>('category')
+
+const sortModes = [
+  { key: 'category' as const, label: 'Nach Kategorie' },
+  { key: 'impact' as const, label: 'Nach Klimawirkung' },
+]
 
 // =========================================================================
 // Emissionsfaktoren laden
@@ -365,43 +370,23 @@ watch(colorMode, (updatedMode) => {
             />
           </template>
 
-          <div class="chart-controls">
-            <button
-              type="button"
-              class="chart-button"
-              :class="{ 'chart-button--active': colorMode === 'accessible' }"
-              :aria-pressed="colorMode === 'accessible'"
-              aria-label="Kontrastfarben umschalten"
-              @click="toggleColorMode"
-            >
-              Kontrastfarben
-            </button>
-
-            <button
-              type="button"
-              class="chart-button"
-              :class="{ 'chart-button--active': sortMode === 'category' }"
-              @click="handleSortChange('category')"
-            >
-              Nach Kategorie
-            </button>
-
-            <button
-              type="button"
-              class="chart-button"
-              :class="{ 'chart-button--active': sortMode === 'impact' }"
-              @click="handleSortChange('impact')"
-            >
-              Nach Klimawirkung
-            </button>
+          <div class="sort-section" role="radiogroup" aria-label="Sortierung">
+            <h3 class="sort-section-title">Sortierung</h3>
+            <div class="sort-chips">
+              <button
+                v-for="mode in sortModes"
+                :key="mode.key"
+                type="button"
+                class="sort-chip"
+                role="radio"
+                :aria-checked="sortMode === mode.key"
+                :class="{ 'sort-chip--active': sortMode === mode.key }"
+                @click="handleSortChange(mode.key)"
+              >
+                {{ mode.label }}
+              </button>
+            </div>
           </div>
-
-          <YearSlider
-            v-if="activeYearNumber !== null"
-            :years="availableYears"
-            :selected-year="activeYearNumber"
-            @change="handleYearChange"
-          />
 
           <details class="reading-help">
             <summary class="reading-help-summary">
@@ -425,19 +410,28 @@ watch(colorMode, (updatedMode) => {
         </ChartTemplate>
       </div>
 
-      <DeviationSidebar
-        :active-year="activeYear"
-        :base-year="baseYear"
-        :hovered-row="hoverPayload?.row ?? null"
-        :selected-row="selectedRow"
-        :selected-row-base-share="selectedRowBaseShare"
-        :largest-mismatch="largestMismatch"
-        :emission-intensity="emissionIntensity"
-        :renewable-share="renewableShare"
-        :base-renewable-share="baseRenewableShare"
-        :base-emission-intensity="baseEmissionIntensity"
-        :color-mode="colorMode"
-      />
+      <div class="deviation-sidebar-wrapper">
+        <YearSlider
+          v-if="activeYearNumber !== null"
+          :years="availableYears"
+          :selected-year="activeYearNumber"
+          @change="handleYearChange"
+        />
+
+        <DeviationSidebar
+          :active-year="activeYear"
+          :base-year="baseYear"
+          :hovered-row="hoverPayload?.row ?? null"
+          :selected-row="selectedRow"
+          :selected-row-base-share="selectedRowBaseShare"
+          :largest-mismatch="largestMismatch"
+          :emission-intensity="emissionIntensity"
+          :renewable-share="renewableShare"
+          :base-renewable-share="baseRenewableShare"
+          :base-emission-intensity="baseEmissionIntensity"
+          :color-mode="colorMode"
+        />
+      </div>
     </template>
 
     <!-- Keine Daten für Jahr -->
@@ -471,6 +465,12 @@ watch(colorMode, (updatedMode) => {
   font-size: 14px;
   color: var(--fg-muted);
   padding: 24px 0;
+}
+
+.deviation-sidebar-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
 .deviation-error {
@@ -529,39 +529,54 @@ details[open] .reading-help-chevron {
   max-width: 600px;
 }
 
-/* Buttons wie legend-chip auf der Erzeugungsseite */
-.chart-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+/* Sortier-Steuerung – als Legenden-Chips */
+.sort-section {
   margin-bottom: 16px;
 }
 
-.chart-button {
+.sort-section-title {
   font-family: var(--font-sans);
-  font-size: 12px;
-  padding: 6px 12px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fg-muted);
+  margin: 0 0 4px;
+}
+
+.sort-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.sort-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
   border: 1px solid var(--hairline);
-  border-radius: 6px;
+  border-radius: 4px;
   background: transparent;
+  font-family: var(--font-sans);
+  font-size: 11px;
   color: var(--fg-muted);
   cursor: pointer;
-  white-space: nowrap;
   transition: all 0.15s;
 }
 
-.chart-button:hover {
+.sort-chip:hover {
+  color: var(--fg);
   border-color: var(--fg-muted);
 }
 
-.chart-button--active {
-  background: var(--accent);
-  color: #fff;
+.sort-chip--active {
+  color: var(--fg);
   border-color: var(--accent);
-  font-weight: 500;
+  background: rgba(45, 106, 79, 0.06);
 }
 
-.chart-button:focus-visible {
+.sort-chip:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }

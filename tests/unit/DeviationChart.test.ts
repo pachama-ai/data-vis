@@ -16,6 +16,8 @@ import {
   createSymmetricDomain,
   findMaximumAbsoluteDeviation,
   formatPercentagePoints,
+  labelX,
+  labelAnchor,
 } from '~/utils/charts/DeviationChart'
 
 import { STACK_ORDER } from '~/utils/mix-config'
@@ -439,5 +441,109 @@ describe('DeviationChart', () => {
 
     // positivste Abweichung zuletzt (lignite: +30)
     expect(impactOrder[impactOrder.length - 1]).toBe('lignite')
+  })
+})
+
+// =========================================================================
+// labelX / labelAnchor – Wertelabel-Positionierung
+// =========================================================================
+
+describe('labelX', () => {
+  const xScale = d3.scaleLinear().domain([-50, 50]).range([0, 600])
+
+  it('positiver Wert: Label rechts vom Balkenende', () => {
+    const x = labelX(20, xScale)
+    const barEnd = xScale(20)
+    expect(x).toBeGreaterThan(barEnd)
+  })
+
+  it('negativer Wert: Label links vom Balkenende', () => {
+    const x = labelX(-20, xScale)
+    const barEnd = xScale(-20)
+    expect(x).toBeLessThan(barEnd)
+  })
+
+  it('sehr kleiner positiver Wert (0,3): Label rechts von der Nulllinie', () => {
+    const x = labelX(0.3, xScale)
+    expect(x).toBeGreaterThan(xScale(0))
+  })
+
+  it('sehr kleiner negativer Wert (−0,3): Label links von der Nulllinie', () => {
+    const x = labelX(-0.3, xScale)
+    expect(x).toBeLessThan(xScale(0))
+  })
+
+  it('Null: Label rechts von der Nulllinie (wie positiv)', () => {
+    const x = labelX(0, xScale)
+    expect(x).toBeGreaterThan(xScale(0))
+  })
+
+  it('Abstand zum Balkenende entspricht LABEL_PADDING', () => {
+    const xPos = labelX(30, xScale)
+    expect(xPos - xScale(30)).toBeCloseTo(6, 0)
+
+    const xNeg = labelX(-30, xScale)
+    expect(xNeg - xScale(-30)).toBeCloseTo(-6, 0)
+  })
+})
+
+describe('labelAnchor', () => {
+  it('positiver Wert: start', () => {
+    expect(labelAnchor(10)).toBe('start')
+  })
+
+  it('negativer Wert: end', () => {
+    expect(labelAnchor(-10)).toBe('end')
+  })
+
+  it('Null: start (wie positiv)', () => {
+    expect(labelAnchor(0)).toBe('start')
+  })
+
+  it('sehr kleiner positiver Wert: start', () => {
+    expect(labelAnchor(0.01)).toBe('start')
+  })
+
+  it('sehr kleiner negativer Wert: end', () => {
+    expect(labelAnchor(-0.01)).toBe('end')
+  })
+})
+
+describe('labelX – Konsistenz zwischen Enter und Update', () => {
+  it('liefert für denselben Wert immer dieselbe Position', () => {
+    const xScale = d3.scaleLinear().domain([-50, 50]).range([0, 600])
+    const values = [-30, -15, -5, -0.3, 0, 0.3, 5, 15, 30, 50]
+
+    for (const value of values) {
+      const first = labelX(value, xScale)
+      const second = labelX(value, xScale)
+      expect(second).toBe(first)
+    }
+  })
+
+  it('Rendering-Integration: Labels nach setData haben korrekte text-anchor', () => {
+    const container = createContainer()
+    const chart = new DeviationChart()
+
+    chart.render(container)
+    chart.setData(createTestData())
+    flushTransitions()
+
+    const labels = container.querySelectorAll<SVGTextElement>('text.deviation-value')
+
+    expect(labels.length).toBeGreaterThan(0)
+
+    labels.forEach((label) => {
+      const sourceKey = label.closest('g')?.querySelector('text')?.textContent ?? ''
+      const text = label.textContent ?? ''
+      const anchor = label.getAttribute('text-anchor')
+
+      // Alle Labels mit "-" im Text sollten end-Anker haben
+      if (text.startsWith('−') || text.startsWith('-')) {
+        expect(anchor).toBe('end')
+      } else {
+        expect(anchor).toBe('start')
+      }
+    })
   })
 })

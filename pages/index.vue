@@ -67,9 +67,6 @@ onMounted(async () => {
     <div class="intro-top-bar">
       <IntroHero />
       <IntroTrustLine />
-      <NuxtLink to="/dashboard" class="dashboard-arrow" aria-label="Zum Dashboard" title="Zum Dashboard">
-        <span aria-hidden="true">→</span>
-      </NuxtLink>
     </div>
     <div v-if="loading" class="chart-loading">
       <div class="chart-skeleton"></div>
@@ -89,10 +86,6 @@ onMounted(async () => {
       Jahr 2015 und 97,3 % im Jahr 2024. Die Werte sind auf eine
       Nachkommastelle gerundet.
     </p>
-    <NuxtLink to="/dashboard" class="dashboard-link">
-      Entwicklung von 2015 bis 2024 erkunden
-      <span class="dashboard-link-arrow" aria-hidden="true">→</span>
-    </NuxtLink>
     <IntroMethodology />
   </div>
 </template>
@@ -143,76 +136,8 @@ onMounted(async () => {
   margin-bottom: 48px;
 }
 
-.dashboard-link {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  color: var(--fg);
-  text-decoration: none;
-  padding-bottom: 2px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-  transition: border-color 300ms ease-out;
-  margin-top: 40px;
-  margin-bottom: 96px;
-}
-
-.dashboard-link:hover {
-  border-bottom-color: var(--fg);
-}
-
-.dashboard-link-arrow {
-  display: inline-block;
-  transition: transform 300ms ease-out;
-}
-
-.dashboard-link:hover .dashboard-link-arrow {
-  transform: translateX(4px);
-}
-
-.dashboard-link:focus-visible {
-  outline: 2px solid rgba(122, 158, 110, 0.6);
-  outline-offset: 4px;
-  border-radius: 2px;
-}
-
 .intro-top-bar {
   position: relative;
-}
-
-.dashboard-arrow {
-  position: absolute;
-  top: 0;
-  right: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border: 1px solid var(--accent);
-  border-radius: 50%;
-  color: var(--accent);
-  font-size: 14px;
-  line-height: 1;
-  text-decoration: none;
-  transition: all 0.2s ease;
-}
-
-.dashboard-arrow:hover {
-  background: rgba(45, 106, 79, 0.08);
-}
-
-.dashboard-arrow:hover span {
-  display: inline-block;
-  transform: translateX(3px);
-  transition: transform 0.2s ease;
-}
-
-.dashboard-arrow:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
 }
 
 </style>

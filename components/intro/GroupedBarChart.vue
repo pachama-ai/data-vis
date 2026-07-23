@@ -180,6 +180,27 @@ const CATEGORY_COLORS: Record<EnergyCategory, string> = {
   kernkraft: '#b56b8a',
 }
 
+/** Kräftigere Varianten für den Kontrastmodus – pro Jahr. */
+const CATEGORY_COLORS_CONTRAST: Record<EnergyCategory, { year2015: string; year2024: string }> = {
+  erneuerbar: { year2015: '#9CBE7E', year2024: '#33612A' },
+  fossil:      { year2015: '#D2A25C', year2024: '#6F3F12' },
+  kernkraft:   { year2015: '#D18BAF', year2024: '#84265A' },
+}
+
+/**
+ * Wählt die Farbe je nach Kontrastmodus.
+ * Im Kontrastmodus wird pro Jahr eine eigene Farbe verwendet (kräftiger),
+ * im Normalmodus dieselbe Farbe mit unterschiedlicher Deckkraft.
+ */
+function getCategoryColor(category: EnergyCategory, year?: '2015' | '2024'): string {
+  const isContrast = typeof document !== 'undefined'
+    && document.documentElement.dataset.contrast === 'on'
+  if (isContrast && year) {
+    return CATEGORY_COLORS_CONTRAST[category][year === '2015' ? 'year2015' : 'year2024']
+  }
+  return CATEGORY_COLORS[category]
+}
+
 const CATEGORY_LABELS: Record<EnergyCategory, string> = {
   erneuerbar: 'Erneuerbare Energien',
   fossil: 'Fossile Energieträger',
@@ -328,10 +349,12 @@ function renderChart(): void {
   const legendGroup = svgElement.select<SVGGElement>('.chart-legend')
   legendGroup.html('')
   const legendX = CHART_MARGIN.left + innerWidth / 2 - 60
+  const isContrast = typeof document !== 'undefined' && document.documentElement.dataset.contrast === 'on'
   legendGroup.append('rect')
     .attr('x', legendX).attr('y', 14)
     .attr('width', 12).attr('height', 12).attr('rx', 2).attr('ry', 2)
-    .attr('fill', '#8a8a85').attr('opacity', OPACITY_YEAR_2015)
+    .attr('fill', isContrast ? '#6F3F12' : '#8a8a85')
+    .attr('opacity', isContrast ? 1 : OPACITY_YEAR_2015)
   legendGroup.append('text')
     .attr('x', legendX + 18).attr('y', 24)
     .attr('font-size', '11px').attr('fill', '#8a8a85')
@@ -341,7 +364,8 @@ function renderChart(): void {
   legendGroup.append('rect')
     .attr('x', legendX + 66).attr('y', 14)
     .attr('width', 12).attr('height', 12).attr('rx', 2).attr('ry', 2)
-    .attr('fill', '#8a8a85').attr('opacity', OPACITY_YEAR_2024)
+    .attr('fill', isContrast ? '#33612A' : '#8a8a85')
+    .attr('opacity', isContrast ? 1 : OPACITY_YEAR_2024)
   legendGroup.append('text')
     .attr('x', legendX + 84).attr('y', 24)
     .attr('font-size', '11px').attr('fill', '#8a8a85')
@@ -439,7 +463,7 @@ function renderChart(): void {
           .attr('y', getBarTopY)
           .attr('height', innerScale.bandwidth())
           .attr('width', 0)
-          .attr('fill', (bar) => CATEGORY_COLORS[bar.parent.category])
+          .attr('fill', (bar) => getCategoryColor(bar.parent.category, bar.year))
           .attr('opacity', getBarOpacity)
           .attr('rx', 2).attr('ry', 2)
 
@@ -450,7 +474,7 @@ function renderChart(): void {
         return newBars
       },
       (update) => update
-        .attr('fill', (bar) => CATEGORY_COLORS[bar.parent.category])
+        .attr('fill', (bar) => getCategoryColor(bar.parent.category, bar.year))
         .attr('opacity', getBarOpacity)
         .call((updateSelection) => updateSelection.transition().duration(ANIMATION_DURATION_MS)
           .attr('y', getBarTopY)
@@ -631,9 +655,26 @@ function renderChart(): void {
 // Vue-Lifecycle
 // =========================================================================
 
-onMounted(() => { renderChart() })
+let contrastObserver: MutationObserver | null = null
+
+onMounted(() => {
+  renderChart()
+
+  // Neu zeichnen, wenn sich der Kontrastmodus ändert
+  contrastObserver = new MutationObserver(() => {
+    renderChart()
+  })
+
+  contrastObserver.observe(document.documentElement, {
+    attributes: true,
+    attributeFilter: ['data-contrast'],
+  })
+})
 
 onBeforeUnmount(() => {
+  contrastObserver?.disconnect()
+  contrastObserver = null
+
   if (svgElement !== null) {
     svgElement.selectAll('*').remove()
     svgElement.remove()
@@ -763,5 +804,20 @@ watch(filteredData, () => { renderChart() }, { flush: 'post', deep: true })
 
 :deep(.x-axis .tick line) {
   stroke: #d0cec8;
+}
+
+/* SVG-Text-Elemente */
+:deep(.bar-label),
+:deep(.delta-label) {
+  font-size: 12px;
+}
+
+:deep(.row-label-name) {
+  font-size: 14px;
+}
+
+:deep(.row-label-cat),
+:deep(.groupled-bar-legend text) {
+  font-size: 11px;
 }
 </style>

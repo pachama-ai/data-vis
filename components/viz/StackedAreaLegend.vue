@@ -31,7 +31,6 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   select: [sourceKey: MixSourceKey | null]
-  toggleColorMode: []
 }>()
 
 const activeColors = computed(() => {
@@ -95,7 +94,8 @@ function handleShowAll(): void {
       :class="{
         'legend-chip--active': showAllActive,
       }"
-          :aria-pressed="showAllActive"
+      :aria-pressed="showAllActive"
+      :disabled="showAllDisabled"
       aria-label="Alle Energieträger anzeigen"
       @click="handleShowAll"
     >
@@ -107,22 +107,6 @@ function handleShowAll(): void {
 
       <span class="legend-label">
         Alle anzeigen
-      </span>
-    </button>
-
-    <button
-      type="button"
-      class="legend-chip legend-contrast-button"
-      style="margin-left: 16px;"
-      :class="{
-        'legend-chip--active': colorMode === 'accessible',
-      }"
-      :aria-pressed="colorMode === 'accessible'"
-      aria-label="Kontrastfarben umschalten"
-      @click="emit('toggleColorMode')"
-    >
-      <span class="legend-label">
-        Kontrastfarben
       </span>
     </button>
 

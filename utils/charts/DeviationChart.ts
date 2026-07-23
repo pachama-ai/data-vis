@@ -116,6 +116,41 @@ export function findMaximumAbsoluteDeviation(
 // Formatierung für die x-Achse
 // =========================================================================
 
+/** Konstanter Abstand zwischen Balkenende und Wertelabel (in px) */
+const LABEL_PADDING = 6
+
+/**
+ * Bestimmt die x-Position des Wertelabels.
+ *
+ * Das Label steht immer außerhalb des Balkens, vom Nullpunkt weg:
+ * - Positive Werte: rechts vom Balkenende (label = xScale(value) + padding)
+ * - Negative Werte: links vom Balkenende  (label = xScale(value) - padding)
+ * - Null: behandelt wie positiv
+ *
+ * Es gibt keine Ausnahme. Keine Verschiebung zur Nulllinie hin.
+ * Dadurch liegt das Label nie auf dem Balken und nie auf der Nulllinie.
+ */
+export function labelX(
+  value: number,
+  xScale: d3.ScaleLinear<number, number>,
+): number {
+  if (value < 0) {
+    return xScale(value) - LABEL_PADDING
+  }
+
+  // value >= 0 (einschließlich 0)
+  return xScale(value) + LABEL_PADDING
+}
+
+/**
+ * Bestimmt die Textausrichtung des Wertelabels.
+ * - Negative Werte: rechtsbündig (end), damit der Text vom Balken weg nach links läuft.
+ * - Positive Werte und Null: linksbündig (start), damit der Text vom Balken weg nach rechts läuft.
+ */
+export function labelAnchor(value: number): 'start' | 'end' {
+  return value < 0 ? 'end' : 'start'
+}
+
 const percentFormatter = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
@@ -681,6 +716,7 @@ export class DeviationChart extends BaseChart {
           .transition()
           .duration(600)
           .attr('x', (row) => this.#getLabelX(row, xScale))
+          .attr('text-anchor', (row) => this.#getLabelAnchor(row))
           .attr('y', (row) => {
             const bandCenter = yScale(row.sourceKey) ?? 0
             return bandCenter + yScale.bandwidth() / 2
@@ -698,41 +734,22 @@ export class DeviationChart extends BaseChart {
 
   /**
    * Bestimmt die x-Position des Wertelabels.
-   * Positive Werte: rechts vom Balkenende.
-   * Negative Werte: links vom Balkenanfang (negativer Wert).
-   * Null: leicht rechts von der Nulllinie.
+   * Delegiert an die exportierte Funktion labelX(), damit enter und update
+   * denselben Code verwenden.
    */
   #getLabelX(
     row: EmissionRow,
     xScale: d3.ScaleLinear<number, number>,
   ): number {
-    const deviationPp = row.deviationPp
-    const zeroPosition = xScale(0)
-    const valuePosition = xScale(deviationPp)
-
-    if (deviationPp > 0) {
-      return valuePosition + 6
-    }
-
-    if (deviationPp < 0) {
-      return valuePosition - 6
-    }
-
-    return zeroPosition + 6
+    return labelX(row.deviationPp, xScale)
   }
 
   /**
    * Bestimmt die Textausrichtung des Wertelabels.
-   * Positive Werte: linksbündig.
-   * Negative Werte: rechtsbündig.
-   * Null: linksbündig.
+   * Delegiert an die exportierte Funktion labelAnchor().
    */
   #getLabelAnchor(row: EmissionRow): 'start' | 'end' {
-    if (row.deviationPp < 0) {
-      return 'end'
-    }
-
-    return 'start'
+    return labelAnchor(row.deviationPp)
   }
 
   /**

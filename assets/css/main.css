@@ -70,6 +70,15 @@
   --font-serif:'Source Serif 4', 'Spectral', Georgia, serif;
 }
 
+/* ── Kontrastmodus (data-contrast="on") ── */
+/* Überschreibt die Design-Tokens für kräftigere Farben.     */
+/* Keine Neonfarben – die Farbwelt bleibt erdig, nur dunkler. */
+[data-contrast='on'] {
+  --fg:        #1a1a16;
+  --fg-muted:  #5a5a55;
+  --hairline:  #b8b6b0;
+}
+
 html {
   font-size: 17px;
   -webkit-font-smoothing: antialiased;

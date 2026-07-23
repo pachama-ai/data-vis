@@ -16,7 +16,7 @@ describe('StackedAreaLegend', () => {
     })
 
     const buttons = wrapper.findAll('button')
-    expect(buttons.length).toBe(12)
+    expect(buttons.length).toBe(11)
   })
 
   it('zeigt die drei Gruppenüberschriften an', () => {
