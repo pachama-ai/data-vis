@@ -398,6 +398,8 @@ watch(colorMode, function (updatedMode) {
           @change="handleYearChange"
         />
 
+        <div class="sidebar-divider" />
+
         <DeviationSidebar
           :active-year="activeYear"
           :base-year="baseYear"
@@ -451,6 +453,12 @@ watch(colorMode, function (updatedMode) {
   display: flex;
   flex-direction: column;
   gap: 0;
+}
+
+.sidebar-divider {
+  height: 1px;
+  background: var(--hairline);
+  margin: 12px 0;
 }
 
 .deviation-error {
