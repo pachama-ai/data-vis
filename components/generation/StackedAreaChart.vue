@@ -43,23 +43,23 @@ let chart: StackedAreaChart | null = null
 // Metrik-Computed-Werte
 // =========================================================================
 
-const activeAnnotation = computed(() => {
+const activeAnnotation = computed(function () {
   if (selectedAnnotation.value === null) {
     return null
   }
 
-  const foundAnnotation = annotations.value.find((annotationItem) => {
+  const foundAnnotation = annotations.value.find(function (annotationItem) {
     return annotationItem.id === selectedAnnotation.value
   })
 
   return foundAnnotation ?? null
 })
 
-const overviewMetrics = computed(() => {
+const overviewMetrics = computed(function () {
   return getOverviewMetrics(yearRows.value)
 })
 
-const sourceMetrics = computed(() => {
+const sourceMetrics = computed(function () {
   if (highlighted.value === null) {
     return null
   }
@@ -71,7 +71,7 @@ const sourceMetrics = computed(() => {
   )
 })
 
-const annotationContext = computed(() => {
+const annotationContext = computed(function () {
   if (activeAnnotation.value === null) {
     return null
   }
@@ -86,7 +86,7 @@ const annotationContext = computed(() => {
 // Hervorzuhebende Quellen: Annotation hat Vorrang vor Legende
 // =========================================================================
 
-const highlightedSources = computed<MixSourceKey[] | null>(() => {
+const highlightedSources = computed<MixSourceKey[] | null>(function () {
   const activeAnnotationValue = activeAnnotation.value
 
   if (activeAnnotationValue) {
@@ -166,7 +166,7 @@ function handleAnnotationSelect(annotation: MixAnnotation): void {
 // Daten laden und Chart starten
 // =========================================================================
 
-onMounted(async () => {
+onMounted(async function () {
   await loadData()
 
   try {
@@ -185,29 +185,29 @@ onMounted(async () => {
 // Auf Daten-, Modus- oder Highlight-Änderungen reagieren
 // =========================================================================
 
-watch(monthRows, (updatedMonthRows) => {
+watch(monthRows, function (updatedMonthRows) {
   chart?.setData(updatedMonthRows)
 })
 
-watch(mode, (updatedMode) => {
+watch(mode, function (updatedMode) {
   chart?.setMode(updatedMode)
   chart?.setSubtitle('')
   hoverPayload.value = null
 })
 
-watch(highlightedSources, (updatedSources) => {
+watch(highlightedSources, function (updatedSources) {
   chart?.setHighlightedSources(updatedSources)
 })
 
-watch(annotations, (updatedAnnotations) => {
+watch(annotations, function (updatedAnnotations) {
   chart?.setAnnotations(updatedAnnotations)
 })
 
-watch(selectedAnnotation, (updatedId) => {
+watch(selectedAnnotation, function (updatedId) {
   chart?.setSelectedAnnotation(updatedId)
 })
 
-watch(colorMode, (updatedMode) => {
+watch(colorMode, function (updatedMode) {
   chart?.setColors(updatedMode)
 })
 
@@ -215,7 +215,7 @@ watch(colorMode, (updatedMode) => {
 // Aufräumen
 // =========================================================================
 
-onBeforeUnmount(() => {
+onBeforeUnmount(function () {
   chart?.destroy()
   chart = null
   hoverPayload.value = null

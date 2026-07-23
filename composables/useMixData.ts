@@ -159,7 +159,7 @@ export function calculateYearRows(
   }
 
   // 3. Aufsteigend nach Jahr sortieren
-  result.sort((left, right) => left.year - right.year)
+  result.sort(function (left, right) { return left.year - right.year })
 
   return result
 }
@@ -205,7 +205,7 @@ export function useMixData() {
    * Normalisierte Monatszeilen: reduziert auf 10 Quellen, Werte in TWh.
    * Solange keine Daten geladen sind, wird ein leeres Array zurückgegeben.
    */
-  const monthRows = computed<MixMonthRow[]>(() => {
+  const monthRows = computed<MixMonthRow[]>(function () {
     const data = rawData.value
 
     if (!data) {
@@ -228,7 +228,7 @@ export function useMixData() {
    * Berechnete Jahressummen aus den normalisierten Monatsdaten.
    * Aktualisiert sich automatisch, wenn sich monthRows ändert.
    */
-  const yearRows = computed<MixYearRow[]>(() => {
+  const yearRows = computed<MixYearRow[]>(function () {
     return calculateYearRows(monthRows.value)
   })
 

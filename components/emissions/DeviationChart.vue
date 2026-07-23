@@ -85,7 +85,7 @@ async function loadEmissionFactors(): Promise<void> {
 // Berechnungen
 // =========================================================================
 
-const deviationYears = computed(() => {
+const deviationYears = computed(function () {
   if (!emissionFactors.value) {
     return []
   }
@@ -96,7 +96,7 @@ const deviationYears = computed(() => {
   )
 })
 
-const availableYears = computed(() => {
+const availableYears = computed(function () {
   const years: number[] = []
 
   for (const yearData of deviationYears.value) {
@@ -106,14 +106,14 @@ const availableYears = computed(() => {
   return years
 })
 
-const latestYear = computed(() => {
+const latestYear = computed(function () {
   const years = availableYears.value
   const lastYear = years[years.length - 1]
 
   return lastYear ?? null
 })
 
-const activeYearNumber = computed(() => {
+const activeYearNumber = computed(function () {
   if (selectedYear.value !== null) {
     const yearExists = availableYears.value.includes(
       selectedYear.value,
@@ -127,7 +127,7 @@ const activeYearNumber = computed(() => {
   return latestYear.value
 })
 
-const activeYear = computed(() => {
+const activeYear = computed(function () {
   const year = activeYearNumber.value
 
   if (year === null) {
@@ -135,15 +135,15 @@ const activeYear = computed(() => {
   }
 
   return (
-    deviationYears.value.find((yearData) => {
+    deviationYears.value.find(function (yearData) {
       return yearData.year === year
     }) ?? null
   )
 })
 
-const baseYear = computed(() => {
+const baseYear = computed(function () {
   return (
-    deviationYears.value.find((yearData) => {
+    deviationYears.value.find(function (yearData) {
       return yearData.year === BASE_YEAR
     }) ?? null
   )
@@ -160,7 +160,7 @@ const xDomain: [number, number] = [-50, 50]
 // Sidebar-Werte
 // =========================================================================
 
-const largestMismatch = computed(() => {
+const largestMismatch = computed(function () {
   if (!activeYear.value) {
     return null
   }
@@ -168,7 +168,7 @@ const largestMismatch = computed(() => {
   return findLargestPositiveDeviation(activeYear.value.rows)
 })
 
-const emissionIntensity = computed(() => {
+const emissionIntensity = computed(function () {
   if (!activeYear.value || activeYear.value.totalGenerationTwh === 0) {
     return 0
   }
@@ -179,7 +179,7 @@ const emissionIntensity = computed(() => {
   )
 })
 
-const renewableShare = computed(() => {
+const renewableShare = computed(function () {
   if (!activeYear.value) {
     return 0
   }
@@ -187,7 +187,7 @@ const renewableShare = computed(() => {
   return calculateRenewableShare(activeYear.value)
 })
 
-const baseRenewableShare = computed(() => {
+const baseRenewableShare = computed(function () {
   if (!baseYear.value) {
     return 0
   }
@@ -195,7 +195,7 @@ const baseRenewableShare = computed(() => {
   return calculateRenewableShare(baseYear.value)
 })
 
-const baseEmissionIntensity = computed(() => {
+const baseEmissionIntensity = computed(function () {
   if (!baseYear.value || baseYear.value.totalGenerationTwh === 0) {
     return 0
   }
@@ -228,24 +228,24 @@ function handleChartSelection(sourceKey: MixSourceKey | null): void {
   selectedSourceKey.value = sourceKey
 }
 
-const selectedRow = computed(() => {
+const selectedRow = computed(function () {
   if (selectedSourceKey.value === null || !activeYear.value) {
     return null
   }
 
   return (
-    activeYear.value.rows.find((row) => {
+    activeYear.value.rows.find(function (row) {
       return row.sourceKey === selectedSourceKey.value
     }) ?? null
   )
 })
 
-const selectedRowBaseShare = computed(() => {
+const selectedRowBaseShare = computed(function () {
   if (selectedSourceKey.value === null || !baseYear.value) {
     return null
   }
 
-  const baseRow = baseYear.value.rows.find((row) => {
+  const baseRow = baseYear.value.rows.find(function (row) {
     return row.sourceKey === selectedSourceKey.value
   })
 
@@ -307,11 +307,11 @@ function initializeChart(): void {
 // Lifecycle
 // =========================================================================
 
-onMounted(() => {
+onMounted(function () {
   initializeAll()
 })
 
-onBeforeUnmount(() => {
+onBeforeUnmount(function () {
   chart?.destroy()
   chart = null
   hoverPayload.value = null
@@ -321,7 +321,7 @@ onBeforeUnmount(() => {
 // Watcher
 // =========================================================================
 
-watch(activeYear, (updatedYear) => {
+watch(activeYear, function (updatedYear) {
   const rows = updatedYear?.rows ?? []
 
   chart?.setData(rows)
@@ -330,7 +330,7 @@ watch(activeYear, (updatedYear) => {
   selectedSourceKey.value = null
 })
 
-watch(colorMode, (updatedMode) => {
+watch(colorMode, function (updatedMode) {
   chart?.setColors(updatedMode)
 })
 </script>

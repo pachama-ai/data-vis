@@ -93,11 +93,11 @@ function createEmptyGroupValues(): Record<MixGroup, number> {
 // Computed
 // =========================================================================
 
-const formattedMonth = computed(() => {
+const formattedMonth = computed(function () {
   return germanMonthFormatter.format(props.monthRow.date)
 })
 
-const totalValue = computed(() => {
+const totalValue = computed(function () {
   let total = 0
 
   for (const sourceKey of STACK_ORDER) {
@@ -128,7 +128,7 @@ const groupValues = computed<TooltipGroupValue[]>(() => {
   return result
 })
 
-const selectedSourceValue = computed(() => {
+const selectedSourceValue = computed(function () {
   const sourceKey = props.highlightedSource
 
   if (sourceKey === null) {
@@ -141,7 +141,7 @@ const selectedSourceValue = computed(() => {
   return { sourceKey, valueTwh, share }
 })
 
-const tooltipStyle = computed(() => {
+const tooltipStyle = computed(function () {
   return {
     left: `${props.chartX + 12}px`,
     top: `${props.chartY + 12}px`,

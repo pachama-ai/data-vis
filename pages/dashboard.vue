@@ -17,9 +17,9 @@ const route = useRoute()
 
 type DashboardTab = 'generation' | 'emissions'
 
-const activeTab = computed<DashboardTab>(() =>
-  route.query.tab === 'emissions' ? 'emissions' : 'generation',
-)
+const activeTab = computed<DashboardTab>(function () {
+  return route.query.tab === 'emissions' ? 'emissions' : 'generation'
+})
 </script>
 
 <template>

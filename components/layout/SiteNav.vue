@@ -26,7 +26,7 @@ interface NavItem {
   isActive: boolean
 }
 
-const navItems = computed<NavItem[]>(() => [
+const navItems = computed<NavItem[]>(function () { return [
   {
     label: 'Strommix',
     to: '/',
@@ -42,9 +42,9 @@ const navItems = computed<NavItem[]>(() => [
     to: '/dashboard?tab=emissions',
     isActive: route.path === '/dashboard' && route.query.tab === 'emissions',
   },
-])
+] })
 
-const zoomLabel = computed(() => {
+const zoomLabel = computed(function () {
   return `Ansicht vergrößern (aktuell ${level.value} %)`
 })
 </script>

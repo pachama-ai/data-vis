@@ -56,11 +56,11 @@ export function useVisualizationData() {
     if (pendingRequest) return pendingRequest
 
     pendingRequest = fetchVisualizationData()
-      .then((data) => {
+      .then(function (data) {
         cachedData = data
         return data
       })
-      .finally(() => {
+      .finally(function () {
         pendingRequest = null
       })
 

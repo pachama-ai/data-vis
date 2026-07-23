@@ -27,7 +27,7 @@ const error = ref<string | null>(null)
 // Die Logik (calculateSharePercent, ITEM_CONFIG) ist in
 // pages/index.transform.ts ausgelagert und dort getestet.
 
-const strommixData = computed<EnergyDataPoint[]>(() => {
+const strommixData = computed<EnergyDataPoint[]>(function () {
   const yearlyDataValue = yearlyData.value
   if (yearlyDataValue === null) {
     return []
@@ -35,11 +35,11 @@ const strommixData = computed<EnergyDataPoint[]>(() => {
   return transformYearlyDataToChartData(yearlyDataValue.year2015, yearlyDataValue.year2024)
 })
 
-onMounted(async () => {
+onMounted(async function () {
   try {
     const data = await loadVisualizationData()
-    const y2015 = data.yearlyMix.find((y) => y.year === 2015)
-    const y2024 = data.yearlyMix.find((y) => y.year === 2024)
+    const y2015 = data.yearlyMix.find(function (y) { return y.year === 2015 })
+    const y2024 = data.yearlyMix.find(function (y) { return y.year === 2024 })
     if (!y2015 || !y2024) {
       throw new Error('Jahresdaten unvollständig')
     }
@@ -55,9 +55,9 @@ onMounted(async () => {
 
   // Dashboard-Daten im Hintergrund vorladen (kein Fehler nötig)
   if (typeof requestIdleCallback === 'function') {
-    requestIdleCallback(() => { loadVisualizationData().catch(() => {}) }, { timeout: 5000 })
+    requestIdleCallback(function () { loadVisualizationData().catch(function () {}) }, { timeout: 5000 })
   } else {
-    setTimeout(() => { loadVisualizationData().catch(() => {}) }, 2000)
+    setTimeout(function () { loadVisualizationData().catch(function () {}) }, 2000)
   }
 })
 </script>
