@@ -133,7 +133,7 @@ pages/
 | `scripts/build_hourly.ts` | `build-data.ts` läuft, alle Visualisierungen nutzen neue Daten |
 | `scripts/build_yearly.ts` | s.o. |
 | `scripts/download-prices.ts` | Preis aus allen verbleibenden Komponenten entfernt |
-| `scripts/audit/` (komplett) | `check-data.ts` + Tests decken Aufgaben ab |
+| `scripts/checks/` (komplett) | `check-data.ts` + Tests decken Aufgaben ab |
 | `scripts/analyze-other-category.mjs` | Pipeline vereinfacht |
 | `scripts/analyze-rounding.mjs` | Pipeline vereinfacht |
 | `scripts/check-dashboard-data.ts` | Durch `check-data.ts` ersetzt |
@@ -236,7 +236,7 @@ data-vis-backup/
 - `scripts/build_hourly.ts`
 - `scripts/build_yearly.ts`
 - `scripts/download-prices.ts`
-- `scripts/audit/` (kompletter Ordner)
+- `scripts/checks/` (kompletter Ordner)
 - `scripts/analyze-other-category.mjs`
 - `scripts/analyze-rounding.mjs`
 - `scripts/check-dashboard-data.ts`

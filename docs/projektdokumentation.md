@@ -949,7 +949,7 @@ ausgeführt werden können.
 
 ## Stufe 1: Datenintegrität (Level 1)
 
-Das Skript `scripts/audit/level1-integrity.ts` prüft die Rohdaten auf:
+Das Skript `scripts/checks/level1-integrity.ts` prüft die Rohdaten auf:
 
 - Vollständigkeit der Zeitreihe (fehlende Stunden)
 - Korrekte Stundenzahl pro Jahr (Schaltjahre: 8784 h, normale: 8760 h)
@@ -1006,7 +1006,7 @@ it('40 GWh EE bei 100 GWh Gesamt → 40%', () => {
 
 ## Stufe 3: Konsistenz (Level 3)
 
-Das Skript `scripts/audit/level3-consistency.ts` vergleicht die Werte
+Das Skript `scripts/checks/level3-consistency.ts` vergleicht die Werte
 im Dashboard mit den Rohdaten. Es prüft für jedes Jahr:
 
 - EE-Anteil aus yearly_mix vs. Neuberechnung aus Stundendaten
@@ -1210,7 +1210,7 @@ data-vis/
 │   ├── download-smard.ts
 │   ├── download-prices.ts
 │   ├── validate-data.ts
-│   └── audit/
+│   └── checks/
 │       ├── level1-integrity.ts
 │       └── level3-consistency.ts
 ├── tests/

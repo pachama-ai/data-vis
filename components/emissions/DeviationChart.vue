@@ -516,6 +516,9 @@ details[open] .reading-help-chevron {
   margin-bottom: 16px;
 }
 
+.sort-section h3 {
+  margin-bottom: 12px;
+}
 
 .sort-chips {
   display: flex;

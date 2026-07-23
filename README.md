@@ -89,7 +89,7 @@ data-vis/
 │   ├── download-prices.js     # ENTSO-E-Download
 │   ├── download-smard.js      # SMARD-Download
 │   └── validate-data.mjs      # Datenvalidierung
-├── audit/                     # Qualitätschecks
+├── checks/                    # Qualitätschecks
 │   ├── level1-integrity.mjs   # Rohdaten-Integrität
 │   └── level3-consistency.mjs # Konsistenz zwischen Ansichten
 ├── tests/

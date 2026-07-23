@@ -1,5 +1,5 @@
 /**
- * scripts/audit/check-calculations.ts
+ * scripts/checks/check-calculations.ts
  *
  * Unabhängige Kontrollrechnung für die wichtigsten Werte des Projekts.
  *
@@ -7,7 +7,7 @@
  * sondern berechnet alle Werte eigenständig neu.
  * Dadurch werden gemeinsame Fehler in Produktivcode und Tests erkannt.
  *
- * Aufruf mit: bun run scripts/audit/check-calculations.ts
+ * Aufruf mit: bun run scripts/checks/check-calculations.ts
  *
  * Erwartet: public/data/visualization-data.json (wird von build-data.ts erzeugt)
  *           public/data/emission-factors.json (Emissionsfaktoren)

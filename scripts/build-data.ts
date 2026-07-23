@@ -1,31 +1,24 @@
 /**
- * scripts/build-data.ts — Erzeugt visualization-data.json aus SMARD-Daten
- * =======================================================================
+ * Erstellt die Datei visualization-data.json aus den SMARD-Daten.
  *
- * Liest SMARD-Erzeugungsdaten (public/data/smard.json) und
- * UBA-Emissionsfaktoren (emission_factors.json). Erzeugt four Arrays:
- * monthlyMix, heatmapCo2, scatterDaily, yearlyMix.
+ * Das Skript lädt die stündlichen Erzeugungsdaten und die
+ * Emissionsfaktoren. Daraus entstehen die Datensätze für
+ * Monatswerte, Heatmap, Streudiagramm und Jahresvergleich.
  *
- * Zeitzone: Europe/Berlin via Intl.DateTimeFormat mit hourCycle: 'h23'.
- * Filterung nach Berliner Jahr (2015–2024), nicht nach UTC.
+ * Alle Zeitangaben werden in Berliner Lokalzeit ausgewertet.
  *
- * Kernenergie-Sonderbehandlung: Nach Abschaltung der letzten Kernkraftwerke
- * am 15. April 2023 liefert SMARD das Feld kernenergie nicht mehr.
- * Ab 2023-04-15 (Berliner Lokalzeit) wird fehlendes kernenergie als
- * struktureller Nullwert behandelt (Quelle: SMARD / Bundesnetzagentur,
- * §7 AtG – Abschaltung der letzten drei Kernkraftwerke).
- *
- * Aufruf: bun run scripts/build-data.ts
+ * @author Selina Schneider
+ * @lastModified 23.07.2026
  */
 
-// Globale Bun-APIs für TypeCheck deklarieren (Bun liefert die Runtime-Typen
-// selbst, tsconfig.json des Projekts enthält keine @types/bun)
+// Bun stellt diese Funktionen zur Laufzeit bereit.
+// Die Deklaration wird für die TypeScript-Prüfung benötigt.
 declare var Bun: {
   file(path: string): {
-    exists(): Promise<boolean>
-    json(): Promise<unknown>
+    exists(): Promise&lt;boolean&gt;
+    json(): Promise&lt;unknown&gt;
   }
-  write(path: string, data: string): Promise<number>
+  write(path: string, data: string): Promise&lt;number&gt;
 }
 
 import type {
@@ -35,12 +28,101 @@ import type {
   YearlyMixPoint,
 } from '../types/visualization-data'
 
-// ===========================================================================
-// Konstanten
-// ===========================================================================
+/**
+ * Enthält die Erzeugungswerte aller verwendeten Energieträger.
+ * Die Werte werden in MWh gespeichert.
+ */
+interface EnergySourceAccum {
+  biomass: number
+  hydro: number
+  wind_onshore: number
+  wind_offshore: number
+  pv: number
+  other_renewables: number
+  lignite: number
+  hardcoal: number
+  gas: number
+  nuclear: number
+  other_fossil: number
+  pumped_storage: number
+}
 
-/** Mapping deutscher SMARD-Feldnamen → englische Energieträger-Kürzel. */
-const GERMAN_TO_ENGLISH: Record<string, keyof EnergySourceAccum> = {
+/**
+ * Enthält die Emissionsfaktoren in Gramm CO₂ pro kWh.
+ * Die Schlüssel entsprechen den Feldnamen der SMARD-Daten.
+ */
+interface EmissionFactors {
+  biomasse: number
+  wasserkraft: number
+  windOnshore: number
+  windOffshore: number
+  solar: number
+  sonstigeErneuerbare: number
+  kernenergie: number
+  braunkohle: number
+  steinkohle: number
+  erdgas: number
+  sonstigeKonventionelle: number
+  pumpspeicher: number
+}
+
+/**
+ * Enthält die Teile eines Zeitpunkts in Berliner Lokalzeit.
+ */
+interface BerlinDateParts {
+  year: number
+  month: number
+  day: number
+  hour: number
+  dateKey: string
+  monthKey: string
+}
+
+/**
+ * Sammelt die Werte für einen Monat.
+ */
+interface MonthBucket {
+  sources: EnergySourceAccum
+  totalGen: number
+  co2Weighted: number
+  count: number
+}
+
+/**
+ * Sammelt die Werte für eine Zelle der Heatmap.
+ */
+interface HeatmapBucket {
+  co2Weighted: number
+  totalGen: number
+  count: number
+}
+
+/**
+ * Sammelt die Werte für einen Tag.
+ */
+interface DayBucket {
+  renewableGen: number
+  totalGen: number
+  co2Weighted: number
+  count: number
+}
+
+/**
+ * Sammelt die Werte für ein Jahr.
+ */
+interface YearBucket {
+  sources: EnergySourceAccum
+  totalGen: number
+  renewableGen: number
+  co2Weighted: number
+  count: number
+}
+
+/**
+ * Verbindet die deutschen Feldnamen aus SMARD
+ * mit den englischen Schlüsseln im Projekt.
+ */
+const GERMAN_TO_ENGLISH: Record&lt;string, keyof EnergySourceAccum&gt; = {
   braunkohle: 'lignite',
   kernenergie: 'nuclear',
   windOffshore: 'wind_offshore',
@@ -57,374 +139,826 @@ const GERMAN_TO_ENGLISH: Record<string, keyof EnergySourceAccum> = {
 
 const GENERATION_FIELDS = Object.keys(GERMAN_TO_ENGLISH)
 
-/** Erneuerbare Energieträger für EE-Anteil-Berechnung. */
+/**
+ * Feldnamen der erneuerbaren Energieträger.
+ */
 const RENEWABLE_FIELDS = new Set([
-  'biomasse', 'wasserkraft', 'windOnshore', 'windOffshore',
-  'solar', 'sonstigeErneuerbare',
+  'biomasse',
+  'wasserkraft',
+  'windOnshore',
+  'windOffshore',
+  'solar',
+  'sonstigeErneuerbare',
 ])
 
 /**
- * Datum des Kernenergie-Ausstiegs (Berliner Lokalzeit).
- * Letzte drei Kernkraftwerke (Emsland, Isar 2, Neckarwestheim 2)
- * wurden am 15.04.2023 endgültig abgeschaltet. SMARD liefert das Feld
- * kernenergie danach nicht mehr – die Erzeugung ist tatsächlich 0.
+ * Ab diesem Datum wird ein fehlender Kernenergiewert als 0 behandelt.
+ * Die letzten deutschen Kernkraftwerke wurden am 15. April 2023 abgeschaltet.
  */
 const NUCLEAR_PHASEOUT_DATE = '2023-04-15'
 
-/** Maximaler Anteil übersprungener Stunden vor Abbruch. */
+/**
+ * Höchster erlaubter Anteil verworfener Stunden.
+ */
 const MAX_SKIP_FRACTION = 0.10
 
-// ===========================================================================
-// Typen
-// ===========================================================================
-
-/** 12 Energieträger in MWh (englische Kürzel). */
-interface EnergySourceAccum {
-  biomass: number
-  hydro: number
-  wind_onshore: number
-  wind_offshore: number
-  pv: number
-  other_renewables: number
-  lignite: number
-  hardcoal: number
-  gas: number
-  nuclear: number
-  other_fossil: number
-  pumped_storage: number
-}
-
-/** Emissionsfaktoren (g CO₂/kWh) – Schlüssel sind deutsche SMARD-Feldnamen. */
-interface EmissionFactors {
-  biomasse: number
-  wasserkraft: number
-  windOnshore: number
-  windOffshore: number
-  solar: number
-  sonstigeErneuerbare: number
-  kernenergie: number
-  braunkohle: number
-  steinkohle: number
-  erdgas: number
-  sonstigeKonventionelle: number
-  pumpspeicher: number
-}
-
-/** Aus Intl.DateTimeFormat extrahierte Berliner Datumsteile. */
-interface BerlinDateParts {
-  year: number
-  month: number
-  day: number
-  hour: number
-  /** Format "YYYY-MM-DD". */
-  dateKey: string
-  /** Format "YYYY-MM". */
-  monthKey: string
-}
-
-// ---------------------------------------------------------------------------
-// Aggregations-Buckets (Zwischenspeicher während der Schleife)
-// ---------------------------------------------------------------------------
-
-interface MonthBucket {
-  sources: EnergySourceAccum
-  totalGen: number
-  co2Weighted: number
-  count: number
-}
-
-interface HeatmapBucket {
-  co2Weighted: number
-  totalGen: number
-  count: number
-}
-
-interface DayBucket {
-  renewableGen: number
-  totalGen: number
-  co2Weighted: number
-  count: number
-}
-
-interface YearBucket {
-  sources: EnergySourceAccum
-  totalGen: number
-  renewableGen: number
-  co2Weighted: number
-  count: number
-}
-
-// ===========================================================================
-// Hilfsfunktionen
-// ===========================================================================
-
-function emptySources(): EnergySourceAccum {
-  return {
-    biomass: 0, hydro: 0, wind_onshore: 0, wind_offshore: 0,
-    pv: 0, other_renewables: 0, lignite: 0, hardcoal: 0,
-    gas: 0, nuclear: 0, other_fossil: 0, pumped_storage: 0,
-  }
-}
-
-/** Rundung auf zwei Nachkommastellen. Erst nach Aggregation anwenden. */
-function round2(v: number): number {
-  return Math.round(v * 100) / 100
-}
-
-// ===========================================================================
-// Berliner Zeitzone (zentral, einheitlich über Intl.DateTimeFormat)
-// ===========================================================================
-
-const berlinDateFmt = new Intl.DateTimeFormat('de-DE', {
-  timeZone: 'Europe/Berlin', year: 'numeric', month: '2-digit', day: '2-digit',
+const berlinDateFormat = new Intl.DateTimeFormat('de-DE', {
+  timeZone: 'Europe/Berlin',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
 })
-const berlinHourFmt = new Intl.DateTimeFormat('de-DE', {
-  timeZone: 'Europe/Berlin', hour: 'numeric', hourCycle: 'h23',
+
+const berlinHourFormat = new Intl.DateTimeFormat('de-DE', {
+  timeZone: 'Europe/Berlin',
+  hour: 'numeric',
+  hourCycle: 'h23',
 })
 
 /**
- * Extrahiert Jahr, Monat, Tag, Stunde sowie dateKey/monthKey
- * aus einem Unix-Timestamp in Berliner Lokalzeit (Europe/Berlin).
- * Sommer-/Winterzeit-Umstellung wird automatisch über Intl.DateTimeFormat
- * berücksichtigt – kein manueller Offset.
+ * Erstellt ein leeres Objekt für die Erzeugungswerte.
+ *
+ * @returns Alle Energieträger mit dem Startwert 0
  */
-function getBerlinDateParts(ts: number): BerlinDateParts {
-  const dateParts = berlinDateFmt.formatToParts(ts)
-  let year = 0, month = 0, day = 0
-  for (const p of dateParts) {
-    if (p.type === 'year') year = Number(p.value)
-    if (p.type === 'month') month = Number(p.value)
-    if (p.type === 'day') day = Number(p.value)
-  }
-  let hour = 0
-  for (const p of berlinHourFmt.formatToParts(ts)) {
-    if (p.type === 'hour') hour = Number(p.value)
-  }
-  const mm = String(month).padStart(2, '0')
-  const dd = String(day).padStart(2, '0')
+function createEmptySources(): EnergySourceAccum {
   return {
-    year, month, day, hour,
-    dateKey: `${year}-${mm}-${dd}`,
-    monthKey: `${year}-${mm}`,
+    biomass: 0,
+    hydro: 0,
+    wind_onshore: 0,
+    wind_offshore: 0,
+    pv: 0,
+    other_renewables: 0,
+    lignite: 0,
+    hardcoal: 0,
+    gas: 0,
+    nuclear: 0,
+    other_fossil: 0,
+    pumped_storage: 0,
   }
 }
 
-// ===========================================================================
-// Rohdaten aus SMARD-Zeile extrahieren
-// ===========================================================================
+/**
+ * Rundet eine Zahl auf zwei Nachkommastellen.
+ *
+ * @param value Zahl, die gerundet werden soll
+ * @returns Gerundete Zahl
+ */
+function roundToTwoDecimals(value: number): number {
+  return Math.round(value * 100) / 100
+}
 
 /**
- * Extrahiert die 12 Energieträger aus einer SMARD-Rohdatenzeile.
+ * Liest Jahr, Monat, Tag und Stunde eines Zeitpunkts
+ * in Berliner Lokalzeit aus.
  *
- * Kernenergie-Sonderfall: Fehlt das Feld nach dem 15.04.2023 (Berliner
- * Lokalzeit), wird es als 0 gesetzt – die Erzeugung ist seit der
- * endgültigen Abschaltung tatsächlich 0 (§7 AtG). Fehlt kernenergie
- * vor diesem Datum, gilt die Stunde als unvollständig.
+ * Die Umstellung zwischen Sommer- und Winterzeit
+ * wird dabei automatisch berücksichtigt.
  *
- * Fehlt ein anderer Energieträger (null/undefined/NaN), wird die gesamte
- * Stunde übersprungen.
+ * @param timestamp Unix-Zeitstempel in Millisekunden
+ * @returns Datumsteile und passende Schlüssel für Tag und Monat
+ */
+function getBerlinDateParts(timestamp: number): BerlinDateParts {
+  const dateParts = berlinDateFormat.formatToParts(timestamp)
+
+  let year = 0
+  let month = 0
+  let day = 0
+
+  for (const part of dateParts) {
+    if (part.type === 'year') {
+      year = Number(part.value)
+    }
+
+    if (part.type === 'month') {
+      month = Number(part.value)
+    }
+
+    if (part.type === 'day') {
+      day = Number(part.value)
+    }
+  }
+
+  let hour = 0
+  const hourParts = berlinHourFormat.formatToParts(timestamp)
+
+  for (const part of hourParts) {
+    if (part.type === 'hour') {
+      hour = Number(part.value)
+    }
+  }
+
+  const monthText = String(month).padStart(2, '0')
+  const dayText = String(day).padStart(2, '0')
+
+  return {
+    year,
+    month,
+    day,
+    hour,
+    dateKey: `${year}-${monthText}-${dayText}`,
+    monthKey: `${year}-${monthText}`,
+  }
+}
+
+/**
+ * Liest die Erzeugungswerte aus einer SMARD-Zeile.
  *
- * @returns Objekt mit sources (oder null bei Fehler) und Kernenergie-Status.
+ * Fehlt nach dem Kernenergieausstieg nur der Wert für
+ * Kernenergie, wird dafür 0 eingesetzt. Fehlen andere
+ * Werte oder enthalten sie keine gültige Zahl, wird
+ * die Zeile als unvollständig zurückgegeben.
+ *
+ * @param row Eine Zeile aus den geladenen SMARD-Daten
+ * @param berlinDate Datum der Zeile in Berliner Lokalzeit
+ * @returns Erzeugungswerte und Information über einen ergänzten Kernenergiewert
  */
 function extractSources(
-  row: Record<string, unknown>,
-  berlinDate: string
-): { sources: EnergySourceAccum | null; nuclearFilled: boolean } {
-  const sources = emptySources()
+  row: Record&lt;string, unknown&gt;,
+  berlinDate: string,
+): {
+  sources: EnergySourceAccum | null
+  nuclearFilled: boolean
+} {
+  const sources = createEmptySources()
   let nuclearFilled = false
 
-  for (const deField of GENERATION_FIELDS) {
-    const raw = row[deField]
-    const enField = GERMAN_TO_ENGLISH[deField] as keyof EnergySourceAccum
+  for (const germanField of GENERATION_FIELDS) {
+    const rawValue = row[germanField]
+    const sourceKey = GERMAN_TO_ENGLISH[germanField] as keyof EnergySourceAccum
 
-    if (deField === 'kernenergie' && (raw === undefined || raw === null)) {
-      if (berlinDate > NUCLEAR_PHASEOUT_DATE) {
-        // Nach Abschaltdatum: struktureller Nullwert
-        sources[enField] = 0
+    const nuclearIsMissing =
+      germanField === 'kernenergie'
+      &amp;&amp; (rawValue === undefined || rawValue === null)
+
+    if (nuclearIsMissing) {
+      if (berlinDate &gt; NUCLEAR_PHASEOUT_DATE) {
+        sources[sourceKey] = 0
         nuclearFilled = true
         continue
       }
-      // Kernenergie fehlt vor Abschaltdatum → unplausibel
-      return { sources: null, nuclearFilled: false }
+
+      return {
+        sources: null,
+        nuclearFilled: false,
+      }
     }
 
-    if (raw === null || raw === undefined) {
-      return { sources: null, nuclearFilled: false }
-    }
-    if (typeof raw !== 'number' || isNaN(raw)) {
-      return { sources: null, nuclearFilled: false }
+    if (rawValue === null || rawValue === undefined) {
+      return {
+        sources: null,
+        nuclearFilled: false,
+      }
     }
 
-    sources[enField] = raw
+    if (typeof rawValue !== 'number' || Number.isNaN(rawValue)) {
+      return {
+        sources: null,
+        nuclearFilled: false,
+      }
+    }
+
+    sources[sourceKey] = rawValue
   }
 
-  return { sources, nuclearFilled }
+  return {
+    sources,
+    nuclearFilled,
+  }
 }
-
-// ===========================================================================
-// Reine Berechnungsfunktionen (kein Dateizugriff, kein Zustand)
-// ===========================================================================
 
 /**
- * CO₂-gewichtete Summe einer Stunde in g CO₂.
+ * Berechnet die gewichtete CO₂-Summe einer Stunde.
  *
- * Formel: Σ(Erzeugung_Energieträger × Emissionsfaktor_Energieträger)
- * Werden über den gesamten Akkumulationszeitraum aufsummiert; die Division
- * durch die Gesamterzeugung erfolgt erst nach Aggregation (finalize*).
+ * Jeder Erzeugungswert wird mit dem passenden
+ * Emissionsfaktor multipliziert.
+ *
+ * @param sources Erzeugungswerte der Energieträger
+ * @param factors Emissionsfaktoren der Energieträger
+ * @returns Gewichtete CO₂-Summe
  */
-function calcCo2Weighted(sources: EnergySourceAccum, factors: EmissionFactors): number {
+function calculateCo2Weighted(
+  sources: EnergySourceAccum,
+  factors: EmissionFactors,
+): number {
   let sum = 0
-  for (const deField of GENERATION_FIELDS) {
-    const enField = GERMAN_TO_ENGLISH[deField] as keyof EnergySourceAccum
-    const mwh = sources[enField]
-    const factor = factors[deField as keyof EmissionFactors]
-    sum += mwh * factor
+
+  for (const germanField of GENERATION_FIELDS) {
+    const sourceKey =
+      GERMAN_TO_ENGLISH[germanField] as keyof EnergySourceAccum
+
+    const generation = sources[sourceKey]
+    const factor = factors[germanField as keyof EmissionFactors]
+
+    sum += generation * factor
   }
+
   return sum
 }
 
-/** Summe der erneuerbaren Erzeugung in MWh. */
-function calcRenewableSum(sources: EnergySourceAccum): number {
+/**
+ * Addiert die Erzeugung aller erneuerbaren Energieträger.
+ *
+ * @param sources Erzeugungswerte der Energieträger
+ * @returns Erneuerbare Erzeugung in MWh
+ */
+function calculateRenewableGeneration(
+  sources: EnergySourceAccum,
+): number {
   let sum = 0
-  for (const deField of GENERATION_FIELDS) {
-    if (RENEWABLE_FIELDS.has(deField)) {
-      const enField = GERMAN_TO_ENGLISH[deField] as keyof EnergySourceAccum
-      sum += sources[enField]
+
+  for (const germanField of GENERATION_FIELDS) {
+    if (RENEWABLE_FIELDS.has(germanField)) {
+      const sourceKey =
+        GERMAN_TO_ENGLISH[germanField] as keyof EnergySourceAccum
+
+      sum += sources[sourceKey]
     }
   }
+
   return sum
 }
 
-/** Summe aller Energieträger (Gesamterzeugung) in MWh. */
-function calcTotalSum(sources: EnergySourceAccum): number {
-  return (Object.values(sources) as number[]).reduce<number>((a, b) => a + b, 0)
+/**
+ * Addiert die Erzeugung aller Energieträger.
+ *
+ * @param sources Erzeugungswerte der Energieträger
+ * @returns Gesamte Erzeugung in MWh
+ */
+function calculateTotalGeneration(
+  sources: EnergySourceAccum,
+): number {
+  let sum = 0
+  const values = Object.values(sources)
+
+  for (const value of values) {
+    sum += value
+  }
+
+  return sum
 }
 
-// ===========================================================================
-// Aggregations-Finalisierung (Erzeugung der finalen Arrays)
-// ===========================================================================
+/**
+ * Erstellt die fertigen Monatswerte aus den gesammelten Daten.
+ *
+ * @param buckets Gesammelte Werte nach Monat
+ * @returns Sortierte Monatsdaten für die Visualisierung
+ */
+function finalizeMonthlyMix(
+  buckets: Map&lt;string, MonthBucket&gt;,
+): MonthlyMixPoint[] {
+  const entries = Array.from(buckets.entries())
 
-function finalizeMonthlyMix(buckets: Map<string, MonthBucket>): MonthlyMixPoint[] {
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([month, b]) => ({
+  entries.sort(function (
+    firstEntry,
+    secondEntry,
+  ) {
+    return firstEntry[0].localeCompare(secondEntry[0])
+  })
+
+  return entries.map(function (entry) {
+    const month = entry[0]
+    const bucket = entry[1]
+
+    return {
       month,
-      sources: b.sources,
-      totalGenerationMwh: round2(b.totalGen),
-      availableHourCount: b.count,
-    }))
+      sources: bucket.sources,
+      totalGenerationMwh: roundToTwoDecimals(bucket.totalGen),
+      availableHourCount: bucket.count,
+    }
+  })
 }
 
-function finalizeHeatmapCo2(buckets: Map<string, HeatmapBucket>): HeatmapCo2Cell[] {
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([key, b]) => {
-      const [yearStr, monthStr, hourStr] = key.split('-')
-      return {
-        year: Number(yearStr),
-        month: Number(monthStr),
-        hour: Number(hourStr),
-        // CO₂-Intensität = Summe(gewichtete Emissionen) / Gesamterzeugung
-        co2GramsPerKwh: round2(b.co2Weighted / b.totalGen),
-        observationCount: b.count,
-      }
-    })
+/**
+ * Erstellt die fertigen Heatmap-Werte aus den gesammelten Daten.
+ *
+ * @param buckets Gesammelte Werte nach Jahr, Monat und Stunde
+ * @returns Sortierte Zellen für die Heatmap
+ */
+function finalizeHeatmapCo2(
+  buckets: Map&lt;string, HeatmapBucket&gt;,
+): HeatmapCo2Cell[] {
+  const entries = Array.from(buckets.entries())
+
+  entries.sort(function (
+    firstEntry,
+    secondEntry,
+  ) {
+    return firstEntry[0].localeCompare(secondEntry[0])
+  })
+
+  return entries.map(function (entry) {
+    const key = entry[0]
+    const bucket = entry[1]
+    const keyParts = key.split('-')
+
+    return {
+      year: Number(keyParts[0]),
+      month: Number(keyParts[1]),
+      hour: Number(keyParts[2]),
+      co2GramsPerKwh: roundToTwoDecimals(
+        bucket.co2Weighted / bucket.totalGen,
+      ),
+      observationCount: bucket.count,
+    }
+  })
 }
 
-function finalizeScatterDaily(buckets: Map<string, DayBucket>): ScatterDailyPoint[] {
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([date, b]) => ({
+/**
+ * Erstellt die fertigen Tageswerte aus den gesammelten Daten.
+ *
+ * @param buckets Gesammelte Werte nach Tag
+ * @returns Sortierte Tagesdaten für das Streudiagramm
+ */
+function finalizeScatterDaily(
+  buckets: Map&lt;string, DayBucket&gt;,
+): ScatterDailyPoint[] {
+  const entries = Array.from(buckets.entries())
+
+  entries.sort(function (
+    firstEntry,
+    secondEntry,
+  ) {
+    return firstEntry[0].localeCompare(secondEntry[0])
+  })
+
+  return entries.map(function (entry) {
+    const date = entry[0]
+    const bucket = entry[1]
+
+    return {
       date,
-      // EE-Anteil in % = Σ EE-Erzeugung / Σ Gesamterzeugung × 100
-      renewableSharePercent: round2((b.renewableGen / b.totalGen) * 100),
-      // CO₂-Intensität = Σ(gewichtete Emissionen) / Σ Gesamterzeugung
-      co2GramsPerKwh: round2(b.co2Weighted / b.totalGen),
-      availableHourCount: b.count,
-    }))
+      renewableSharePercent: roundToTwoDecimals(
+        (bucket.renewableGen / bucket.totalGen) * 100,
+      ),
+      co2GramsPerKwh: roundToTwoDecimals(
+        bucket.co2Weighted / bucket.totalGen,
+      ),
+      availableHourCount: bucket.count,
+    }
+  })
 }
 
-function finalizeYearlyMix(buckets: Map<string, YearBucket>): YearlyMixPoint[] {
-  return [...buckets.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([yearStr, b]) => ({
-      year: Number(yearStr),
-      sources: b.sources,
-      totalGenerationMwh: round2(b.totalGen),
-      // EE-Anteil in % = Σ EE-Erzeugung / Σ Gesamterzeugung × 100
-      renewableSharePercent: round2((b.renewableGen / b.totalGen) * 100),
-      // CO₂-Intensität = Σ(gewichtete Emissionen) / Σ Gesamterzeugung
-      co2GramsPerKwh: round2(b.co2Weighted / b.totalGen),
-      availableHourCount: b.count,
-    }))
+/**
+ * Erstellt die fertigen Jahreswerte aus den gesammelten Daten.
+ *
+ * @param buckets Gesammelte Werte nach Jahr
+ * @returns Sortierte Jahresdaten für die Visualisierung
+ */
+function finalizeYearlyMix(
+  buckets: Map&lt;string, YearBucket&gt;,
+): YearlyMixPoint[] {
+  const entries = Array.from(buckets.entries())
+
+  entries.sort(function (
+    firstEntry,
+    secondEntry,
+  ) {
+    return firstEntry[0].localeCompare(secondEntry[0])
+  })
+
+  return entries.map(function (entry) {
+    const year = entry[0]
+    const bucket = entry[1]
+
+    return {
+      year: Number(year),
+      sources: bucket.sources,
+      totalGenerationMwh: roundToTwoDecimals(bucket.totalGen),
+      renewableSharePercent: roundToTwoDecimals(
+        (bucket.renewableGen / bucket.totalGen) * 100,
+      ),
+      co2GramsPerKwh: roundToTwoDecimals(
+        bucket.co2Weighted / bucket.totalGen,
+      ),
+      availableHourCount: bucket.count,
+    }
+  })
 }
 
-// ===========================================================================
-// Ein- und Ausgabe (Dateisystem)
-// ===========================================================================
-
-async function loadSmardData(): Promise<Record<string, unknown>[]> {
+/**
+ * Lädt die SMARD-Daten aus der JSON-Datei.
+ *
+ * @returns Geladene SMARD-Zeilen
+ * @throws Fehler, wenn die Datei fehlt oder keine Daten enthält
+ */
+async function loadSmardData(): Promise&lt;Record&lt;string, unknown&gt;[]&gt; {
   const file = Bun.file('public/data/smard.json')
-  if (!await file.exists()) {
-    throw new Error('public/data/smard.json nicht gefunden. Führe zuerst download-smard.ts aus.')
+  const exists = await file.exists()
+
+  if (!exists) {
+    throw new Error(
+      'public/data/smard.json nicht gefunden. Führe zuerst download-smard.ts aus.',
+    )
   }
+
   const data: unknown = await file.json()
+
   if (!Array.isArray(data) || data.length === 0) {
-    throw new Error('public/data/smard.json enthält keine gültigen Daten.')
+    throw new Error(
+      'public/data/smard.json enthält keine gültigen Daten.',
+    )
   }
-  return data as Record<string, unknown>[]
+
+  return data as Record&lt;string, unknown&gt;[]
 }
 
-async function loadEmissionFactors(): Promise<EmissionFactors> {
+/**
+ * Lädt und prüft die Emissionsfaktoren.
+ *
+ * @returns Vollständige Emissionsfaktoren
+ * @throws Fehler, wenn ein Faktor fehlt oder ungültig ist
+ */
+async function loadEmissionFactors(): Promise&lt;EmissionFactors&gt; {
   const file = Bun.file('emission_factors.json')
-  const raw: unknown = await file.json()
-  if (!raw || typeof raw !== 'object') {
-    throw new Error('emission_factors.json enthält kein gültiges Objekt.')
+  const rawData: unknown = await file.json()
+
+  if (
+    rawData === null
+    || typeof rawData !== 'object'
+  ) {
+    throw new Error(
+      'emission_factors.json enthält kein gültiges Objekt.',
+    )
   }
-  const obj = raw as Record<string, unknown>
-  const factors: Record<string, number> = {}
-  for (const deField of GENERATION_FIELDS) {
-    const v = obj[deField]
-    if (typeof v !== 'number' || !isFinite(v)) {
+
+  const factorData = rawData as Record&lt;string, unknown&gt;
+  const checkedFactors: Record&lt;string, number&gt; = {}
+
+  for (const germanField of GENERATION_FIELDS) {
+    const value = factorData[germanField]
+
+    if (
+      typeof value !== 'number'
+      || !Number.isFinite(value)
+    ) {
       throw new Error(
-        `emission_factors.json: '${deField}' fehlt oder ist keine gültige Zahl (${v}).`,
+        `emission_factors.json: '${germanField}' fehlt oder ist keine gültige Zahl (${value}).`,
       )
     }
-    factors[deField] = v
+
+    checkedFactors[germanField] = value
   }
-  return factors as unknown as EmissionFactors
+
+  return checkedFactors as unknown as EmissionFactors
 }
 
-/** Rekursive Prüfung auf nicht-endliche Werte vor dem Schreiben. */
-function deepCheckFinite(obj: unknown, path: string): void {
-  if (obj === null || obj === undefined) {
-    throw new Error(`Null/undefined gefunden in ${path}`)
+/**
+ * Prüft ein Objekt rekursiv auf ungültige Zahlen
+ * sowie fehlende Werte.
+ *
+ * @param value Wert oder Objekt, das geprüft werden soll
+ * @param path Aktuelle Stelle innerhalb des Objekts
+ * @throws Fehler, wenn ein ungültiger Wert gefunden wird
+ */
+function checkFiniteValues(
+  value: unknown,
+  path: string,
+): void {
+  if (value === null || value === undefined) {
+    throw new Error(`Null oder undefined gefunden in ${path}`)
   }
-  if (typeof obj === 'number') {
-    if (!Number.isFinite(obj)) {
-      throw new Error(`Nicht-endlicher Wert (${obj}) in ${path}`)
+
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error(
+        `Nicht-endlicher Wert (${value}) in ${path}`,
+      )
     }
-  } else if (Array.isArray(obj)) {
-    obj.forEach((item, i) => deepCheckFinite(item, `${path}[${i}]`))
-  } else if (typeof obj === 'object') {
-    for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
-      deepCheckFinite(val, `${path}.${key}`)
+
+    return
+  }
+
+  if (Array.isArray(value)) {
+    for (let index = 0; index &lt; value.length; index++) {
+      checkFiniteValues(
+        value[index],
+        `${path}[${index}]`,
+      )
+    }
+
+    return
+  }
+
+  if (typeof value === 'object') {
+    const entries = Object.entries(
+      value as Record&lt;string, unknown&gt;,
+    )
+
+    for (const entry of entries) {
+      const key = entry[0]
+      const nestedValue = entry[1]
+
+      checkFiniteValues(
+        nestedValue,
+        `${path}.${key}`,
+      )
     }
   }
 }
 
-// ===========================================================================
-// Hauptfunktion
-// ===========================================================================
+/**
+ * Addiert die Werte einer Stunde zu einem Monats-Bucket.
+ *
+ * @param buckets Monats-Buckets
+ * @param dateParts Datumsteile der Stunde
+ * @param sources Erzeugungswerte der Stunde
+ * @param totalGeneration Gesamterzeugung der Stunde
+ * @param co2Weighted Gewichtete CO₂-Summe der Stunde
+ */
+function addToMonthBucket(
+  buckets: Map&lt;string, MonthBucket&gt;,
+  dateParts: BerlinDateParts,
+  sources: EnergySourceAccum,
+  totalGeneration: number,
+  co2Weighted: number,
+): void {
+  let bucket = buckets.get(dateParts.monthKey)
 
-async function main(): Promise<void> {
+  if (bucket === undefined) {
+    bucket = {
+      sources: createEmptySources(),
+      totalGen: 0,
+      co2Weighted: 0,
+      count: 0,
+    }
+
+    buckets.set(dateParts.monthKey, bucket)
+  }
+
+  const sourceKeys = Object.keys(
+    sources,
+  ) as (keyof EnergySourceAccum)[]
+
+  for (const key of sourceKeys) {
+    bucket.sources[key] += sources[key]
+  }
+
+  bucket.totalGen += totalGeneration
+  bucket.co2Weighted += co2Weighted
+  bucket.count++
+}
+
+/**
+ * Addiert die Werte einer Stunde zu einem Heatmap-Bucket.
+ *
+ * @param buckets Heatmap-Buckets
+ * @param dateParts Datumsteile der Stunde
+ * @param totalGeneration Gesamterzeugung der Stunde
+ * @param co2Weighted Gewichtete CO₂-Summe der Stunde
+ */
+function addToHeatmapBucket(
+  buckets: Map&lt;string, HeatmapBucket&gt;,
+  dateParts: BerlinDateParts,
+  totalGeneration: number,
+  co2Weighted: number,
+): void {
+  const month = String(dateParts.month).padStart(2, '0')
+  const hour = String(dateParts.hour).padStart(2, '0')
+  const key = `${dateParts.year}-${month}-${hour}`
+
+  let bucket = buckets.get(key)
+
+  if (bucket === undefined) {
+    bucket = {
+      co2Weighted: 0,
+      totalGen: 0,
+      count: 0,
+    }
+
+    buckets.set(key, bucket)
+  }
+
+  bucket.co2Weighted += co2Weighted
+  bucket.totalGen += totalGeneration
+  bucket.count++
+}
+
+/**
+ * Addiert die Werte einer Stunde zu einem Tages-Bucket.
+ *
+ * @param buckets Tages-Buckets
+ * @param dateParts Datumsteile der Stunde
+ * @param renewableGeneration Erneuerbare Erzeugung der Stunde
+ * @param totalGeneration Gesamterzeugung der Stunde
+ * @param co2Weighted Gewichtete CO₂-Summe der Stunde
+ */
+function addToDayBucket(
+  buckets: Map&lt;string, DayBucket&gt;,
+  dateParts: BerlinDateParts,
+  renewableGeneration: number,
+  totalGeneration: number,
+  co2Weighted: number,
+): void {
+  let bucket = buckets.get(dateParts.dateKey)
+
+  if (bucket === undefined) {
+    bucket = {
+      renewableGen: 0,
+      totalGen: 0,
+      co2Weighted: 0,
+      count: 0,
+    }
+
+    buckets.set(dateParts.dateKey, bucket)
+  }
+
+  bucket.renewableGen += renewableGeneration
+  bucket.totalGen += totalGeneration
+  bucket.co2Weighted += co2Weighted
+  bucket.count++
+}
+
+/**
+ * Addiert die Werte einer Stunde zu einem Jahres-Bucket.
+ *
+ * @param buckets Jahres-Buckets
+ * @param dateParts Datumsteile der Stunde
+ * @param sources Erzeugungswerte der Stunde
+ * @param renewableGeneration Erneuerbare Erzeugung der Stunde
+ * @param totalGeneration Gesamterzeugung der Stunde
+ * @param co2Weighted Gewichtete CO₂-Summe der Stunde
+ */
+function addToYearBucket(
+  buckets: Map&lt;string, YearBucket&gt;,
+  dateParts: BerlinDateParts,
+  sources: EnergySourceAccum,
+  renewableGeneration: number,
+  totalGeneration: number,
+  co2Weighted: number,
+): void {
+  const key = String(dateParts.year)
+  let bucket = buckets.get(key)
+
+  if (bucket === undefined) {
+    bucket = {
+      sources: createEmptySources(),
+      totalGen: 0,
+      renewableGen: 0,
+      co2Weighted: 0,
+      count: 0,
+    }
+
+    buckets.set(key, bucket)
+  }
+
+  const sourceKeys = Object.keys(
+    sources,
+  ) as (keyof EnergySourceAccum)[]
+
+  for (const sourceKey of sourceKeys) {
+    bucket.sources[sourceKey] += sources[sourceKey]
+  }
+
+  bucket.totalGen += totalGeneration
+  bucket.renewableGen += renewableGeneration
+  bucket.co2Weighted += co2Weighted
+  bucket.count++
+}
+
+/**
+ * Prüft, ob ein Energieträger einen negativen Wert enthält.
+ *
+ * Kleine Abweichungen bis -0,001 werden toleriert.
+ *
+ * @param sources Erzeugungswerte der Stunde
+ * @param dateParts Datumsteile der Stunde
+ * @param examples Liste mit Beispielen für die Ausgabe
+ * @returns true, wenn ein negativer Wert gefunden wurde
+ */
+function hasNegativeGeneration(
+  sources: EnergySourceAccum,
+  dateParts: BerlinDateParts,
+  examples: string[],
+): boolean {
+  const sourceKeys = Object.keys(
+    sources,
+  ) as (keyof EnergySourceAccum)[]
+
+  let hasNegative = false
+
+  for (const key of sourceKeys) {
+    if (sources[key] &lt; -0.001) {
+      hasNegative = true
+
+      if (examples.length &lt; 5) {
+        const hour = String(dateParts.hour).padStart(2, '0')
+
+        examples.push(
+          `  ${dateParts.dateKey} ${hour}:00 – ${key} = ${sources[key]} MWh`,
+        )
+      }
+    }
+  }
+
+  return hasNegative
+}
+
+/**
+ * Gibt die Statistik zu den verarbeiteten Stunden aus.
+ *
+ * @param validCount Anzahl gültiger Stunden
+ * @param skippedOutside Stunden außerhalb des Zeitraums
+ * @param skippedNonNumeric Unvollständige Stunden
+ * @param skippedNegative Stunden mit negativen Werten
+ * @param skippedZeroTotal Stunden ohne Gesamterzeugung
+ * @param nuclearFilledCount Ergänzte Kernenergiewerte
+ */
+function printProcessingSummary(
+  validCount: number,
+  skippedOutside: number,
+  skippedNonNumeric: number,
+  skippedNegative: number,
+  skippedZeroTotal: number,
+  nuclearFilledCount: number,
+): void {
+  console.log('\nAuswertung:')
+  console.log(
+    `  Gültige Stunden (Berlin 2015–2024):       ${validCount}`,
+  )
+  console.log(
+    `  Außerhalb Berliner Jahre 2015–2024:      ${skippedOutside}`,
+  )
+  console.log(
+    `  Unvollständige Datensätze:               ${skippedNonNumeric}`,
+  )
+  console.log(
+    `  Negative Erzeugungswerte:                ${skippedNegative}`,
+  )
+  console.log(
+    `  Gesamterzeugung &lt;= 0:                    ${skippedZeroTotal}`,
+  )
+  console.log(
+    `  Ergänzte Kernenergie-Nullwerte:          ${nuclearFilledCount}`,
+  )
+}
+
+/**
+ * Prüft, ob zu viele Stunden verworfen wurden.
+ *
+ * @param validCount Anzahl gültiger Stunden
+ * @param skippedNonNumeric Unvollständige Stunden
+ * @param skippedNegative Stunden mit negativen Werten
+ * @param skippedZeroTotal Stunden ohne Gesamterzeugung
+ * @throws Fehler, wenn der erlaubte Anteil überschritten wird
+ */
+function checkSkippedHours(
+  validCount: number,
+  skippedNonNumeric: number,
+  skippedNegative: number,
+  skippedZeroTotal: number,
+): void {
+  const totalSkipped =
+    skippedNonNumeric
+    + skippedNegative
+    + skippedZeroTotal
+
+  const totalProcessed = validCount + totalSkipped
+
+  let skipFraction = 0
+
+  if (totalProcessed &gt; 0) {
+    skipFraction = totalSkipped / totalProcessed
+  }
+
+  if (totalSkipped === 0) {
+    return
+  }
+
+  const percent = (skipFraction * 100).toFixed(2)
+
+  console.log(
+    `\nWirklich übersprungene Stunden: ${totalSkipped} (${percent} %)`,
+  )
+
+  if (skipFraction &gt; MAX_SKIP_FRACTION) {
+    const limit = MAX_SKIP_FRACTION * 100
+    const actual = (skipFraction * 100).toFixed(1)
+
+    throw new Error(
+      `Mehr als ${limit}% der Stunden übersprungen (${actual}%). `
+      + 'Abbruch, um keine irreführende Datei zu erzeugen.',
+    )
+  }
+}
+
+/**
+ * Führt die komplette Datenaufbereitung aus
+ * und schreibt die fertige JSON-Datei.
+ *
+ * @returns Promise ohne Rückgabewert
+ */
+async function main(): Promise&lt;void&gt; {
   console.log('Lade SMARD-Daten...')
-  const smard = await loadSmardData()
-  console.log(`${smard.length} Rohdatensätze geladen`)
+  const smardData = await loadSmardData()
+  console.log(`${smardData.length} Rohdatensätze geladen`)
 
   console.log('Lade Emissionsfaktoren...')
-  const factors = await loadEmissionFactors()
-  console.log('Emissionsfaktoren geladen:', GENERATION_FIELDS.length, 'Träger')
+  const emissionFactors = await loadEmissionFactors()
+  console.log(
+    'Emissionsfaktoren geladen:',
+    GENERATION_FIELDS.length,
+    'Träger',
+  )
 
   let validCount = 0
   let skippedOutside = 0
@@ -432,174 +966,196 @@ async function main(): Promise<void> {
   let skippedZeroTotal = 0
   let skippedNegative = 0
   let nuclearFilledCount = 0
+
   const negativeExamples: string[] = []
 
-  const monthBuckets = new Map<string, MonthBucket>()
-  const heatmapBuckets = new Map<string, HeatmapBucket>()
-  const dayBuckets = new Map<string, DayBucket>()
-  const yearBuckets = new Map<string, YearBucket>()
+  const monthBuckets = new Map&lt;string, MonthBucket&gt;()
+  const heatmapBuckets = new Map&lt;string, HeatmapBucket&gt;()
+  const dayBuckets = new Map&lt;string, DayBucket&gt;()
+  const yearBuckets = new Map&lt;string, YearBucket&gt;()
 
-  for (const row of smard) {
-    const ts = row.timestamp
+  for (const row of smardData) {
+    const timestamp = row.timestamp
 
-    // Timestamp muss eine Zahl sein (Sekunden oder Millisekunden)
-    if (typeof ts !== 'number') {
+    if (typeof timestamp !== 'number') {
       skippedOutside++
       continue
     }
 
-    // Berliner Datumsteile – zentral über Intl.DateTimeFormat
-    const bp = getBerlinDateParts(ts)
+    const dateParts = getBerlinDateParts(timestamp)
 
-    // Zeitraum-Filter anhand Berliner Jahr: nur 2015–2024
-    if (bp.year < 2015 || bp.year > 2024) {
+    if (
+      dateParts.year &lt; 2015
+      || dateParts.year &gt; 2024
+    ) {
       skippedOutside++
       continue
     }
 
-    // Energieträger extrahieren (mit Kernenergie-Sonderbehandlung)
-    const { sources, nuclearFilled } = extractSources(row, bp.dateKey)
-    if (sources === null) {
+    const sourceResult = extractSources(
+      row,
+      dateParts.dateKey,
+    )
+
+    if (sourceResult.sources === null) {
       skippedNonNumeric++
       continue
     }
-    if (nuclearFilled) nuclearFilledCount++
 
-    // Negative Erzeugungswerte erkennen und überspringen
-    let hasNegative = false
-    const sourceKeys = Object.keys(sources) as (keyof EnergySourceAccum)[]
-    for (const key of sourceKeys) {
-      if (sources[key] < -0.001) {
-        hasNegative = true
-        if (negativeExamples.length < 5) {
-          negativeExamples.push(
-            `  ${bp.dateKey} ${String(bp.hour).padStart(2, '0')}:00 – ${key} = ${sources[key]} MWh`,
-          )
-        }
-      }
+    if (sourceResult.nuclearFilled) {
+      nuclearFilledCount++
     }
-    if (hasNegative) {
+
+    const sources = sourceResult.sources
+
+    if (
+      hasNegativeGeneration(
+        sources,
+        dateParts,
+        negativeExamples,
+      )
+    ) {
       skippedNegative++
       continue
     }
 
-    // Gesamterzeugung – falls ≤ 0 ist die Stunde nicht verwertbar
-    const totalGen = calcTotalSum(sources)
-    if (totalGen <= 0) {
+    const totalGeneration =
+      calculateTotalGeneration(sources)
+
+    if (totalGeneration &lt;= 0) {
       skippedZeroTotal++
       continue
     }
 
     validCount++
 
-    // Fachliche Kennzahlen pro Stunde (erzeugungsgewichtet, ungerundet)
-    const co2Weighted = calcCo2Weighted(sources, factors)
-    const renewableGen = calcRenewableSum(sources)
+    const co2Weighted = calculateCo2Weighted(
+      sources,
+      emissionFactors,
+    )
 
-    // --- monthlyMix (Bucket: YYYY-MM) ---
-    let mb = monthBuckets.get(bp.monthKey)
-    if (!mb) {
-      mb = { sources: emptySources(), totalGen: 0, co2Weighted: 0, count: 0 }
-      monthBuckets.set(bp.monthKey, mb)
-    }
-    for (const key of sourceKeys) mb.sources[key] += sources[key]
-    mb.totalGen += totalGen
-    mb.co2Weighted += co2Weighted
-    mb.count++
+    const renewableGeneration =
+      calculateRenewableGeneration(sources)
 
-    // --- heatmapCo2 (Bucket: YYYY-MM-HH) ---
-    const heatKey = `${bp.year}-${String(bp.month).padStart(2, '0')}-${String(bp.hour).padStart(2, '0')}`
-    let hb = heatmapBuckets.get(heatKey)
-    if (!hb) {
-      hb = { co2Weighted: 0, totalGen: 0, count: 0 }
-      heatmapBuckets.set(heatKey, hb)
-    }
-    hb.co2Weighted += co2Weighted
-    hb.totalGen += totalGen
-    hb.count++
+    addToMonthBucket(
+      monthBuckets,
+      dateParts,
+      sources,
+      totalGeneration,
+      co2Weighted,
+    )
 
-    // --- scatterDaily (Bucket: YYYY-MM-DD) ---
-    let db = dayBuckets.get(bp.dateKey)
-    if (!db) {
-      db = { renewableGen: 0, totalGen: 0, co2Weighted: 0, count: 0 }
-      dayBuckets.set(bp.dateKey, db)
-    }
-    db.renewableGen += renewableGen
-    db.totalGen += totalGen
-    db.co2Weighted += co2Weighted
-    db.count++
+    addToHeatmapBucket(
+      heatmapBuckets,
+      dateParts,
+      totalGeneration,
+      co2Weighted,
+    )
 
-    // --- yearlyMix (Bucket: YYYY) ---
-    const yearKey = String(bp.year)
-    let yb = yearBuckets.get(yearKey)
-    if (!yb) {
-      yb = { sources: emptySources(), totalGen: 0, renewableGen: 0, co2Weighted: 0, count: 0 }
-      yearBuckets.set(yearKey, yb)
-    }
-    for (const key of sourceKeys) yb.sources[key] += sources[key]
-    yb.totalGen += totalGen
-    yb.renewableGen += renewableGen
-    yb.co2Weighted += co2Weighted
-    yb.count++
+    addToDayBucket(
+      dayBuckets,
+      dateParts,
+      renewableGeneration,
+      totalGeneration,
+      co2Weighted,
+    )
+
+    addToYearBucket(
+      yearBuckets,
+      dateParts,
+      sources,
+      renewableGeneration,
+      totalGeneration,
+      co2Weighted,
+    )
   }
 
-  // Auswertung der Skip-Statistiken
-  console.log(`\nAuswertung:`)
-  console.log(`  Gültige Stunden (Berlin 2015–2024):     ${validCount}`)
-  console.log(`  Außerhalb Berliner Jahre 2015–2024:    ${skippedOutside}`)
-  console.log(`  Unvollständige Datensätze:             ${skippedNonNumeric}`)
-  console.log(`  Negative Erzeugungswerte:              ${skippedNegative}`)
-  console.log(`  Gesamterzeugung <= 0:                  ${skippedZeroTotal}`)
-  console.log(`  Strukturell ergänzte Kernenergie-Nullen: ${nuclearFilledCount}`)
+  printProcessingSummary(
+    validCount,
+    skippedOutside,
+    skippedNonNumeric,
+    skippedNegative,
+    skippedZeroTotal,
+    nuclearFilledCount,
+  )
 
-  if (negativeExamples.length > 0) {
-    console.log(`\nBeispiele negativer Werte:`)
-    for (const ex of negativeExamples) console.log(ex)
-  }
+  if (negativeExamples.length &gt; 0) {
+    console.log('\nBeispiele negativer Werte:')
 
-  const totalSkipped = skippedNonNumeric + skippedNegative + skippedZeroTotal
-  const totalProcessed = validCount + totalSkipped
-  const skipFraction = totalProcessed > 0 ? totalSkipped / totalProcessed : 0
-
-  if (totalSkipped > 0) {
-    console.log(`\nWirklich übersprungene Stunden: ${totalSkipped} (${(skipFraction * 100).toFixed(2)} %)`)
-    if (skipFraction > MAX_SKIP_FRACTION) {
-      throw new Error(
-        `Mehr als ${MAX_SKIP_FRACTION * 100}% der Stunden übersprungen (${(skipFraction * 100).toFixed(1)}%). ` +
-        'Abbruch, um keine irreführende Datei zu erzeugen.',
-      )
+    for (const example of negativeExamples) {
+      console.log(example)
     }
   }
 
-  // Finale Arrays: erst nach vollständiger Akkumulation runden
+  checkSkippedHours(
+    validCount,
+    skippedNonNumeric,
+    skippedNegative,
+    skippedZeroTotal,
+  )
+
   const monthlyMix = finalizeMonthlyMix(monthBuckets)
   const heatmapCo2 = finalizeHeatmapCo2(heatmapBuckets)
   const scatterDaily = finalizeScatterDaily(dayBuckets)
   const yearlyMix = finalizeYearlyMix(yearBuckets)
 
-  // Qualitätsprüfung vor dem Schreiben
-  console.log('\nPrüfe finale Daten auf nicht-endliche Werte...')
-  const output = { monthlyMix, heatmapCo2, scatterDaily, yearlyMix }
-  deepCheckFinite(output, 'output')
+  const output = {
+    monthlyMix,
+    heatmapCo2,
+    scatterDaily,
+    yearlyMix,
+  }
 
-  // Ausgabe
+  console.log(
+    '\nPrüfe finale Daten auf ungültige Werte...',
+  )
+
+  checkFiniteValues(output, 'output')
+
   const json = JSON.stringify(output, null, 2)
-  await Bun.write('public/data/visualization-data.json', json)
 
-  const fileSizeMB = (new TextEncoder().encode(json).length / 1024 / 1024).toFixed(2)
-  console.log(`\nGespeichert: visualization-data.json (${fileSizeMB} MB)`)
-  console.log(`  monthlyMix:     ${monthlyMix.length} Monate`)
-  console.log(`  heatmapCo2:     ${heatmapCo2.length} Zellen`)
-  console.log(`  scatterDaily:   ${scatterDaily.length} Tage`)
-  console.log(`  yearlyMix:      ${yearlyMix.length} Jahre`)
+  await Bun.write(
+    'public/data/visualization-data.json',
+    json,
+  )
+
+  const fileSizeBytes =
+    new TextEncoder().encode(json).length
+
+  const fileSizeMb =
+    (fileSizeBytes / 1024 / 1024).toFixed(2)
+
+  console.log(
+    `\nGespeichert: visualization-data.json (${fileSizeMb} MB)`,
+  )
+  console.log(
+    `  monthlyMix:   ${monthlyMix.length} Monate`,
+  )
+  console.log(
+    `  heatmapCo2:   ${heatmapCo2.length} Zellen`,
+  )
+  console.log(
+    `  scatterDaily: ${scatterDaily.length} Tage`,
+  )
+  console.log(
+    `  yearlyMix:    ${yearlyMix.length} Jahre`,
+  )
 }
 
-// ===========================================================================
-// Einstieg
-// ===========================================================================
+/**
+ * Behandelt Fehler, die beim Start des Skripts auftreten.
+ *
+ * @param error Aufgetretener Fehler
+ */
+function handleMainError(error: unknown): void {
+  let message = String(error)
 
-main().catch((err: unknown) => {
-  const message = err instanceof Error ? err.message : String(err)
+  if (error instanceof Error) {
+    message = error.message
+  }
+
   console.error('Fehler:', message)
   process.exit(1)
-})
+}
+
+main().catch(handleMainError)

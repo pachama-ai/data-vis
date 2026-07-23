@@ -409,9 +409,9 @@ Das Projekt hat ein **3-stufiges Audit-System**:
 
 | Level | Skript | Prüfung |
 |---|---|---|
-| Level 1 | `scripts/audit/level1-integrity.ts` | Rohdaten-Integrität (Stunden/Jahr, Lücken, DST, Null-Werte, Wertebereiche, Summen-Konsistenz) |
+| Level 1 | `scripts/checks/level1-integrity.ts` | Rohdaten-Integrität (Stunden/Jahr, Lücken, DST, Null-Werte, Wertebereiche, Summen-Konsistenz) |
 | Level 2 | `vitest run` (Tests) | Unit-Tests für Logik-Funktionen |
-| Level 3 | `scripts/audit/level3-consistency.ts` | Konsistenz zwischen hourly/yearly (EE-Anteil, CO₂, Preise, Sparklines) |
+| Level 3 | `scripts/checks/level3-consistency.ts` | Konsistenz zwischen hourly/yearly (EE-Anteil, CO₂, Preise, Sparklines) |
 
 ### 8.2 Level-1-Prüfungen (Integrität)
 
