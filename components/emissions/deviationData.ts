@@ -30,7 +30,7 @@ import type { MixYearRow } from '~/composables/useMixData'
 import {
   calculateDeviationYear,
   DEFAULT_EMISSION_FACTORS,
-} from '~/composables/useEmissions'
+} from '~/components/emissions/emissionsData'
 
 // =========================================================================
 // Typen (nur hier, da Phase A noch keine separaten Typ-Dateien anlegt)

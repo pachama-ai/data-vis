@@ -12,9 +12,9 @@ import {
   calculateShare,
   findLargestMismatch,
   calculateMultipleYears,
-} from '~/composables/useDeviation'
+} from '~/components/emissions/deviationData'
 
-import { calculateDeviationYear } from '~/composables/useEmissions'
+import { calculateDeviationYear } from '~/components/emissions/emissionsData'
 
 import type { MixSourceKey, EmissionRow } from '~/types/mix'
 import type { MixYearRow } from '~/composables/useMixData'

@@ -14,7 +14,7 @@ import {
   calculateEmissionRows,
   calculateDeviationYear,
   DEFAULT_EMISSION_FACTORS,
-} from '~/composables/useEmissions'
+} from '~/components/emissions/emissionsData'
 
 import type { MixSourceKey } from '~/types/mix'
 import type { MixYearRow } from '~/composables/useMixData'

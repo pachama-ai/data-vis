@@ -9,7 +9,7 @@
  */
 
 import { ref, computed } from 'vue'
-import { useVisualizationData } from '~/composables/useVisualizationData'
+import { useVisualizationData } from '~/data/loadVisualizationData'
 import { STACK_ORDER } from '~/components/generation/mixConfig'
 import type { MixSourceKey, MixMonthRow, RawMixMonthPoint } from '~/types/mix'
 import type { VisualizationData } from '~/types/visualization-data'

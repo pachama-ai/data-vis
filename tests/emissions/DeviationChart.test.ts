@@ -99,8 +99,8 @@ vi.mock('~/composables/useMixData', () => {
   }
 })
 
-vi.mock('~/composables/useEmissions', async () => {
-  const actual = await vi.importActual('~/composables/useEmissions')
+vi.mock('~/components/emissions/emissionsData', async () => {
+  const actual = await vi.importActual('~/components/emissions/emissionsData')
 
   return {
     ...actual,

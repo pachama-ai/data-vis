@@ -25,13 +25,13 @@ import { useMixSelection } from '~/composables/useMixSelection'
 import {
   loadEmissionFactorsFile,
   calculateEmissionIntensity,
-} from '~/composables/useEmissions'
+} from '~/components/emissions/emissionsData'
 import {
   calculateMultipleYears,
   findLargestPositiveDeviation,
   calculateRenewableShare,
   BASE_YEAR,
-} from '~/composables/useDeviation'
+} from '~/components/emissions/deviationData'
 import {
   DeviationChart,
   createSymmetricDomain,

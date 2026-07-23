@@ -8,7 +8,7 @@
  */
 
 import { ref, computed, onMounted } from 'vue'
-import { useVisualizationData } from '~/composables/useVisualizationData'
+import { useVisualizationData } from '~/data/loadVisualizationData'
 import type { YearlyMixPoint } from '~/types/visualization-data'
 import type { EnergyDataPoint } from '~/components/home/GroupedBarChart.vue'
 import {
