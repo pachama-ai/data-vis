@@ -26,11 +26,11 @@ describe('Jahres-Aggregation', () => {
     { ts: Date.UTC(2023, 11, 31, 23), value: 5 },
   ]
 
-  it('Durchschnitt 2024 = 20', () => {
+  it('berechnet den Durchschnitt der Stundenwerte für 2024', () => {
     expect(hourlyToYearlyAvg(data, 2024)).toBeCloseTo(20, 1)
   })
 
-  it('Summe 2024 = 60', () => {
+  it('summiert die Stundenwerte für 2024', () => {
     expect(hourlyToYearlySum(data, 2024)).toBeCloseTo(60, 1)
   })
 
@@ -41,12 +41,12 @@ describe('Jahres-Aggregation', () => {
 
 // edge cases: null, undefined, NaN
 describe('Fehlende Werte', () => {
-  it('null in Datenreihe ignorieren', () => {
+  it('entfernt null und undefined aus der Datenreihe', () => {
     const data = [1, null, 3, undefined, 5].filter((v): v is number => v !== null && v !== undefined)
     expect(data).toEqual([1, 3, 5])
   })
 
-  it('NaN in Berechnung abfangen', () => {
+  it('entfernt NaN-Werte vor der Berechnung', () => {
     const vals = [10, NaN, 30].filter(v => !isNaN(v))
     const avg = vals.reduce((s, v) => s + v, 0) / vals.length
     expect(avg).toBeCloseTo(20, 1)
