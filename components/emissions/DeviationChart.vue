@@ -387,26 +387,6 @@ watch(colorMode, function (updatedMode) {
               </button>
             </div>
           </div>
-
-          <details class="reading-help">
-            <summary class="reading-help-summary">
-              <span class="reading-help-chevron">
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-                  <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-              </span>
-              So liest du das Diagramm
-            </summary>
-            <p class="reading-help-text">
-              Die Balken vergleichen den Anteil eines Energieträgers an der
-              Stromerzeugung mit seinem Anteil an den direkten
-              CO₂-Emissionen. Balken links von 0 bedeuten: Der
-              Energieträger verursacht anteilig weniger Emissionen, als er
-              Strom erzeugt. Balken rechts von 0 bedeuten: Er verursacht
-              anteilig mehr Emissionen. Je länger der Balken, desto größer
-              ist der Unterschied.
-            </p>
-          </details>
         </ChartTemplate>
       </div>
 
@@ -475,11 +455,6 @@ watch(colorMode, function (updatedMode) {
 
 .deviation-error {
   color: #b33;
-}
-
-.reading-help {
-  margin: 28px 0 0;
-  font-family: var(--font-sans);
 }
 
 .reading-help-summary {
@@ -577,3 +552,4 @@ details[open] .reading-help-chevron {
   }
 }
 </style>
+
