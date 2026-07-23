@@ -1,19 +1,14 @@
 <script setup lang="ts">
 /**
- * GroupedBarChart.vue – Horizontales gruppiertes Balkendiagramm
- * ==============================================================
+ * GroupedBarChart.vue – Gruppiertes Balkendiagramm für die Startseite.
  *
  * Zeigt den Wandel des deutschen Strommix 2015→2024 als zwei
  * horizontale Balken pro Energieträger (2015/2024 nebeneinander).
  *
- * Join-Pattern nach Kapitel 11.2.2 (D3-Datenbindung mit Enter/Update/Exit).
- * Skalen und Achsen nach Kapitel 11.5.1 (horizontale Variante).
- *
- * Der Chart ist offline-fähig: alle Daten kommen als Prop von der
- * Landing Page. Es gibt keinen fetch, keinen Netzwerk-Zugriff.
+ * Der Chart ist offline-fähig: alle Daten kommen als Prop.
  *
  * Interaktivität:
- *   - Tooltip bei Hover auf Balken (Vue-HTML-Tooltip, kein D3-Tooltip)
+ *   - Tooltip bei Hover auf Balken
  *   - Klick auf Zeilenbeschriftung filtert nach Kategorie
  */
 
@@ -216,19 +211,14 @@ const CATEGORY_LABELS: Record<EnergyCategory, string> = {
 // =========================================================================
 
 /**
- * Schaltet den Kategoriefilter um. Ruft die reine Funktion aus
- * GroupedBarChart.utils.ts auf und schreibt das Ergebnis in den Ref.
- * Grund: Die reine Funktion ist testbar, diese Hülle verbindet sie
- * mit dem Vue-Ref.
+ * Schaltet den Kategoriefilter um.
  */
 function toggleCategoryFilter(clickedCategory: EnergyCategory): void {
   activeCategory.value = toggleCategoryFilterPure(activeCategory.value, clickedCategory)
 }
 
 /**
- * Bestimmt die Textfarbe für ein Balken-Wertelabel.
- * 2015 in gedämpfter Sekundärfarbe, 2024 in kräftiger Primärfarbe.
- * Grund: unterstützt die Vorher/Nachher-Lesart.
+ * Textfarbe für Balken-Labels: 2015 gedämpft, 2024 kräftig.
  */
 function getBarLabelColor(year: '2015' | '2024'): string {
   if (year === '2015') {
@@ -324,7 +314,7 @@ function renderChart(): void {
     .range([0, innerWidth])
 
   // -----------------------------------------------------------------------
-  // Flaches Array für das Join-Pattern (Kapitel 11.2.2)
+  // Flaches Array für das Join-Pattern
   //
   // Jeder EnergyDataPoint erzeugt zwei FlatBarItem-Einträge:
   // einen für 2015 und einen für 2024. So können wir über ein
@@ -441,7 +431,7 @@ function renderChart(): void {
     .text('Anteil an der öffentlichen Nettostromerzeugung')
 
   // -----------------------------------------------------------------------
-  // Balken via Join-Pattern (Kapitel 11.2.2)
+  // Balken via Join-Pattern
   //
   // Jeder Balken ist ein <rect>-Element. Das Join-Pattern erlaubt uns,
   // auf Datenänderungen (Filter) mit fließenden Übergängen zu reagieren:
@@ -516,7 +506,7 @@ function renderChart(): void {
     })
 
   // -----------------------------------------------------------------------
-  // Wertelabels auf Balken (Join-Pattern, Kapitel 11.2.2)
+  // Wertelabels auf Balken
   //
   // Verwendet labelBars (gefiltert: keine Nullwerte). Gleiches
   // Join-Muster wie bei den Balken, aber mit Opacity-Transition.
@@ -561,10 +551,8 @@ function renderChart(): void {
   // - .row-label-name:  der Name (Kernenergie, Wind an Land, …)
   // - .row-label-cat:   die Kategorie (Kernkraft, Erneuerbar, Fossil)
   //
-  // Das Transform-Attribut wird NACH dem .join() auf der gemergten
-  // Selection gesetzt (siehe D3-Empfehlung), damit es sowohl auf neue
-  // (enter) als auch auf bestehende (update) Gruppen angewendet wird.
-  // So landen alle Gruppen an der richtigen y-Position.
+  // Das Transform-Attribut wird nach dem .join() gesetzt,
+  // damit es sowohl auf neue als auch auf bestehende Gruppen angewendet wird.
   // -----------------------------------------------------------------------
   // Zeilenbeschriftung links: eine Gruppe pro Energieträger.
   // Jede Gruppe enthält zwei Texte: Name (oben) und Kategorie (unten).

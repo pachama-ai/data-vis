@@ -36,8 +36,7 @@ export type SourceKey =
 // =========================================================================
 
 /**
- * Sortierung nach Kategorie unterstützt Preattentive Processing
- * (Skript Kap. 3.4): Erneuerbare wachsen als Block,
+ * Erneuerbare wachsen als Block,
  * Fossile schrumpfen als Block, Kernkraft verschwindet.
  * Alle Energieträger stammen aus SMARD (öffentliche Netzeinspeisung).
  */

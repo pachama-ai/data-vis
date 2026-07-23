@@ -1,14 +1,10 @@
 /**
- * utils/charts/DeviationChart.ts – D3-Klasse für das divergierende
- * Abweichungsdiagramm (Strombeitrag vs. Emissionsanteil).
+ * Zeichnet das Abweichungsdiagramm (CO₂-Vergleichsansicht).
  *
- * Zeigt für ein Jahr zehn horizontale Balken. Die Balkenlänge zeigt die
- * Abweichung zwischen Emissionsanteil und Erzeugungsanteil in Prozentpunkten.
- *
- * Negative Abweichung: Balken nach links (emissionsärmer als Stromanteil)
- * Positive Abweichung: Balken nach rechts (emissionsreicher als Stromanteil)
- *
- * Erbt von BaseChart. Enthält kein Vue, keine Sidebar, keinen Slider.
+ * Zehn horizontale Balken zeigen die Abweichung zwischen
+ * Emissionsanteil und Erzeugungsanteil in Prozentpunkten.
+ * Negative Werte: geringere Emissionen als Stromanteil.
+ * Positive Werte: höhere Emissionen als Stromanteil.
  */
 
 import * as d3 from 'd3'
@@ -35,12 +31,7 @@ type HoverEndHandler = () => void
 // Hilfsfunktionen (rein, direkt testbar)
 // =========================================================================
 
-/**
- * Berechnet die x-Position eines Balkens anhand der Abweichung.
- *
- * Positive Werte beginnen an der Nulllinie (xScale(0)) und verlaufen nach rechts.
- * Negative Werte beginnen am skalierten negativen Wert und verlaufen nach links.
- */
+/** @param deviationPp Abweichung in Prozentpunkten */
 export function getDeviationBarX(
   deviationPp: number,
   xScale: d3.ScaleLinear<number, number>,
@@ -54,10 +45,7 @@ export function getDeviationBarX(
   return zeroPosition
 }
 
-/**
- * Berechnet die Breite eines Balkens aus der Abweichung.
- * Der Betrag wird verwendet, da die Breite immer positiv ist.
- */
+/** @returns Balkenbreite in Pixeln (immer positiv) */
 export function getDeviationBarWidth(
   deviationPp: number,
   xScale: d3.ScaleLinear<number, number>,
@@ -69,14 +57,7 @@ export function getDeviationBarWidth(
 }
 
 /**
- * Erzeugt eine symmetrische Domain um null, aufgerundet auf die nächste
- * Zehnerstufe.
- *
- * Beispiele:
- *   0   → [-1,  1]
- *   7.3 → [-10, 10]
- *  26.9 → [-30, 30]
- *  31.2 → [-40, 40]
+ * Rundet die X-Achsen-Domain symmetrisch um null auf die nächste Zehnerstufe.
  */
 export function createSymmetricDomain(
   maximumDeviation: number,

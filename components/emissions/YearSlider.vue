@@ -175,12 +175,14 @@ function handleInput(event: Event): void {
   border-radius: 50%;
   background: var(--accent);
   cursor: pointer;
+  margin-top: -5px;
   transition: width 150ms ease-out, height 150ms ease-out;
 }
 
 .year-slider-input::-webkit-slider-thumb:hover {
   width: 14px;
   height: 14px;
+  margin-top: -6px;
 }
 
 .year-slider-input:focus-visible::-webkit-slider-thumb {

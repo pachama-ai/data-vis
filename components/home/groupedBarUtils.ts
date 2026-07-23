@@ -1,10 +1,7 @@
 /**
- * GroupedBarChart.utils.ts – Reine Hilfsfunktionen für das Balkendiagramm
- * =======================================================================
+ * Hilfsfunktionen für das Gruppierte-Balkendiagramm auf der Startseite.
  *
- * Enthält alle testbaren Funktionen, die unabhängig von Vue-Refs und D3
- * sind. Die Funktionen werden aus GroupedBarChart.vue importiert.
- * Dadurch sind sie einzeln testbar und die Vue-Komponente bleibt kürzer.
+ * In einer eigenen Datei, damit sie unabhängig von Vue getestet werden können.
  */
 
 // =========================================================================
@@ -24,12 +21,7 @@ export interface EnergyDataPoint {
   value2015: number
   /** Anteil 2024 in Prozent (exakt, ungerundet) */
   value2024: number
-  /**
-   * Delta value2024 minus value2015, berechnet aus den gerundeten
-   * Anzeigewerten. Damit gilt: angezeigter_Endwert minus
-   * angezeigter_Startwert = angezeigtes_Delta.
-   * Grund: keine Rundungs-Inkonsistenz für die Leser.
-   */
+  /** Differenz 2024 minus 2015, aus den gerundeten Anzeigewerten. */
   displayedDelta: number
 }
 
@@ -54,9 +46,7 @@ const OPACITY_YEAR_2024 = 1.0
 // =========================================================================
 
 /**
- * Rundet eine Zahl auf eine Nachkommastelle.
- * Beispiel: 16.75 wird zu 16.8.
- * Grund: für die Anzeige werden Werte auf eine Stelle gerundet.
+ * Rundet auf eine Nachkommastelle.
  */
 export function roundToOneDecimal(value: number): number {
   return Math.round(value * 10) / 10
@@ -67,11 +57,8 @@ export function roundToOneDecimal(value: number): number {
 // =========================================================================
 
 /**
- * Formatiert einen Delta-Wert mit Vorzeichen und Einheit.
- * Positive Werte bekommen ein Plus, negative ein typografisches Minus.
- * Beispiel: 11,75 wird zu "+11,8 pp", -16,8 wird zu "−16,8 pp".
- * Grund: Vorzeichen tragen die Richtungsinformation, keine Farbcodierung
- * mehr nötig (siehe Grafische Integrität, Skript Kap. 2.1).
+ * Formatiert die Veränderung mit Vorzeichen und Einheit.
+ * Beispiel: +11,8 pp oder −16,8 pp.
  */
 export function formatDelta(delta: number): string {
   const roundedNumber = roundToOneDecimal(Math.abs(delta))
@@ -86,9 +73,8 @@ export function formatDelta(delta: number): string {
 }
 
 /**
- * Formatiert einen Prozentwert für die Anzeige mit einer Nachkommastelle.
- * Beispiel: 16.75 wird zu "16,8 %".
- * Grund: einheitliches Zahlenformat im ganzen Chart.
+ * Formatiert einen Prozentwert mit einer Nachkommastelle.
+ * Beispiel: "16,8 %".
  */
 export function formatPercent(value: number): string {
   const roundedValue = roundToOneDecimal(value)
