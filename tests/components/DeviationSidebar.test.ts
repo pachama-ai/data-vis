@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
-import DeviationSidebar from '~/components/viz/DeviationSidebar.vue'
+import DeviationSidebar from '~/components/emissions/DeviationSidebar.vue'
 
 import type { DeviationYear, EmissionRow } from '~/types/mix'
 import type { MixSourceKey } from '~/types/mix'

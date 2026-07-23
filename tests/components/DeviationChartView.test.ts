@@ -1,19 +1,19 @@
 /**
- * tests/components/DeviationChartView.test.ts
+ * tests/components/DeviationChart.test.ts
  *
- * Testet die DeviationChartView-Komponente.
+ * Testet die DeviationChart-Komponente.
  *
  * Mockt useMixData und loadEmissionFactorsFile.
  * Der echte Chart wird unter happy-dom getestet.
  *
- * Aufruf: npx vitest run tests/components/DeviationChartView.test.ts
+ * Aufruf: npx vitest run tests/components/DeviationChart.test.ts
  */
 
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import * as d3 from 'd3'
 
-import DeviationChartView from '~/components/viz/DeviationChartView.vue'
+import DeviationChart from '~/components/emissions/DeviationChart.vue'
 
 import type { MixSourceKey } from '~/types/mix'
 import type { MixYearRow } from '~/composables/useMixData'
@@ -114,9 +114,9 @@ vi.mock('~/composables/useEmissions', async () => {
 // Tests
 // =========================================================================
 
-describe('DeviationChartView', () => {
+describe('DeviationChart', () => {
   it('zeigt den Titel an', async () => {
-    const wrapper = mount(DeviationChartView, {
+    const wrapper = mount(DeviationChart, {
       global: {
         stubs: {
           ChartTemplate: false,
@@ -134,7 +134,7 @@ describe('DeviationChartView', () => {
   })
 
   it('zeigt ein SVG mit Balken', async () => {
-    const wrapper = mount(DeviationChartView, {
+    const wrapper = mount(DeviationChart, {
       global: {
         stubs: {
           ChartTemplate: false,
@@ -157,7 +157,7 @@ describe('DeviationChartView', () => {
   })
 
   it('chart wird gerendert (Chart-Text sichtbar)', async () => {
-    const wrapper = mount(DeviationChartView, {
+    const wrapper = mount(DeviationChart, {
       global: {
         stubs: {
           ChartTemplate: false,
@@ -178,7 +178,7 @@ describe('DeviationChartView', () => {
   })
 
   it('Sidebar ist vorhanden (als stub)', async () => {
-    const wrapper = mount(DeviationChartView, {
+    const wrapper = mount(DeviationChart, {
       global: {
         stubs: {
           ChartTemplate: false,
@@ -197,7 +197,7 @@ describe('DeviationChartView', () => {
   })
 
   it('Sidebar ist vorhanden', async () => {
-    const wrapper = mount(DeviationChartView, {
+    const wrapper = mount(DeviationChart, {
       global: {
         stubs: {
           ChartTemplate: false,

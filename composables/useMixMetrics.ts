@@ -9,7 +9,7 @@ import {
   GROUP_OF,
   STACK_ORDER,
   MIX_GROUP_ORDER,
-} from '~/utils/mix-config'
+} from '~/components/generation/mixConfig'
 
 import type {
   MixAnnotation,

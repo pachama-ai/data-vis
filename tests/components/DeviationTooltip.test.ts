@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
-import DeviationTooltip from '~/components/viz/DeviationTooltip.vue'
+import DeviationTooltip from '~/components/emissions/DeviationTooltip.vue'
 
 import type { EmissionRow } from '~/types/mix'
 

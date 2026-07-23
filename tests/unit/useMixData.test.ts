@@ -13,7 +13,7 @@ import { describe, it, expect } from 'vitest'
 import { normalizeMonth, calculateYearRows } from '~/composables/useMixData'
 import type { MixMonthRow, MixSourceKey } from '~/types/mix'
 import type { MonthlyMixPoint } from '~/types/visualization-data'
-import { STACK_ORDER } from '~/utils/mix-config'
+import { STACK_ORDER } from '~/components/generation/mixConfig'
 
 // =========================================================================
 // Hilfsfunktion: erzeugt einen minimalen Rohdatenpunkt

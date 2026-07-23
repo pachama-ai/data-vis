@@ -20,7 +20,7 @@ import {
   labelAnchor,
 } from '~/utils/charts/DeviationChart'
 
-import { STACK_ORDER } from '~/utils/mix-config'
+import { STACK_ORDER } from '~/components/generation/mixConfig'
 
 import type { EmissionRow, MixSourceKey } from '~/types/mix'
 

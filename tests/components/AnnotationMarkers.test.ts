@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import AnnotationMarkers from '~/components/viz/AnnotationMarkers.vue'
+import AnnotationMarkers from '~/components/generation/AnnotationMarkers.vue'
 import type { MixSourceKey } from '~/types/mix'
 
 const testAnnotations = [

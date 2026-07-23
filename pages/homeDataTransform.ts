@@ -8,8 +8,8 @@
  */
 
 import type { YearlyMixPoint } from '~/types/visualization-data'
-import type { EnergyDataPoint, EnergyCategory } from '~/components/intro/GroupedBarChart.utils'
-import { roundToOneDecimal } from '~/components/intro/GroupedBarChart.utils'
+import type { EnergyDataPoint, EnergyCategory } from '~/components/home/groupedBarUtils'
+import { roundToOneDecimal } from '~/components/home/groupedBarUtils'
 
 // =========================================================================
 // Typdefinitionen

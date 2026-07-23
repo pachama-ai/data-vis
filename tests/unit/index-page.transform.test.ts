@@ -14,7 +14,7 @@ import {
   calculateSharePercent,
   transformYearlyDataToChartData,
   ITEM_CONFIG,
-} from '~/pages/index.transform'
+} from '~/pages/homeDataTransform'
 import type { YearlyMixPoint } from '~/types/visualization-data'
 
 // =========================================================================

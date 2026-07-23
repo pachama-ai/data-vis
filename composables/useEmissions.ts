@@ -9,7 +9,7 @@
  * (ohne Vorketten). Erneuerbare und Kernenergie haben in dieser Bilanz 0 g/kWh.
  */
 
-import { STACK_ORDER } from '~/utils/mix-config'
+import { STACK_ORDER } from '~/components/generation/mixConfig'
 
 import type { MixSourceKey, EmissionRow, DeviationYear, EmissionFactorsFile } from '~/types/mix'
 import type { MixYearRow } from '~/composables/useMixData'

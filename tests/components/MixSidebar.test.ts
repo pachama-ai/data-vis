@@ -3,7 +3,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import MixSidebar from '~/components/viz/MixSidebar.vue'
+import MixSidebar from '~/components/generation/MixSidebar.vue'
 import type { MixSourceKey } from '~/types/mix'
 import type {
   OverviewMetrics,

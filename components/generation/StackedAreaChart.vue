@@ -9,11 +9,11 @@
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import ChartTemplate from '~/components/viz/ChartTemplate.vue'
-import StackedAreaLegend from '~/components/viz/StackedAreaLegend.vue'
-import MixTooltip from '~/components/viz/MixTooltip.vue'
-import AnnotationMarkers from '~/components/viz/AnnotationMarkers.vue'
-import MixSidebar from '~/components/viz/MixSidebar.vue'
+import ChartTemplate from '~/components/common/ChartTemplate.vue'
+import StackedAreaLegend from '~/components/generation/StackedAreaLegend.vue'
+import MixTooltip from '~/components/generation/MixTooltip.vue'
+import AnnotationMarkers from '~/components/generation/AnnotationMarkers.vue'
+import MixSidebar from '~/components/generation/MixSidebar.vue'
 import { useMixData } from '~/composables/useMixData'
 import { useMixSelection } from '~/composables/useMixSelection'
 import { StackedAreaChart } from '~/utils/charts/StackedAreaChart'

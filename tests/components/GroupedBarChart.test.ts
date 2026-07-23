@@ -11,8 +11,8 @@
  */
 import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
-import GroupedBarChart from '~/components/intro/GroupedBarChart.vue'
-import type { EnergyDataPoint } from '~/components/intro/GroupedBarChart.utils'
+import GroupedBarChart from '~/components/home/GroupedBarChart.vue'
+import type { EnergyDataPoint } from '~/components/home/groupedBarUtils'
 
 /** Minimaler, realistischer Testdatensatz für das Balkendiagramm. */
 function createMockData(): EnergyDataPoint[] {

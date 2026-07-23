@@ -17,7 +17,7 @@ import {
   MIX_GROUP_ORDER,
   MIX_LABELS,
   STACK_ORDER,
-} from '~/utils/mix-config'
+} from '~/components/generation/mixConfig'
 
 import type { ColorMode, MixGroup, MixSourceKey } from '~/types/mix'
 

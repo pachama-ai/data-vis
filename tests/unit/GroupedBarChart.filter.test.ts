@@ -10,8 +10,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { toggleCategoryFilter } from '~/components/intro/GroupedBarChart.utils'
-import type { EnergyCategory } from '~/components/intro/GroupedBarChart.utils'
+import { toggleCategoryFilter } from '~/components/home/groupedBarUtils'
+import type { EnergyCategory } from '~/components/home/groupedBarUtils'
 
 // =========================================================================
 // toggleCategoryFilter

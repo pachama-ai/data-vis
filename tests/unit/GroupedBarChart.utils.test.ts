@@ -16,8 +16,8 @@ import {
   formatPercent,
   getLabelData,
   getBarOpacity,
-} from '~/components/intro/GroupedBarChart.utils'
-import type { FlatBarItem, EnergyDataPoint } from '~/components/intro/GroupedBarChart.utils'
+} from '~/components/home/groupedBarUtils'
+import type { FlatBarItem, EnergyDataPoint } from '~/components/home/groupedBarUtils'
 
 // =========================================================================
 // roundToOneDecimal

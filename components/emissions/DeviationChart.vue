@@ -16,10 +16,10 @@ import {
   watch,
 } from 'vue'
 
-import ChartTemplate from '~/components/viz/ChartTemplate.vue'
-import DeviationTooltip from '~/components/viz/DeviationTooltip.vue'
-import YearSlider from '~/components/viz/YearSlider.vue'
-import DeviationSidebar from '~/components/viz/DeviationSidebar.vue'
+import ChartTemplate from '~/components/common/ChartTemplate.vue'
+import DeviationTooltip from '~/components/emissions/DeviationTooltip.vue'
+import YearSlider from '~/components/emissions/YearSlider.vue'
+import DeviationSidebar from '~/components/emissions/DeviationSidebar.vue'
 import { useMixData } from '~/composables/useMixData'
 import { useMixSelection } from '~/composables/useMixSelection'
 import {
@@ -371,7 +371,7 @@ watch(colorMode, (updatedMode) => {
           </template>
 
           <div class="sort-section" role="radiogroup" aria-label="Sortierung">
-            <h3 class="sort-section-title">Sortierung</h3>
+            <h3 class="eyebrow">Sortierung</h3>
             <div class="sort-chips">
               <button
                 v-for="mode in sortModes"
@@ -478,7 +478,7 @@ watch(colorMode, (updatedMode) => {
 }
 
 .reading-help {
-  margin: 16px 0 0;
+  margin: 28px 0 0;
   font-family: var(--font-sans);
 }
 
@@ -500,7 +500,6 @@ watch(colorMode, (updatedMode) => {
 
 .reading-help-summary:hover {
   color: var(--fg);
-  background: rgba(0, 0, 0, 0.03);
 }
 
 .reading-help-summary::-webkit-details-marker {
@@ -534,15 +533,6 @@ details[open] .reading-help-chevron {
   margin-bottom: 16px;
 }
 
-.sort-section-title {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--fg-muted);
-  margin: 0 0 4px;
-}
 
 .sort-chips {
   display: flex;

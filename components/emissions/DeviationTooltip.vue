@@ -9,7 +9,7 @@
 
 import { computed } from 'vue'
 
-import { MIX_COLORS, MIX_LABELS } from '~/utils/mix-config'
+import { MIX_COLORS, MIX_LABELS } from '~/components/generation/mixConfig'
 
 import type { EmissionRow } from '~/types/mix'
 

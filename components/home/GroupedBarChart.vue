@@ -25,8 +25,8 @@ import {
   getBarOpacity,
   getLabelData,
   toggleCategoryFilter as toggleCategoryFilterPure,
-} from '~/components/intro/GroupedBarChart.utils'
-import type { EnergyDataPoint, FlatBarItem, EnergyCategory } from '~/components/intro/GroupedBarChart.utils'
+} from '~/components/home/groupedBarUtils'
+import type { EnergyDataPoint, FlatBarItem, EnergyCategory } from '~/components/home/groupedBarUtils'
 
 // =========================================================================
 // Typdefinitionen
@@ -35,7 +35,7 @@ import type { EnergyDataPoint, FlatBarItem, EnergyCategory } from '~/components/
 // GroupedBarChart.utils.ts importiert (dort definiert, damit sie auch
 // in Tests verwendet werden können).
 // EnergyDataPoint wird zusätzlich exportiert für pages/index.vue.
-export type { EnergyDataPoint } from '~/components/intro/GroupedBarChart.utils'
+export type { EnergyDataPoint } from '~/components/home/groupedBarUtils'
 
 /** Zustand des Vue-HTML-Tooltips. */
 interface TooltipState {

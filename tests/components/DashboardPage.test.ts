@@ -9,14 +9,14 @@ import { describe, it, expect, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import DashboardPage from '~/pages/dashboard.vue'
 
-const StrommixPanelStub = {
+const GenerationPanelStub = {
   template:
-    '<div data-testid="strommix-panel-stub">StrommixPanel</div>',
+    '<div data-testid="generation-panel-stub">GenerationPanel</div>',
 }
 
-const EmissionPanelStub = {
+const EmissionsPanelStub = {
   template:
-    '<div data-testid="emission-panel-stub">EmissionPanel</div>',
+    '<div data-testid="emissions-panel-stub">EmissionsPanel</div>',
 }
 
 // useRoute simulieren
@@ -33,17 +33,17 @@ describe('DashboardPage', () => {
     const wrapper = mount(DashboardPage, {
       global: {
         stubs: {
-          StrommixPanel: StrommixPanelStub,
-          EmissionPanel: EmissionPanelStub,
+          GenerationPanel: GenerationPanelStub,
+          EmissionsPanel: EmissionsPanelStub,
         },
       },
     })
 
     expect(
-      wrapper.find('[data-testid="strommix-panel-stub"]').exists(),
+      wrapper.find('[data-testid="generation-panel-stub"]').exists(),
     ).toBe(true)
     expect(
-      wrapper.find('[data-testid="emission-panel-stub"]').exists(),
+      wrapper.find('[data-testid="emissions-panel-stub"]').exists(),
     ).toBe(false)
   })
 
@@ -56,17 +56,17 @@ describe('DashboardPage', () => {
     const wrapper = mount(DashboardPage, {
       global: {
         stubs: {
-          StrommixPanel: StrommixPanelStub,
-          EmissionPanel: EmissionPanelStub,
+          GenerationPanel: GenerationPanelStub,
+          EmissionsPanel: EmissionsPanelStub,
         },
       },
     })
 
     expect(
-      wrapper.find('[data-testid="strommix-panel-stub"]').exists(),
+      wrapper.find('[data-testid="generation-panel-stub"]').exists(),
     ).toBe(false)
     expect(
-      wrapper.find('[data-testid="emission-panel-stub"]').exists(),
+      wrapper.find('[data-testid="emissions-panel-stub"]').exists(),
     ).toBe(true)
   })
 
@@ -76,8 +76,8 @@ describe('DashboardPage', () => {
     const wrapper = mount(DashboardPage, {
       global: {
         stubs: {
-          StrommixPanel: StrommixPanelStub,
-          EmissionPanel: EmissionPanelStub,
+          GenerationPanel: GenerationPanelStub,
+          EmissionsPanel: EmissionsPanelStub,
         },
       },
     })

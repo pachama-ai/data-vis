@@ -22,7 +22,7 @@
  *  (z. B. Erneuerbare: 50 % Erzeugung, 0 % Emissionen → –50 pp).
  */
 
-import { GROUP_OF, STACK_ORDER } from '~/utils/mix-config'
+import { GROUP_OF, STACK_ORDER } from '~/components/generation/mixConfig'
 
 import type { EmissionRow, DeviationYear, MixGroup, MixSourceKey } from '~/types/mix'
 import type { MixYearRow } from '~/composables/useMixData'

@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
 
-import YearSlider from '~/components/viz/YearSlider.vue'
+import YearSlider from '~/components/emissions/YearSlider.vue'
 
 describe('YearSlider', () => {
   it('zeigt das gewählte Jahr an', () => {

@@ -8,7 +8,7 @@
 import * as d3 from 'd3'
 
 import { BaseChart } from '~/utils/charts/BaseChart'
-import { MIX_COLORS, MIX_COLORS_ACCESSIBLE, STACK_ORDER } from '~/utils/mix-config'
+import { MIX_COLORS, MIX_COLORS_ACCESSIBLE, STACK_ORDER } from '~/components/generation/mixConfig'
 
 import type { MixMode, MixMonthRow, MixSourceKey, MixAnnotation } from '~/types/mix'
 

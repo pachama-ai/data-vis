@@ -1,52 +1,49 @@
 <script setup lang="ts">
 /**
- * EmissionPanel.vue – Rahmen für die Emissions-Visualisierung.
+ * StrommixPanel.vue – Rahmen für die Strommix-Visualisierung.
  *
  * Enthält keine eigene Daten- oder Chartlogik.
- * Verwendet ausschließlich die fertige DeviationChartView-Komponente.
+ * Verwendet ausschließlich die fertige StackedArea-Komponente.
  */
 
-import DeviationChartView from '~/components/viz/DeviationChartView.vue'
+import StackedAreaChart from '~/components/generation/StackedAreaChart.vue'
 </script>
 
 <template>
   <section
-    class="emission-panel"
-    aria-labelledby="emission-panel-title"
+    class="strommix-panel"
+    aria-labelledby="strommix-panel-title"
   >
-    <header class="emission-panel-header">
-      <div class="emission-panel-heading">
-        <p class="emission-panel-eyebrow">
+    <header class="strommix-panel-header">
+      <div class="strommix-panel-heading">
+        <p class="strommix-panel-eyebrow">
           Strom und Klimaneutralität
         </p>
 
         <h1
-          id="emission-panel-title"
-          class="emission-panel-title"
+          id="strommix-panel-title"
+          class="strommix-panel-title"
         >
-          Stromerzeugung und CO₂-Emissionen im Vergleich
+          Entwicklung der Stromerzeugung 2015–2024
         </h1>
 
-        <p class="emission-panel-subtitle">
-          Das Diagramm zeigt den Unterschied zwischen dem Anteil
-          eines Energieträgers an der Stromerzeugung und seinem
-          Anteil an den direkten CO₂-Emissionen.
+        <p class="strommix-panel-subtitle">
+          Monatliche Entwicklung der öffentlichen Nettostromerzeugung
+          in Deutschland auf Basis von SMARD-Daten, in
+          Terawattstunden (TWh).
         </p>
       </div>
     </header>
 
-    <div class="emission-panel-visualization">
-      <DeviationChartView />
+    <div class="strommix-panel-visualization">
+      <StackedAreaChart />
     </div>
 
-    <footer class="emission-panel-footer">
-      <div class="emission-panel-sources">
-        <div class="emission-source-block">
+    <footer class="strommix-panel-footer">
+      <div class="strommix-panel-sources">
+        <div class="source-block">
           <p class="source-label">Datenquelle</p>
-          <p class="source-text">
-            SMARD-Strommarktdaten der Bundesnetzagentur; Emissionsfaktoren
-            des Umweltbundesamtes (Climate Change 16/2026)
-          </p>
+          <p class="source-text">SMARD-Strommarktdaten der Bundesnetzagentur</p>
         </div>
       </div>
     </footer>
@@ -54,13 +51,13 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
 </template>
 
 <style scoped>
-.emission-panel {
+.strommix-panel {
   width: min(1400px, 100%);
   margin: 0 auto;
   padding: 32px 24px 48px;
 }
 
-.emission-panel-header {
+.strommix-panel-header {
   display: flex;
   justify-content: space-between;
   align-items: flex-start;
@@ -68,11 +65,11 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
   margin-bottom: 28px;
 }
 
-.emission-panel-heading {
+.strommix-panel-heading {
   max-width: 760px;
 }
 
-.emission-panel-eyebrow {
+.strommix-panel-eyebrow {
   font-family: var(--font-sans);
   font-size: 11px;
   font-weight: 600;
@@ -82,7 +79,7 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
   margin: 0 0 8px;
 }
 
-.emission-panel-title {
+.strommix-panel-title {
   font-family: var(--font-serif);
   font-size: clamp(24px, 3vw, 36px);
   font-weight: 600;
@@ -92,7 +89,7 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
   letter-spacing: -0.01em;
 }
 
-.emission-panel-subtitle {
+.strommix-panel-subtitle {
   margin: 10px 0 0;
   font-family: var(--font-sans);
   font-size: 15px;
@@ -100,23 +97,23 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
   color: var(--fg-muted);
 }
 
-.emission-panel-visualization {
+.strommix-panel-visualization {
   margin-top: 0;
 }
 
-.emission-panel-footer {
+.strommix-panel-footer {
   margin-top: 32px;
   border-top: 1px solid var(--hairline);
   padding-top: 20px;
 }
 
-.emission-panel-sources {
+.strommix-panel-sources {
   display: flex;
   flex-wrap: wrap;
   gap: 24px;
 }
 
-.emission-source-block {
+.source-block {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -140,10 +137,8 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
   margin: 0;
 }
 
-
-
 @media (max-width: 700px) {
-  .emission-panel-header {
+  .strommix-panel-header {
     flex-direction: column;
     gap: 16px;
   }

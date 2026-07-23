@@ -65,7 +65,7 @@ function handleInput(event: Event): void {
 <template>
   <div class="year-slider">
     <div class="year-slider-header">
-      <span class="eyebrow-title">Jahr der Darstellung</span>
+      <span class="eyebrow">Jahr der Darstellung</span>
 
       <output
         class="year-slider-value"
@@ -106,17 +106,6 @@ function handleInput(event: Event): void {
 <style scoped>
 .year-slider {
   padding: 0 0 20px;
-}
-
-/* Eyebrow-Überschrift (wie SORTIERUNG, DATENQUELLE) */
-.eyebrow-title {
-  font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--fg-muted);
-  user-select: none;
 }
 
 /* ── Header-Zeile ── */

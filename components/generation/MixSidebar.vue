@@ -11,8 +11,8 @@ import {
   MIX_LABELS,
   MIX_COLORS,
   MIX_GROUP_LABELS,
-} from '~/utils/mix-config'
-import AnnotationMarkers from '~/components/viz/AnnotationMarkers.vue'
+} from '~/components/generation/mixConfig'
+import AnnotationMarkers from '~/components/generation/AnnotationMarkers.vue'
 
 import type { MixSourceKey, MixAnnotation } from '~/types/mix'
 import type {

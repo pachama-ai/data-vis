@@ -10,8 +10,8 @@
 import { computed } from 'vue'
 import { useRoute } from 'nuxt/app'
 
-import StrommixPanel from '~/components/dashboard/StrommixPanel.vue'
-import EmissionPanel from '~/components/dashboard/EmissionPanel.vue'
+import GenerationPanel from '~/components/generation/GenerationPanel.vue'
+import EmissionsPanel from '~/components/emissions/EmissionsPanel.vue'
 
 const route = useRoute()
 
@@ -24,8 +24,8 @@ const activeTab = computed<DashboardTab>(() =>
 
 <template>
   <main class="dashboard-page">
-    <StrommixPanel v-if="activeTab === 'generation'" />
-    <EmissionPanel v-else />
+    <GenerationPanel v-if="activeTab === 'generation'" />
+    <EmissionsPanel v-else />
   </main>
 </template>
 

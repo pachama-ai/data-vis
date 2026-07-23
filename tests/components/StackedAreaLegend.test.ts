@@ -7,7 +7,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import StackedAreaLegend from '~/components/viz/StackedAreaLegend.vue'
+import StackedAreaLegend from '~/components/generation/StackedAreaLegend.vue'
 
 describe('StackedAreaLegend', () => {
   it('zeigt alle zehn Energieträger plus "Alle"-Button', () => {

@@ -15,7 +15,7 @@ import {
   MIX_COLORS_ACCESSIBLE,
   GROUP_OF,
   MIX_GROUP_LABELS,
-} from '~/utils/mix-config'
+} from '~/components/generation/mixConfig'
 
 import type { DeviationYear, EmissionRow, MixSourceKey } from '~/types/mix'
 
@@ -152,7 +152,7 @@ function meaning(row: EmissionRow): string {
 
       <!-- Null-Erzeugung: Sondermeldung -->
       <template v-if="hasZeroGeneration">
-        <p class="sidebar-eyebrow">{{ MIX_LABELS[activeRow.sourceKey] }}</p>
+        <p class="eyebrow">{{ MIX_LABELS[activeRow.sourceKey] }}</p>
         <p class="sidebar-zero-msg">
           Im Jahr {{ activeYear?.year }} fand keine Stromerzeugung
           aus {{ MIX_LABELS[activeRow.sourceKey] }} statt.
@@ -177,7 +177,7 @@ function meaning(row: EmissionRow): string {
 
         <!-- Vergleichsgrafik -->
         <section class="sidebar-section">
-          <p class="sidebar-eyebrow">Stromerzeugung und CO₂-Emissionen</p>
+          <p class="eyebrow">Stromerzeugung und CO₂-Emissionen</p>
           <div class="cmp-strip">
             <div class="cmp-strip-row">
               <span class="cmp-strip-label">Strom</span>
@@ -206,7 +206,7 @@ function meaning(row: EmissionRow): string {
 
         <!-- Differenz -->
         <section class="sidebar-section">
-          <p class="sidebar-eyebrow">Differenz</p>
+          <p class="eyebrow">Differenz</p>
           <p
             class="sidebar-diff-value"
             :class="{
@@ -226,7 +226,7 @@ function meaning(row: EmissionRow): string {
 
         <!-- Bedeutung -->
         <section class="sidebar-section">
-          <p class="sidebar-eyebrow">Bedeutung</p>
+          <p class="eyebrow">Bedeutung</p>
           <p class="sidebar-sentence">{{ meaning(activeRow) }}</p>
         </section>
 
@@ -234,7 +234,7 @@ function meaning(row: EmissionRow): string {
         <template v-if="selectedRowBaseShare !== null && hasSelection">
           <div class="sidebar-divider"></div>
           <section class="sidebar-section">
-            <p class="sidebar-eyebrow">Entwicklung seit 2015</p>
+            <p class="eyebrow">Entwicklung seit 2015</p>
             <p class="sidebar-sentence">
               Der Anteil an der Stromerzeugung
               {{ selectedRowBaseShare! > activeRow.generationShare ? 'sank' : 'stieg' }}
@@ -254,7 +254,7 @@ function meaning(row: EmissionRow): string {
       <div class="sidebar-divider"></div>
 
       <section class="sidebar-section sidebar-context">
-        <p class="sidebar-eyebrow">Jahresüberblick</p>
+        <p class="eyebrow">Jahresüberblick</p>
 
         <div class="context-row">
           <span class="context-label">CO₂-Emissionen je kWh</span>
@@ -322,12 +322,7 @@ function meaning(row: EmissionRow): string {
   margin-bottom: 4px;
 }
 
-.sidebar-eyebrow {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
+.sidebar-section .eyebrow {
   margin: 0 0 8px;
 }
 

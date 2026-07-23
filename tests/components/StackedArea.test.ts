@@ -1,10 +1,10 @@
-ï»¿/**
- * tests/components/StackedArea.test.ts
+/**
+ * tests/components/StackedAreaChart.test.ts
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { mount, flushPromises } from '@vue/test-utils'
 import { useMixSelection } from '~/composables/useMixSelection'
-import StackedArea from '~/components/viz/StackedArea.vue'
+import StackedAreaChart from '~/components/generation/StackedAreaChart.vue'
 
 function createMonthRow(month: string, value: number) {
   const [y, m] = month.split('-')
@@ -50,28 +50,28 @@ beforeEach(() => {
   }))
 })
 
-describe('StackedArea', () => {
+describe('StackedAreaChart', () => {
   it('shows title', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
     expect(wrapper.find('.chart-container svg').exists()).toBe(true)
   })
 
   it('renders SVG with 10 layers', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
     expect(wrapper.findAll('.layer').length).toBe(10)
   })
 
   it('shows mode buttons', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
     expect(wrapper.text()).toContain('TWh')
     expect(wrapper.text()).toContain('Prozent')
   })
 
   it('toggles mode on button click', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
     const shareBtn = wrapper.findAll('button').find((b) => b.text().includes('Prozent'))
     await shareBtn?.trigger('click')
@@ -80,7 +80,7 @@ describe('StackedArea', () => {
   })
 
   it('shows legend with energy sources', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
     expect(wrapper.text()).toContain('Photovoltaik')
     expect(wrapper.text()).toContain('Braunkohle')
@@ -88,7 +88,7 @@ describe('StackedArea', () => {
   })
 
   it('toggles highlight on legend chip click', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const pvBtn = wrapper.findAll('button').find((b) => b.text().includes('Photovoltaik'))
@@ -103,7 +103,7 @@ describe('StackedArea', () => {
   })
 
   it('renders hover overlay and guide', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const overlay = wrapper.find('.hover-overlay')
@@ -114,14 +114,14 @@ describe('StackedArea', () => {
   })
 
   it('does not show tooltip initially', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     expect(wrapper.find('.mix-tooltip').exists()).toBe(false)
   })
 
   it('zeigt einen Marker nach dem Laden (nur statisch, kein Punkt 6 mehr)', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     // Marker sind jetzt in der Sidebar als .annotation-button
@@ -129,7 +129,7 @@ describe('StackedArea', () => {
   })
 
   it('selektiert Annotation bei Klick auf Marker', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const markers = wrapper.findAll('.annotation-button')
@@ -141,7 +141,7 @@ describe('StackedArea', () => {
   })
 
   it('deselektiert Annotation bei erneutem Klick', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const markers = wrapper.findAll('.annotation-button')
@@ -154,8 +154,8 @@ describe('StackedArea', () => {
     expect(firstMarker.attributes('aria-pressed')).toBe('false')
   })
 
-  it('zeigt feste Guide-Linie bei ausgewÃ¤hlter Annotation', async () => {
-    const wrapper = mount(StackedArea)
+  it('zeigt feste Guide-Linie bei ausgewählter Annotation', async () => {
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const markers = wrapper.findAll('.annotation-button')
@@ -167,15 +167,15 @@ describe('StackedArea', () => {
     expect(guide.exists()).toBe(true)
   })
 
-  it('zeigt Default-Sidebar mit Ãœbersicht', async () => {
-    const wrapper = mount(StackedArea)
+  it('zeigt Default-Sidebar mit Übersicht', async () => {
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     expect(wrapper.text()).toContain('Vergleich zwischen 2015 und 2024')
   })
 
   it('zeigt Quellenzustand bei Legendenklick', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const pvButton = wrapper.findAll('button').find((button) => {
@@ -187,12 +187,12 @@ describe('StackedArea', () => {
 
     expect(wrapper.text()).toContain('Photovoltaik')
     expect(wrapper.text()).toContain('Jahressumme 2024')
-    expect(wrapper.text()).toContain('HÃ¶chster Monatswert')
+    expect(wrapper.text()).toContain('Höchster Monatswert')
     expect(wrapper.text()).toContain('Niedrigster Monatswert')
   })
 
-  it('zeigt wieder Ãœbersicht nach erneutem Legendenklick', async () => {
-    const wrapper = mount(StackedArea)
+  it('zeigt wieder Übersicht nach erneutem Legendenklick', async () => {
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const pvButton = wrapper.findAll('button').find((button) => {
@@ -208,7 +208,7 @@ describe('StackedArea', () => {
   })
 
   it('zeigt Annotation-Zustand bei Marker-Klick', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const markers = wrapper.findAll('.annotation-button')
@@ -217,14 +217,14 @@ describe('StackedArea', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Test Event')
-    expect(wrapper.text()).toContain('Anteile im ausgewÃ¤hlten Monat')
+    expect(wrapper.text()).toContain('Anteile im ausgewählten Monat')
   })
 
   it('Annotation hat Vorrang vor Quelle', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
-    // Erst Quelle auswÃ¤hlen
+    // Erst Quelle auswählen
     const pvButton = wrapper.findAll('button').find((button) => {
       return button.text().includes('Photovoltaik')
     })
@@ -232,7 +232,7 @@ describe('StackedArea', () => {
     await pvButton?.trigger('click')
     await flushPromises()
 
-    // Dann Annotation auswÃ¤hlen
+    // Dann Annotation auswählen
     const markers = wrapper.findAll('.annotation-button')
     const firstMarker = markers[0]!
     await firstMarker.trigger('click')
@@ -240,14 +240,14 @@ describe('StackedArea', () => {
 
     // Annotation-Text sichtbar
     expect(wrapper.text()).toContain('Test Event')
-    expect(wrapper.text()).toContain('Anteile im ausgewÃ¤hlten Monat')
+    expect(wrapper.text()).toContain('Anteile im ausgewählten Monat')
   })
 
-  it('"Alle"-Button setzt Hervorhebung zurÃ¼ck', async () => {
-    const wrapper = mount(StackedArea)
+  it('"Alle"-Button setzt Hervorhebung zurück', async () => {
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
-    // Photovoltaik auswÃ¤hlen
+    // Photovoltaik auswählen
     const pvButton = wrapper.findAll('button').find((button) => {
       return button.text().includes('Photovoltaik')
     })!
@@ -255,7 +255,7 @@ describe('StackedArea', () => {
     await pvButton.trigger('click')
     await flushPromises()
 
-    // PrÃ¼fe: pv-Layer opacity 1, gas-Layer opacity 0.15
+    // Prüfe: pv-Layer opacity 1, gas-Layer opacity 0.15
     expect(
       wrapper.find('.layer-pv').attributes('opacity'),
     ).toBe('1')
@@ -272,7 +272,7 @@ describe('StackedArea', () => {
     await allButton.trigger('click')
     await flushPromises()
 
-    // PrÃ¼fe: alle Layer wieder opacity 1
+    // Prüfe: alle Layer wieder opacity 1
     expect(
       wrapper.find('.layer-pv').attributes('opacity'),
     ).toBe('1')
@@ -289,21 +289,21 @@ describe('StackedArea', () => {
   })
 
   it('hat keine permanente Ereignisliste (kein .annotation-list)', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     expect(wrapper.find('.annotation-list').exists()).toBe(false)
   })
 
   it('zeigt keinen Datenstand mehr im Chart', async () => {
-    const wrapper = mount(StackedArea)
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     expect(wrapper.text()).not.toContain('Datenstand:')
   })
 
-  it('Marker-Bereich enthÃ¤lt nicht "Aktueller Datenstand"', async () => {
-    const wrapper = mount(StackedArea)
+  it('Marker-Bereich enthält nicht "Aktueller Datenstand"', async () => {
+    const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
     const markerSection = wrapper.find('.annotation-navigation')

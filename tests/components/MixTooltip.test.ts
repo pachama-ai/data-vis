@@ -9,7 +9,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import MixTooltip from '~/components/viz/MixTooltip.vue'
+import MixTooltip from '~/components/generation/MixTooltip.vue'
 import type { MixMonthRow, MixSourceKey } from '~/types/mix'
 
 // =========================================================================

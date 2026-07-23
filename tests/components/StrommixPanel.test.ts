@@ -1,5 +1,5 @@
 /**
- * tests/components/StrommixPanel.test.ts
+ * tests/components/GenerationPanel.test.ts
  *
  * Testet ausschließlich den Rahmen des Strommix-Panels.
  * Die interaktive Logik von StackedArea wird separat getestet.
@@ -7,10 +7,10 @@
 
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import StrommixPanel from '~/components/dashboard/StrommixPanel.vue'
+import GenerationPanel from '~/components/generation/GenerationPanel.vue'
 
 // Einfacher Stub für StackedArea, damit keine D3- oder Fetch-Logik läuft
-const StackedAreaStub = {
+const StackedAreaChartStub = {
   template: '<div data-testid="stacked-area-stub">Chart</div>',
 }
 
@@ -20,12 +20,12 @@ const NuxtLinkStub = {
   props: ['to'],
 }
 
-describe('StrommixPanel', () => {
+describe('GenerationPanel', () => {
   it('zeigt den Titel Erzeugungsmix 2015–2024', () => {
-    const wrapper = mount(StrommixPanel, {
+    const wrapper = mount(GenerationPanel, {
       global: {
         stubs: {
-          StackedArea: StackedAreaStub,
+          StackedAreaChart: StackedAreaChartStub,
           NuxtLink: NuxtLinkStub,
         },
       },
@@ -35,10 +35,10 @@ describe('StrommixPanel', () => {
   })
 
   it('zeigt den Untertitel mit SMARD-Bezug', () => {
-    const wrapper = mount(StrommixPanel, {
+    const wrapper = mount(GenerationPanel, {
       global: {
         stubs: {
-          StackedArea: StackedAreaStub,
+          StackedAreaChart: StackedAreaChartStub,
           NuxtLink: NuxtLinkStub,
         },
       },
@@ -48,10 +48,10 @@ describe('StrommixPanel', () => {
   })
 
   it('bindet StackedArea als Visualisierung ein', () => {
-    const wrapper = mount(StrommixPanel, {
+    const wrapper = mount(GenerationPanel, {
       global: {
         stubs: {
-          StackedArea: StackedAreaStub,
+          StackedAreaChart: StackedAreaChartStub,
           NuxtLink: NuxtLinkStub,
         },
       },
@@ -65,10 +65,10 @@ describe('StrommixPanel', () => {
   })
 
   it('enthält keine Quellenangabe im Panel (nur übergeordnet)', () => {
-    const wrapper = mount(StrommixPanel, {
+    const wrapper = mount(GenerationPanel, {
       global: {
         stubs: {
-          StackedArea: StackedAreaStub,
+          StackedAreaChart: StackedAreaChartStub,
           NuxtLink: NuxtLinkStub,
         },
       },

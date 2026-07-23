@@ -10,12 +10,12 @@
 import { ref, computed, onMounted } from 'vue'
 import { useVisualizationData } from '~/composables/useVisualizationData'
 import type { YearlyMixPoint } from '~/types/visualization-data'
-import type { EnergyDataPoint } from '~/components/intro/GroupedBarChart.vue'
+import type { EnergyDataPoint } from '~/components/home/GroupedBarChart.vue'
 import {
   ITEM_CONFIG,
   calculateSharePercent,
   transformYearlyDataToChartData,
-} from '~/pages/index.transform'
+} from '~/pages/homeDataTransform'
 
 const { loadVisualizationData } = useVisualizationData()
 

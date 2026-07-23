@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { MIX_COLORS } from '~/utils/mix-config'
+import { MIX_COLORS } from '~/components/generation/mixConfig'
 
 describe('MIX_COLORS', () => {
   it('enthält alle zehn aktualisierten Farben', () => {
