@@ -55,7 +55,7 @@ function handleSelect(annotation: MixAnnotation): void {
     </div>
 
     <p class="annotation-help">
-      {{ selectedAnnotation === null ? 'Zahl anklicken, um den Zeitpunkt im Chart zu markieren' : 'Nochmal klicken, um wieder alle Energieträger zu sehen' }}
+      {{ selectedAnnotation === null ? 'Ereignis im Zeitverlauf anzeigen' : 'Erneut anklicken, um die Auswahl aufzuheben' }}
     </p>
   </div>
 </template>

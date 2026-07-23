@@ -295,12 +295,11 @@ describe('StackedArea', () => {
     expect(wrapper.find('.annotation-list').exists()).toBe(false)
   })
 
-  it('zeigt Datenstand-Metazeile nach dem Laden', async () => {
+  it('zeigt keinen Datenstand mehr im Chart', async () => {
     const wrapper = mount(StackedArea)
     await flushPromises()
 
-    expect(wrapper.text()).toContain('Quelle: SMARD')
-    expect(wrapper.text()).toContain('Datenstand:')
+    expect(wrapper.text()).not.toContain('Datenstand:')
   })
 
   it('Marker-Bereich enthält nicht "Aktueller Datenstand"', async () => {

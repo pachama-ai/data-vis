@@ -20,10 +20,6 @@
       <p><strong>Prozentpunkte (pp)</strong> – Absolute Differenz zwischen den Anteilen von 2015 und 2024. Beispiel: Steigt ein Anteil von 20 % auf 25 %, ist das ein Zuwachs von 5 Prozentpunkten (nicht 25 %).</p>
       <p><strong>Sonstige konventionelle Energieträger</strong> – Nicht-erneuerbare Energieträger außerhalb von Kohle, Erdgas und Kernenergie. Umfasst insbesondere Mineralöl, Grubengas und nicht erneuerbare Abfälle. Zusammen tragen sie in Deutschland typischerweise unter 5 % zur öffentlichen Nettostromerzeugung bei.</p>
       <p><strong>Öffentliche Nettostromerzeugung</strong> – In das öffentliche Stromnetz eingespeister Strom. Der industrielle Eigenverbrauch (zum Beispiel werkseigene Kraftwerke, Photovoltaik-Eigenverbrauch privater Haushalte) ist nicht enthalten.</p>
-      <p><strong>CO₂-Intensität</strong> – Gramm CO₂ pro erzeugter Kilowattstunde Strom. Berechnet aus dem stündlichen Erzeugungsmix und den Emissionsfaktoren des Umweltbundesamts.</p>
-      <p><strong>EE-Anteil (Erneuerbare Energien)</strong> – Anteil aus Wind (Onshore + Offshore), Photovoltaik, Wasserkraft und Biomasse an der Gesamterzeugung.</p>
-      <p><strong>Konventioneller Anteil</strong> – Alle nicht-erneuerbaren Erzeugungsarten: Braunkohle, Steinkohle, Erdgas, Kernkraft und Sonstige Konventionelle. <em>Nicht identisch mit „fossil" – Kernkraft ist enthalten.</em></p>
-      <p><strong>Fossiler Anteil</strong> – Nur Braunkohle, Steinkohle, Erdgas und Öl. Ohne Kernkraft.</p>
 
     </div>
   </details>

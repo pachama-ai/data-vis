@@ -23,7 +23,10 @@ import type { ColorMode, MixGroup, MixSourceKey } from '~/types/mix'
 
 const props = defineProps<{
   highlighted: MixSourceKey | null
+  highlightedSources?: MixSourceKey[] | null
   colorMode: ColorMode
+  /** Ob ein Ereignis (Annotation) aktiv ist – dann wird die Legende gesperrt */
+  hasActiveAnnotation?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -47,11 +50,39 @@ function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   return sources
 }
 
+const hasEvent = computed(() => {
+  return props.highlightedSources != null && props.highlightedSources.length > 0
+})
+
+function isSourceActive(sourceKey: MixSourceKey): boolean {
+  if (props.hasActiveAnnotation && props.highlightedSources != null) {
+    return props.highlightedSources.includes(sourceKey)
+  }
+
+  return props.highlighted === sourceKey
+}
+
+function isSourceDisabled(sourceKey: MixSourceKey): boolean {
+  if (!props.hasActiveAnnotation) return false
+  if (props.highlightedSources == null) return false
+  return !props.highlightedSources.includes(sourceKey)
+}
+
+const showAllDisabled = computed(() => {
+  return props.hasActiveAnnotation === true
+})
+
+const showAllActive = computed(() => {
+  return props.highlightedSources == null && props.highlighted === null
+})
+
 function handleSelect(sourceKey: MixSourceKey): void {
+  if (isSourceDisabled(sourceKey)) return
   emit('select', sourceKey)
 }
 
 function handleShowAll(): void {
+  if (showAllDisabled.value) return
   emit('select', null)
 }
 </script>
@@ -62,9 +93,9 @@ function handleShowAll(): void {
       type="button"
       class="legend-chip legend-all-button"
       :class="{
-        'legend-chip--active': highlighted === null,
+        'legend-chip--active': showAllActive,
       }"
-      :aria-pressed="highlighted === null"
+          :aria-pressed="showAllActive"
       aria-label="Alle Energieträger anzeigen"
       @click="handleShowAll"
     >
@@ -111,9 +142,11 @@ function handleShowAll(): void {
           type="button"
           class="legend-chip"
           :class="{
-            'legend-chip--active': highlighted === sourceKey,
+            'legend-chip--active': isSourceActive(sourceKey),
+            'legend-chip--dimmed': isSourceDisabled(sourceKey),
           }"
-          :aria-pressed="highlighted === sourceKey"
+          :disabled="isSourceDisabled(sourceKey)"
+          :aria-pressed="isSourceActive(sourceKey)"
           @click="handleSelect(sourceKey)"
         >
           <span
@@ -188,6 +221,16 @@ function handleShowAll(): void {
   color: var(--fg);
   border-color: var(--accent);
   background: rgba(45, 106, 79, 0.06);
+}
+
+.legend-chip--dimmed {
+  opacity: 0.4;
+}
+
+.legend-chip:disabled {
+  cursor: default;
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .legend-chip:focus-visible {

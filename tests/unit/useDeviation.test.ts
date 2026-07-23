@@ -60,7 +60,7 @@ function createTestYearRow(
     values[key as MixSourceKey] = value
   }
 
-  return { year, values }
+  return { year, values, totalTwh: 250 }
 }
 
 function createSimpleYearRow(
@@ -72,7 +72,7 @@ function createSimpleYearRow(
   values.gas = 30        // 30 % Erzeugung, mittlere Emissionen
   values.lignite = 20    // 20 % Erzeugung, 100 % Emissionen (vereinfacht)
 
-  return { year, values }
+  return { year, values, totalTwh: 100 }
 }
 
 function getTestDeviationYear(year: number = 2024) {

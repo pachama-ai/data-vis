@@ -32,6 +32,7 @@ function createTooltipData(): MixMonthRow {
       hardcoal: 1.0,
       lignite: 0.5,
     },
+    totalGenerationTwh: 10,
   }
 }
 

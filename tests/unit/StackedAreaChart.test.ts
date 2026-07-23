@@ -38,6 +38,7 @@ function createMonthRow(month: string, sourceValue: number): MixMonthRow {
       hardcoal: sourceValue,
       lignite: sourceValue,
     },
+    totalGenerationTwh: sourceValue * 10, // 10 sources → grobe Gesamtsumme
   }
 }
 

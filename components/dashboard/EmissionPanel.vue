@@ -28,19 +28,11 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
         </h1>
 
         <p class="emission-panel-subtitle">
-          Das Diagramm zeigt, wie viel Strom die einzelnen
-          Energieträger erzeugen und welchen Anteil sie an den
-          direkten CO₂-Emissionen haben.
+          Das Diagramm zeigt den Unterschied zwischen dem Anteil
+          eines Energieträgers an der Stromerzeugung und seinem
+          Anteil an den direkten CO₂-Emissionen.
         </p>
       </div>
-
-      <NuxtLink
-        to="/"
-        class="page-navigation-button"
-      >
-        <span aria-hidden="true">←</span>
-        Zur Übersicht
-      </NuxtLink>
     </header>
 
     <div class="emission-panel-visualization">
@@ -48,17 +40,15 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
     </div>
 
     <footer class="emission-panel-footer">
-      <p class="emission-panel-method">
-        Die CO₂-Emissionen wurden anhand der SMARD-Erzeugungsdaten
-        und direkter Emissionsfaktoren des Umweltbundesamtes
-        berechnet. Emissionen aus Herstellung, Transport und
-        Entsorgung sind nicht enthalten.
-      </p>
-
-      <p class="emission-panel-source">
-        Quellen: SMARD, Bundesnetzagentur; Umweltbundesamt, Climate
-        Change 16/2026.
-      </p>
+      <div class="emission-panel-sources">
+        <div class="emission-source-block">
+          <p class="source-label">Datenquelle</p>
+          <p class="source-text">
+            SMARD-Strommarktdaten der Bundesnetzagentur; Emissionsfaktoren
+            des Umweltbundesamtes (Climate Change 16/2026)
+          </p>
+        </div>
+      </div>
     </footer>
   </section>
 </template>
@@ -115,50 +105,42 @@ import DeviationChartView from '~/components/viz/DeviationChartView.vue'
 }
 
 .emission-panel-footer {
-  margin-top: 24px;
+  margin-top: 32px;
   border-top: 1px solid var(--hairline);
-  padding-top: 16px;
+  padding-top: 20px;
 }
 
-.emission-panel-method {
-  font-family: var(--font-sans);
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--fg-muted);
-  margin: 0 0 8px;
+.emission-panel-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
 }
 
-.emission-panel-source {
+.emission-source-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-label {
   font-family: var(--font-sans);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--fg-muted);
   margin: 0;
 }
 
-.page-navigation-button {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+.source-text {
   font-family: var(--font-sans);
   font-size: 13px;
-  letter-spacing: 0.04em;
   color: var(--fg);
-  text-decoration: none;
-  padding-bottom: 2px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-  flex-shrink: 0;
+  line-height: 1.45;
+  margin: 0;
 }
 
-.page-navigation-button:hover {
-  border-bottom-color: var(--fg);
-}
 
-.page-navigation-button:focus-visible {
-  outline: 2px solid rgba(122, 158, 110, 0.6);
-  outline-offset: 4px;
-  border-radius: 2px;
-}
 
 @media (max-width: 700px) {
   .emission-panel-header {

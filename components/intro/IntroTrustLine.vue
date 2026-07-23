@@ -11,7 +11,7 @@
   <div class="trust-line">
     <div class="trust-col">
       <span class="trust-label">Datenquelle</span>
-      <span class="trust-value">SMARD der Bundesnetzagentur</span>
+      <span class="trust-value">SMARD-Strommarktdaten der Bundesnetzagentur</span>
     </div>
     <div class="trust-col">
       <span class="trust-label">Vergleichszeitraum</span>

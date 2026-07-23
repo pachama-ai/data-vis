@@ -187,15 +187,15 @@ export class DeviationChart extends BaseChart {
   /** Aktive Farbpalette (Standard oder kontrastreich) */
   #colors: Record<MixSourceKey, string> = MIX_COLORS
 
-  /** Subtitle-Text (wird im SVG gerendert) */
-  #subtitle: string = ''
+  /** Sortierung: Nach Kategorien (Standard) oder nach Klimawirkung (deviationPp) */
+  #sortMode: 'category' | 'impact' = 'category'
 
   // =======================================================================
   // Konstruktor
   // =======================================================================
 
   constructor() {
-    super(860, 520, { top: 44, right: 82, bottom: 72, left: 170 })
+    super(860, 540, { top: 44, right: 82, bottom: 72, left: 170 })
   }
 
   // =======================================================================
@@ -245,9 +245,10 @@ export class DeviationChart extends BaseChart {
     this.update()
   }
 
-  setSubtitle(text: string): void {
-    this.#subtitle = text
-    this.#renderYAxisLabel()
+  setSortMode(mode: 'category' | 'impact'): void {
+    this.#sortMode = mode
+    this.#data = this.#orderRows(this.#data)
+    this.update()
   }
 
   // =======================================================================
@@ -303,9 +304,6 @@ export class DeviationChart extends BaseChart {
 
     // Gruppentrennlinien einmalig anlegen
     this.#renderGroupSeparators()
-
-    // y-Achsenbeschriftung einmalig anlegen
-    this.#renderYAxisLabel()
 
     // Richtungsbeschriftungen einmalig anlegen
     this.#renderDirectionLabels()
@@ -364,6 +362,12 @@ export class DeviationChart extends BaseChart {
    * Das Eingabearray wird nicht verändert.
    */
   #orderRows(rows: EmissionRow[]): EmissionRow[] {
+    if (this.#sortMode === 'impact') {
+      // Nach Klimawirkung sortieren: negativste (klimafreundlich) → positivste (klimaschädlich)
+      return [...rows].sort((a, b) => a.deviationPp - b.deviationPp)
+    }
+
+    // Standard: Nach STACK_ORDER (Kategorie)
     const orderedRows: EmissionRow[] = []
 
     for (const sourceKey of STACK_ORDER) {
@@ -388,13 +392,17 @@ export class DeviationChart extends BaseChart {
 
   /**
    * Erzeugt die Band-Skala für die y-Achse.
-   * Die Domain verwendet STACK_ORDER, nicht die aktuellen Daten,
-   * damit die Zeilen auch bei leeren Daten stabil bleiben.
+   * Die Domain folgt der aktuellen #sortMode, damit beim Sortieren
+   * alle Elemente korrekt neu positioniert werden.
    */
   #createYScale(): d3.ScaleBand<MixSourceKey> {
+    const domain = this.#sortMode === 'impact'
+      ? this.#data.map((row) => row.sourceKey)
+      : STACK_ORDER
+
     return d3
       .scaleBand<MixSourceKey>()
-      .domain(STACK_ORDER)
+      .domain(domain)
       .range([0, this.innerHeight])
       .paddingInner(0.28)
       .paddingOuter(0.12)
@@ -580,8 +588,19 @@ export class DeviationChart extends BaseChart {
           .attr('x', xScale(0))
           .attr('width', 0)
           .attr('opacity', (row) => hasGen(row) ? 1 : 0.4)
+          .style('cursor', 'pointer')
           .on('click', (_event: PointerEvent, row: EmissionRow) => {
             this.#handleBarClick(row)
+          })
+          .on('mouseenter', (_event: PointerEvent, row: EmissionRow) => {
+            this.#highlightedSource = row.sourceKey
+            this.#updateHighlight()
+            this.#hoverHandler?.({ row, chartX: 0, chartY: 0 })
+          })
+          .on('mouseleave', () => {
+            this.#highlightedSource = null
+            this.#updateHighlight()
+            this.#hoverEndHandler?.()
           })
 
         enterBars
@@ -607,6 +626,7 @@ export class DeviationChart extends BaseChart {
             return this.#colors[row.sourceKey]
           })
           .attr('opacity', (row) => hasGen(row) ? 1 : 0.4)
+          .style('cursor', 'pointer')
           .attr('x', (row) => hasGen(row) ? getDeviationBarX(row.deviationPp, xScale) : xScale(0) - 0.5)
           .attr('width', (row) =>
             hasGen(row) ? getDeviationBarWidth(row.deviationPp, xScale) : 1,
@@ -648,19 +668,7 @@ export class DeviationChart extends BaseChart {
             const bandCenter = yScale(row.sourceKey) ?? 0
             return bandCenter + yScale.bandwidth() / 2
           })
-          .text((row) => {
-            if (row.generationTwh === 0) return 'keine Erzeugung'
-            return formatPercentagePoints(row.deviationPp)
-          })
-
-        enterLabels
-          .transition()
-          .duration(600)
-          .attr('x', (row) => this.#getLabelX(row, xScale))
-          .attr('y', (row) => {
-            const bandCenter = yScale(row.sourceKey) ?? 0
-            return bandCenter + yScale.bandwidth() / 2
-          })
+          .attr('text-anchor', (row) => this.#getLabelAnchor(row))
           .text((row) => {
             if (row.generationTwh === 0) return 'keine Erzeugung'
             return formatPercentagePoints(row.deviationPp)
@@ -686,10 +694,6 @@ export class DeviationChart extends BaseChart {
         return exit.remove()
       },
     )
-
-    // Text-Ausrichtung nach der Transition setzen
-    labels
-      .attr('text-anchor', (row) => this.#getLabelAnchor(row))
   }
 
   /**
@@ -732,31 +736,8 @@ export class DeviationChart extends BaseChart {
   }
 
   /**
-   * Rendert die y-Achsenbeschriftung als rotierten Text links neben der Achse.
-   */
-  #renderYAxisLabel(): void {
-    if (!this.#svg) {
-      return
-    }
-
-    this.#svg.selectAll('.y-axis-label').remove()
-
-    this.#svg
-      .append('text')
-      .attr('class', 'y-axis-label')
-      .attr('transform', `rotate(-90)`)
-      .attr('x', -(this.innerHeight / 2))
-      .attr('y', 18)
-      .attr('text-anchor', 'middle')
-      .attr('font-family', 'var(--font-sans)')
-      .attr('font-size', '13px')
-      .attr('fill', '#8a8a85')
-      .text(this.#subtitle)
-  }
-
-  /**
    * Zeichnet die Richtungsbeschriftungen unterhalb der x-Achse.
-   * Wird einmalig in render() aufgerufen.
+   * Kurze, nicht überlappende Texte.
    */
   #renderDirectionLabels(): void {
     if (!this.#chartGroup) {
@@ -766,41 +747,43 @@ export class DeviationChart extends BaseChart {
     const labelY =
       this.innerHeight + this.margin.bottom - 8
 
-    // Links: emissionsärmer
+    // Links: klimafreundlicher
     this.#chartGroup
       .append('text')
       .attr('class', 'direction-label')
-      .attr('x', 8)
+      .attr('x', 0)
       .attr('y', labelY)
       .attr('text-anchor', 'start')
-      .attr('font-size', '12px')
+      .attr('font-size', '11px')
+      .attr('letter-spacing', '0.03em')
       .attr('fill', 'currentColor')
-      .attr('opacity', 0.6)
-      .text('← Emissionsanteil niedriger als Stromanteil')
+      .attr('opacity', 0.55)
+      .text('← geringerer CO₂-Anteil')
 
-    // Rechts: emissionsreicher
+    // Rechts: höherer CO₂-Anteil
     this.#chartGroup
       .append('text')
       .attr('class', 'direction-label')
-      .attr('x', this.innerWidth - 8)
+      .attr('x', this.innerWidth)
       .attr('y', labelY)
       .attr('text-anchor', 'end')
-      .attr('font-size', '12px')
+      .attr('font-size', '11px')
+      .attr('letter-spacing', '0.03em')
       .attr('fill', 'currentColor')
-      .attr('opacity', 0.6)
-      .text('Emissionsanteil höher als Stromanteil →')
+      .attr('opacity', 0.55)
+      .text('höherer CO₂-Anteil →')
 
     // Erklärung der Nulllinie
     this.#chartGroup
       .append('text')
       .attr('class', 'zero-line-label')
       .attr('x', this.innerWidth / 2)
-      .attr('y', labelY + 18)
+      .attr('y', labelY)
       .attr('text-anchor', 'middle')
       .attr('font-size', '11px')
       .attr('fill', 'currentColor')
       .attr('opacity', 0.5)
-      .text('0 pp = gleicher Anteil')
+      .text('gleicher Anteil')
   }
 
   /**
@@ -812,28 +795,40 @@ export class DeviationChart extends BaseChart {
       return
     }
 
-    // Sowohl per setHighlight (Hover) als auch per Klick (selected) dimmen
-    const selectedKey = this.#selectedSource ?? this.#highlightedSource
+    const hoverKey = this.#highlightedSource
+    const selectedKey = this.#selectedSource
+
+    // Priorität: Hover > Selection
+    // Wenn Hover aktiv, wird nur der gehoverte Balken hervorgehoben,
+    // der ausgewählte bleibt aber dezent sichtbar.
+    const highlightKey = hoverKey ?? selectedKey
 
     this.#barsGroup
       .selectAll<SVGRectElement, EmissionRow>('rect.deviation-bar')
       .attr('opacity', (row) => {
-        if (selectedKey === null) return 1
-        return row.sourceKey === selectedKey ? 1 : 0.3
+        if (highlightKey === null) return 1
+        if (row.sourceKey === highlightKey) return 1
+        // Bei Hover: selected bar leicht zurückgenommen, andere stärker
+        if (hoverKey !== null && selectedKey !== null && row.sourceKey === selectedKey) return 0.7
+        return 0.55
       })
 
     this.#labelsGroup
       .selectAll<SVGTextElement, EmissionRow>('text.deviation-value')
       .attr('opacity', (row) => {
-        if (selectedKey === null) return 1
-        return row.sourceKey === selectedKey ? 1 : 0.3
+        if (highlightKey === null) return 1
+        if (row.sourceKey === highlightKey) return 1
+        if (hoverKey !== null && selectedKey !== null && row.sourceKey === selectedKey) return 0.7
+        return 0.55
       })
 
     this.#chartGroup
       .selectAll<SVGTextElement, MixSourceKey>('g.y-axis .tick text')
       .attr('opacity', (sourceKey) => {
-        if (selectedKey === null) return 1
-        return sourceKey === selectedKey ? 1 : 0.3
+        if (highlightKey === null) return 1
+        if (sourceKey === highlightKey) return 1
+        if (hoverKey !== null && selectedKey !== null && sourceKey === selectedKey) return 0.7
+        return 0.55
       })
   }
 

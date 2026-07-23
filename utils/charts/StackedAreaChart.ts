@@ -459,14 +459,16 @@ export class StackedAreaChart extends BaseChart {
             const seriesKey = series.key as MixSourceKey
             return this.#colors[seriesKey]
           })
-          .attr('d', (series) => areaGenerator(series)),
+          .attr('d', (series) => areaGenerator(series))
+          .style('pointer-events', 'none'),
       (update) =>
         update
           .attr('fill', (series) => {
             const seriesKey = series.key as MixSourceKey
             return this.#colors[seriesKey]
           })
-          .attr('d', (series) => areaGenerator(series)),
+          .attr('d', (series) => areaGenerator(series))
+          .style('pointer-events', 'none'),
       (exit) => exit.remove(),
     )
   }
@@ -755,23 +757,12 @@ export class StackedAreaChart extends BaseChart {
       return
     }
 
-    const germanMonthFormatter = new Intl.DateTimeFormat('de-DE', {
-      month: 'long',
-      year: 'numeric',
-    })
-
-    const formattedMonth = germanMonthFormatter.format(monthRow.date)
-
+    // Nur die Linie anzeigen, kein Monatslabel mehr
+    // (der Monat steht bereits im Tooltip)
     this.#chartGroup
       .selectAll('.hover-guide')
       .attr('x1', monthX)
       .attr('x2', monthX)
-      .style('display', null)
-
-    this.#chartGroup
-      .selectAll('.hover-month-label')
-      .attr('x', monthX)
-      .text(formattedMonth)
       .style('display', null)
   }
 
@@ -824,7 +815,6 @@ export class StackedAreaChart extends BaseChart {
     }
 
     this.#chartGroup.selectAll('.hover-guide').style('display', 'none')
-    this.#chartGroup.selectAll('.hover-month-label').style('display', 'none')
 
     this.#hoverEndHandler?.()
   }

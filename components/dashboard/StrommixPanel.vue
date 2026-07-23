@@ -33,19 +33,20 @@ import StackedArea from '~/components/viz/StackedArea.vue'
           Terawattstunden (TWh).
         </p>
       </div>
-
-      <NuxtLink
-        to="/"
-        class="page-navigation-button"
-      >
-        <span aria-hidden="true">←</span>
-        Zur Übersicht
-      </NuxtLink>
     </header>
 
     <div class="strommix-panel-visualization">
       <StackedArea />
     </div>
+
+    <footer class="strommix-panel-footer">
+      <div class="strommix-panel-sources">
+        <div class="source-block">
+          <p class="source-label">Datenquelle</p>
+          <p class="source-text">SMARD-Strommarktdaten der Bundesnetzagentur</p>
+        </div>
+      </div>
+    </footer>
   </section>
 </template>
 
@@ -100,28 +101,40 @@ import StackedArea from '~/components/viz/StackedArea.vue'
   margin-top: 0;
 }
 
-.page-navigation-button {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
+.strommix-panel-footer {
+  margin-top: 32px;
+  border-top: 1px solid var(--hairline);
+  padding-top: 20px;
+}
+
+.strommix-panel-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+}
+
+.source-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.source-label {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+.source-text {
   font-family: var(--font-sans);
   font-size: 13px;
-  letter-spacing: 0.04em;
   color: var(--fg);
-  text-decoration: none;
-  padding-bottom: 2px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-  flex-shrink: 0;
-}
-
-.page-navigation-button:hover {
-  border-bottom-color: var(--fg);
-}
-
-.page-navigation-button:focus-visible {
-  outline: 2px solid rgba(122, 158, 110, 0.6);
-  outline-offset: 4px;
-  border-radius: 2px;
+  line-height: 1.45;
+  margin: 0;
 }
 
 @media (max-width: 700px) {

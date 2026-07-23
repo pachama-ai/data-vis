@@ -140,6 +140,7 @@ describe('calculateYearRows', () => {
           hardcoal: 4.0,
           lignite: 5.0,
         },
+        totalGenerationTwh: 10,
       },
       {
         month: '2024-02',
@@ -156,6 +157,7 @@ describe('calculateYearRows', () => {
           hardcoal: 3.5,
           lignite: 5.0,
         },
+        totalGenerationTwh: 10,
       },
     ]
 
@@ -185,6 +187,7 @@ describe('calculateYearRows', () => {
           hardcoal: 1.0,
           lignite: 1.0,
         },
+        totalGenerationTwh: 10,
       },
       {
         month: '2024-06',
@@ -201,6 +204,7 @@ describe('calculateYearRows', () => {
           hardcoal: 2.0,
           lignite: 2.0,
         },
+        totalGenerationTwh: 10,
       },
     ]
 
@@ -230,6 +234,7 @@ describe('calculateYearRows', () => {
           hardcoal: 0,
           lignite: 0,
         },
+        totalGenerationTwh: 10,
       },
       {
         month: '2022-01',
@@ -246,6 +251,7 @@ describe('calculateYearRows', () => {
           hardcoal: 0,
           lignite: 0,
         },
+        totalGenerationTwh: 10,
       },
     ]
 

@@ -22,6 +22,8 @@ import type { VisualizationData } from '~/types/visualization-data'
 export interface MixYearRow {
   year: number
   values: Record<MixSourceKey, number>
+  /** Gesamterzeugung in TWh (alle SMARD-Kategorien inkl. Pumpspeicher) */
+  totalTwh: number
 }
 
 // =========================================================================
@@ -108,6 +110,7 @@ export function normalizeMonth(
     month: monthPoint.month,
     date: parsedDate,
     values,
+    totalGenerationTwh: convertMwhToTwh(monthPoint.totalGenerationMwh),
   }
 }
 
@@ -126,6 +129,7 @@ export function calculateYearRows(
 ): MixYearRow[] {
   // 1. Monate nach Jahr gruppieren und Quellenwerte aufsummieren
   const yearTotals = new Map<number, Record<MixSourceKey, number>>()
+  const yearFullTotals = new Map<number, number>()
 
   for (const monthRow of monthlyRows) {
     const year = monthRow.date.getFullYear()
@@ -133,6 +137,7 @@ export function calculateYearRows(
     // Fehlendes Jahr initialisieren
     if (!yearTotals.has(year)) {
       yearTotals.set(year, createEmptySourceValues())
+      yearFullTotals.set(year, 0)
     }
 
     const yearlyValues = yearTotals.get(year)!
@@ -141,13 +146,16 @@ export function calculateYearRows(
     for (const sourceKey of STACK_ORDER) {
       yearlyValues[sourceKey] += monthRow.values[sourceKey]
     }
+
+    // Gesamterzeugung inkl. aller SMARD-Kategorien aufsummieren
+    yearFullTotals.set(year, (yearFullTotals.get(year) ?? 0) + monthRow.totalGenerationTwh)
   }
 
   // 2. Map in ein Array umwandeln
   const result: MixYearRow[] = []
 
   for (const [year, values] of yearTotals) {
-    result.push({ year, values })
+    result.push({ year, values, totalTwh: yearFullTotals.get(year) ?? 0 })
   }
 
   // 3. Aufsteigend nach Jahr sortieren

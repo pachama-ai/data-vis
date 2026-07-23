@@ -40,43 +40,6 @@ const annotations = ref<MixAnnotation[]>([])
 let chart: StackedAreaChart | null = null
 
 // =========================================================================
-// Datenstand-Metainformation
-// =========================================================================
-
-const accessedAt = new Date()
-
-const latestDataMonth = computed<string | null>(() => {
-  const lastMonthRow = monthRows.value[monthRows.value.length - 1]
-
-  if (!lastMonthRow) {
-    return null
-  }
-
-  const monthFormatter = new Intl.DateTimeFormat('de-DE', {
-    month: 'long',
-    year: 'numeric',
-  })
-
-  return monthFormatter.format(lastMonthRow.date)
-})
-
-const dataStatusLabel = computed<string | null>(() => {
-  if (latestDataMonth.value === null) {
-    return null
-  }
-
-  const dateFormatter = new Intl.DateTimeFormat('de-DE', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
-
-  const formattedDate = dateFormatter.format(accessedAt)
-
-  return `Quelle: SMARD. Datenstand: ${latestDataMonth.value}. Abruf: ${formattedDate}.`
-})
-
-// =========================================================================
 // Metrik-Computed-Werte
 // =========================================================================
 
@@ -229,6 +192,7 @@ watch(monthRows, (updatedMonthRows) => {
 watch(mode, (updatedMode) => {
   chart?.setMode(updatedMode)
   chart?.setSubtitle('')
+  hoverPayload.value = null
 })
 
 watch(highlightedSources, (updatedSources) => {
@@ -302,7 +266,9 @@ onBeforeUnmount(() => {
 
         <StackedAreaLegend
           :highlighted="highlighted"
+          :highlighted-sources="highlightedSources"
           :color-mode="colorMode"
+          :has-active-annotation="selectedAnnotation !== null"
           @select="handleSourceSelect"
           @toggle-color-mode="toggleColorMode"
         />
@@ -312,13 +278,6 @@ onBeforeUnmount(() => {
           Daten konnten nicht geladen werden: {{ error }}
         </p>
       </ChartTemplate>
-
-      <p
-        v-if="dataStatusLabel"
-        class="data-status-line"
-      >
-        {{ dataStatusLabel }}
-      </p>
     </div>
 
     <MixSidebar
@@ -358,8 +317,6 @@ onBeforeUnmount(() => {
   border: 1px solid var(--hairline);
   border-radius: 6px;
   overflow: hidden;
-  /* Rechte Kante an der Plotfläche ausrichten */
-  padding-right: 2.3%;
 }
 
 .mode-button {
@@ -403,13 +360,5 @@ onBeforeUnmount(() => {
   .stacked-area-content {
     grid-template-columns: 1fr;
   }
-}
-
-.data-status-line {
-  font-family: var(--font-sans);
-  font-size: 11px;
-  color: var(--fg-muted);
-  margin: 0;
-  line-height: 1.6;
 }
 </style>

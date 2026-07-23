@@ -28,5 +28,6 @@ export function createMonthRow(month: string, sourceValue: number): MixMonthRow 
       hardcoal: sourceValue,
       lignite: sourceValue,
     },
+    totalGenerationTwh: sourceValue * 10,
   }
 }

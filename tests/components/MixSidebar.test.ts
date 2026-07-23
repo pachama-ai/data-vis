@@ -65,6 +65,7 @@ const testSourceMetrics: SourceMetrics = {
       month: '2024-06',
       date: new Date(2024, 5, 1),
       values: {} as Record<MixSourceKey, number>,
+      totalGenerationTwh: 10,
     },
     valueTwh: 5,
   },
@@ -73,6 +74,7 @@ const testSourceMetrics: SourceMetrics = {
       month: '2024-01',
       date: new Date(2024, 0, 1),
       values: {} as Record<MixSourceKey, number>,
+      totalGenerationTwh: 10,
     },
     valueTwh: 1,
   },
@@ -90,6 +92,7 @@ const testAnnotationContext: AnnotationContext = {
     month: '2023-04',
     date: new Date(2023, 3, 1),
     values: {} as Record<MixSourceKey, number>,
+    totalGenerationTwh: 10,
   },
   groupShares: [
     { group: 'renewable', valueTwh: 6, share: 0.6 },

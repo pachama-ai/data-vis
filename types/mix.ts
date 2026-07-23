@@ -53,6 +53,8 @@ export interface MixMonthRow {
   date: Date
   /** Werte der 10 Energieträger */
   values: Record<MixSourceKey, number>
+  /** Gesamterzeugung in TWh (alle SMARD-Kategorien inkl. Pumpspeicher) */
+  totalGenerationTwh: number
 }
 
 /**

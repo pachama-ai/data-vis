@@ -89,12 +89,12 @@ describe('DeviationSidebar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Größter Unterschied')
-    expect(wrapper.text()).toContain('CO₂-Emissionen je Kilowattstunde')
-    expect(wrapper.text()).toContain('Entwicklung seit 2015')
+    expect(wrapper.text()).toContain('Jahresüberblick')
+    expect(wrapper.text()).toContain('CO₂-Emissionen je kWh')
+    expect(wrapper.text()).toContain('Erneuerbaren-Anteil')
   })
 
-  it('zeigt das größte Missverhältnis (Braunkohle)', () => {
+  it('zeigt das Jahr im Standard-Zustand', () => {
     const activeYear = createDeviationYear(2022)
 
     // Lignite hat die größte positive Abweichung
@@ -114,9 +114,8 @@ describe('DeviationSidebar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('Braunkohle')
-    expect(wrapper.text()).toContain('37,0 %')
-    expect(wrapper.text()).toContain('7,0 %')
+    expect(wrapper.text()).toContain('CO₂-Emissionen je kWh')
+    expect(wrapper.text()).toContain('412 g CO₂/kWh')
   })
 
   it('zeigt Hover-Satz für positive Abweichung', () => {
@@ -139,7 +138,7 @@ describe('DeviationSidebar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('30,0 Prozentpunkte über')
+    expect(wrapper.text()).toContain('Braunkohle verursacht einen deutlich größeren Anteil der direkten CO₂-Emissionen')
   })
 
   it('zeigt Hover-Satz für negative Abweichung', () => {
@@ -160,7 +159,7 @@ describe('DeviationSidebar', () => {
       },
     })
 
-    expect(wrapper.text()).toContain('20,0 Prozentpunkte unter')
+    expect(wrapper.text()).toContain('Photovoltaik verursacht einen deutlich geringeren Anteil der direkten CO₂-Emissionen')
   })
 
   it('zeigt Meldung bei fehlenden Daten', () => {

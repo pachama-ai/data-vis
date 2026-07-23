@@ -134,7 +134,7 @@ const INNER_BAND_PADDING = 0.08
 
 
 const CHART_WIDTH = 900
-const CHART_MARGIN = { top: 40, right: 80, bottom: 56, left: 180 }
+const CHART_MARGIN = { top: 40, right: 80, bottom: 86, left: 200 }
 
 /** Dauer der Balken-Animation in Millisekunden. */
 const ANIMATION_DURATION_MS = 500
@@ -409,7 +409,7 @@ function renderChart(): void {
   axisLabelGroup.html('')
   axisLabelGroup.append('text')
     .attr('x', CHART_MARGIN.left + innerWidth / 2)
-    .attr('y', CHART_MARGIN.top + currentInnerHeight + 36)
+    .attr('y', CHART_MARGIN.top + currentInnerHeight + 52)
     .attr('text-anchor', 'middle')
     .attr('font-size', '10px').attr('fill', '#8a8a85')
     .attr('font-family', 'var(--font-sans)')

@@ -64,12 +64,13 @@ onMounted(async () => {
 
 <template>
   <div class="intro-page">
-    <IntroHero />
-    <IntroTrustLine />
-    <NuxtLink to="/dashboard" class="page-navigation-button page-navigation-button--top">
-      Zum Dashboard
-      <span aria-hidden="true">→</span>
-    </NuxtLink>
+    <div class="intro-top-bar">
+      <IntroHero />
+      <IntroTrustLine />
+      <NuxtLink to="/dashboard" class="dashboard-arrow" aria-label="Zum Dashboard" title="Zum Dashboard">
+        <span aria-hidden="true">→</span>
+      </NuxtLink>
+    </div>
     <div v-if="loading" class="chart-loading">
       <div class="chart-skeleton"></div>
     </div>
@@ -81,9 +82,12 @@ onMounted(async () => {
     </div>
     <GroupedBarChart v-else :data="strommixData" />
     <p class="chart-footnote">
-      Dargestellt sind die Anteile an der öffentlichen Nettostromerzeugung nach SMARD.
-      Die Werte sind auf eine Nachkommastelle gerundet, daher kann die Summe
-      leicht von 100 % abweichen.
+      Dargestellt sind zehn ausgewählte Energieträger der öffentlichen
+      Nettostromerzeugung nach SMARD. Kleinere Energieträger wie sonstige
+      erneuerbare Energien und Pumpspeicher sind nicht einzeln aufgeführt.
+      Deshalb ergeben die dargestellten Anteile zusammen rund 97,9 % im
+      Jahr 2015 und 97,3 % im Jahr 2024. Die Werte sind auf eine
+      Nachkommastelle gerundet.
     </p>
     <NuxtLink to="/dashboard" class="dashboard-link">
       Entwicklung von 2015 bis 2024 erkunden
@@ -135,6 +139,7 @@ onMounted(async () => {
   color: var(--fg-muted);
   line-height: 1.55;
   max-width: 62ch;
+  margin-top: 24px;
   margin-bottom: 48px;
 }
 
@@ -173,33 +178,41 @@ onMounted(async () => {
   border-radius: 2px;
 }
 
-.page-navigation-button {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 13px;
-  letter-spacing: 0.04em;
-  color: var(--fg);
+.intro-top-bar {
+  position: relative;
+}
+
+.dashboard-arrow {
+  position: absolute;
+  top: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--accent);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
   text-decoration: none;
-  padding-bottom: 2px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.15);
-  flex-shrink: 0;
+  transition: all 0.2s ease;
 }
 
-.page-navigation-button:hover {
-  border-bottom-color: var(--fg);
+.dashboard-arrow:hover {
+  background: rgba(45, 106, 79, 0.08);
 }
 
-.page-navigation-button:focus-visible {
-  outline: 2px solid rgba(122, 158, 110, 0.6);
-  outline-offset: 4px;
-  border-radius: 2px;
+.dashboard-arrow:hover span {
+  display: inline-block;
+  transform: translateX(3px);
+  transition: transform 0.2s ease;
 }
 
-.page-navigation-button--top {
-  float: right;
-  margin-bottom: 24px;
+.dashboard-arrow:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
 }
 
 </style>

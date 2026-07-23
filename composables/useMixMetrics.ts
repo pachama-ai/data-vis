@@ -88,16 +88,13 @@ function createEmptyGroupValues(): Record<MixGroup, number> {
 }
 
 /**
- * Berechnet die Gesamtsumme aller zehn Quellen einer Jahreszeile.
+ * Berechnet die Gesamtsumme aller Erzeugung eines Jahres
+ * (alle SMARD-Kategorien inkl. Pumpspeicher und sonstige).
+ * Pumpspeicher wird nicht einer Gruppe zugeordnet, sondern
+ * nur in der Gesamtsumme berücksichtigt.
  */
 function calculateYearTotal(yearRow: MixYearRow): number {
-  let total = 0
-
-  for (const sourceKey of STACK_ORDER) {
-    total += yearRow.values[sourceKey]
-  }
-
-  return total
+  return yearRow.totalTwh
 }
 
 /**
@@ -207,8 +204,10 @@ export function getOverviewMetrics(
     const share2015 = calculateShare(value2015, total2015)
     const share2024 = calculateShare(value2024, total2024)
 
-    const percentagePointChange =
-      (share2024 - share2015) * 100
+    // Auf eine Nachkommastelle runden für konsistente Anzeige
+    const displayed2015 = Math.round(share2015 * 1000) / 10
+    const displayed2024 = Math.round(share2024 * 1000) / 10
+    const percentagePointChange = Math.round((displayed2024 - displayed2015) * 10) / 10
 
     groups.push({
       group,

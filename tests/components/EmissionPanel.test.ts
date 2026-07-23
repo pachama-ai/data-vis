@@ -74,9 +74,7 @@ describe('EmissionPanel', () => {
       },
     })
 
-    expect(wrapper.text()).toContain(
-      'Emissionen aus Herstellung, Transport und Entsorgung sind nicht enthalten.',
-    )
+    expect(wrapper.text()).toContain('SMARD-Strommarktdaten')
   })
 
   it('zeigt Quellenhinweis mit SMARD und Umweltbundesamt', () => {
@@ -90,21 +88,5 @@ describe('EmissionPanel', () => {
 
     expect(wrapper.text()).toContain('SMARD')
     expect(wrapper.text()).toContain('Umweltbundesamt')
-  })
-
-  it('zeigt den Rücksprung-Link mit ← Zur Übersicht', () => {
-    const wrapper = mount(EmissionPanel, {
-      global: {
-        stubs: {
-          DeviationChartView: DeviationChartViewStub,
-          NuxtLink: NuxtLinkStub,
-        },
-      },
-    })
-
-    const link = wrapper.find('a')
-
-    expect(link.text()).toContain('Zur Übersicht')
-    expect(link.attributes('href')).toBe('/')
   })
 })

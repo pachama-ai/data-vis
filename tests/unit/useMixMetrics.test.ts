@@ -37,6 +37,13 @@ function createSourceValues(
   }
 }
 
+/** Summe aller 10 Quellen */
+function sumSources(values: Record<MixSourceKey, number>): number {
+  let s = 0
+  for (const k of Object.keys(values) as MixSourceKey[]) s += values[k]
+  return s
+}
+
 // =========================================================================
 // Testdaten
 // =========================================================================
@@ -53,8 +60,8 @@ function createTestYearRows(): MixYearRow[] {
   year2024Values.hardcoal = 1
 
   return [
-    { year: 2015, values: year2015Values },
-    { year: 2024, values: year2024Values },
+    { year: 2015, values: year2015Values, totalTwh: sumSources(year2015Values) },
+    { year: 2024, values: year2024Values, totalTwh: sumSources(year2024Values) },
   ]
 }
 
@@ -64,16 +71,19 @@ function createTestMonthRows(): MixMonthRow[] {
       month: '2024-01',
       date: new Date(2024, 0, 1),
       values: { ...createSourceValues(1), pv: 1 },
+      totalGenerationTwh: 10,
     },
     {
       month: '2024-06',
       date: new Date(2024, 5, 1),
       values: { ...createSourceValues(5), pv: 5 },
+      totalGenerationTwh: 10,
     },
     {
       month: '2024-03',
       date: new Date(2024, 2, 1),
       values: { ...createSourceValues(3), pv: 3 },
+      totalGenerationTwh: 10,
     },
   ]
 }
@@ -85,7 +95,7 @@ function createTestMonthRows(): MixMonthRow[] {
 describe('getOverviewMetrics', () => {
   it('gibt null zurück, wenn 2024 fehlt', () => {
     const yearRows: MixYearRow[] = [
-      { year: 2015, values: createSourceValues(10) },
+      { year: 2015, values: createSourceValues(10), totalTwh: 100 },
     ]
 
     const result = getOverviewMetrics(yearRows)
@@ -125,11 +135,9 @@ describe('getOverviewMetrics', () => {
     })
 
     // share2024 ≈ 0.6612, share2015 = 0.5
-    // percentagePointChange = (0.6612 - 0.5) * 100 ≈ 16.12
-    expect(renewableGroup!.percentagePointChange).toBeCloseTo(
-      ((80 / 121) - 0.5) * 100,
-      2,
-    )
+    // displayed2024 ≈ 66.1, displayed2015 = 50.0
+    // percentagePointChange = 66.1 - 50.0 = 16.1
+    expect(renewableGroup!.percentagePointChange).toBe(16.1)
   })
 
   it('erkennt Photovoltaik als größten Zuwachs', () => {
@@ -163,7 +171,7 @@ describe('getOverviewMetrics', () => {
 describe('getSourceMetrics', () => {
   it('gibt null zurück, wenn Jahresdaten fehlen', () => {
     const yearRows: MixYearRow[] = [
-      { year: 2015, values: createSourceValues(10) },
+      { year: 2015, values: createSourceValues(10), totalTwh: 100 },
     ]
 
     const result = getSourceMetrics(yearRows, [], 'pv')
@@ -192,6 +200,7 @@ describe('getSourceMetrics', () => {
     const result = getSourceMetrics(yearRows, monthRows, 'pv')
 
     expect(result).not.toBeNull()
+    // getSourceMetrics berechnet share2024 = pv40 / total121 ≈ 0.3306
     expect(result!.share2024).toBeCloseTo(40 / 121, 4)
   })
 
@@ -256,6 +265,7 @@ describe('getAnnotationContext', () => {
         month: '2023-04',
         date: new Date(2023, 3, 1),
         values: { ...createSourceValues(1), nuclear: 2 },
+        totalGenerationTwh: 10,
       },
     ]
 
@@ -286,6 +296,7 @@ describe('getAnnotationContext', () => {
           hardcoal: 0,
           lignite: 2,
         },
+        totalGenerationTwh: 10,
       },
     ]
 

@@ -64,7 +64,7 @@ function createTestYearRow(
     values[key as MixSourceKey] = value
   }
 
-  return { year, values }
+  return { year, values, totalTwh: 250 }
 }
 
 // =========================================================================
@@ -256,6 +256,7 @@ describe('calculateEmissionRows', () => {
         hardcoal: 0,
         lignite: 70,
       },
+      totalTwh: 100,
     }
 
     const rows = calculateEmissionRows(yearRow)

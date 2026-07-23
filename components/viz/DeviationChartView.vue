@@ -50,6 +50,7 @@ const { selectedYear, colorMode, setSelectedYear, toggleColorMode } = useMixSele
 
 const hoverPayload = ref<DeviationHoverPayload | null>(null)
 const selectedSourceKey = ref<MixSourceKey | null>(null)
+const sortMode = ref<'category' | 'impact'>('category')
 
 // =========================================================================
 // Emissionsfaktoren laden
@@ -254,6 +255,11 @@ function handleYearChange(year: number): void {
   setSelectedYear(year)
 }
 
+function handleSortChange(mode: 'category' | 'impact'): void {
+  sortMode.value = mode
+  chart?.setSortMode(mode)
+}
+
 // =========================================================================
 // Initialisierung
 // =========================================================================
@@ -283,7 +289,6 @@ function initializeChart(): void {
   chart.setHoverEndHandler(handleChartLeave)
   chart.setColors(colorMode.value)
   chart.setSelectionHandler(handleChartSelection)
-  chart.setSubtitle('Differenz in Prozentpunkten')
 
   chart.render(container)
   chart.setXDomain(xDomain)
@@ -317,6 +322,7 @@ watch(activeYear, (updatedYear) => {
   chart?.setData(rows)
 
   hoverPayload.value = null
+  selectedSourceKey.value = null
 })
 
 watch(colorMode, (updatedMode) => {
@@ -359,17 +365,36 @@ watch(colorMode, (updatedMode) => {
             />
           </template>
 
-          <button
-            type="button"
-            class="legend-chip legend-contrast-button"
-            :class="{ 'legend-chip--active': colorMode === 'accessible' }"
-            :aria-pressed="colorMode === 'accessible'"
-            aria-label="Kontrastfarben umschalten"
-            style="margin-bottom: 16px;"
-            @click="toggleColorMode"
-          >
-            <span class="legend-label">Kontrastfarben</span>
-          </button>
+          <div class="chart-controls">
+            <button
+              type="button"
+              class="chart-button"
+              :class="{ 'chart-button--active': colorMode === 'accessible' }"
+              :aria-pressed="colorMode === 'accessible'"
+              aria-label="Kontrastfarben umschalten"
+              @click="toggleColorMode"
+            >
+              Kontrastfarben
+            </button>
+
+            <button
+              type="button"
+              class="chart-button"
+              :class="{ 'chart-button--active': sortMode === 'category' }"
+              @click="handleSortChange('category')"
+            >
+              Nach Kategorie
+            </button>
+
+            <button
+              type="button"
+              class="chart-button"
+              :class="{ 'chart-button--active': sortMode === 'impact' }"
+              @click="handleSortChange('impact')"
+            >
+              Nach Klimawirkung
+            </button>
+          </div>
 
           <YearSlider
             v-if="activeYearNumber !== null"
@@ -379,7 +404,14 @@ watch(colorMode, (updatedMode) => {
           />
 
           <details class="reading-help">
-            <summary class="reading-help-summary">So liest du das Diagramm</summary>
+            <summary class="reading-help-summary">
+              <span class="reading-help-chevron">
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                  <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </span>
+              So liest du das Diagramm
+            </summary>
             <p class="reading-help-text">
               Die Balken vergleichen den Anteil eines Energieträgers an der
               Stromerzeugung mit seinem Anteil an den direkten
@@ -404,6 +436,7 @@ watch(colorMode, (updatedMode) => {
         :renewable-share="renewableShare"
         :base-renewable-share="baseRenewableShare"
         :base-emission-intensity="baseEmissionIntensity"
+        :color-mode="colorMode"
       />
     </template>
 
@@ -450,23 +483,42 @@ watch(colorMode, (updatedMode) => {
 }
 
 .reading-help-summary {
-  display: inline-flex;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--fg-muted);
+  cursor: pointer;
+  list-style: none;
+  display: flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-sans);
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  color: var(--fg-muted);
-  padding: 6px 14px;
-  background: rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 999px;
-  cursor: pointer;
-  font-style: normal;
+  user-select: none;
+  padding: 8px 0;
+  border-radius: 4px;
+  transition: color 200ms ease-out, background 200ms ease-out;
 }
 
 .reading-help-summary:hover {
-  background: rgba(0, 0, 0, 0.06);
+  color: var(--fg);
+  background: rgba(0, 0, 0, 0.03);
+}
+
+.reading-help-summary::-webkit-details-marker {
+  display: none;
+}
+
+.reading-help-chevron {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  height: 12px;
+  transition: transform 200ms ease-out;
+  flex-shrink: 0;
+}
+
+details[open] .reading-help-chevron {
+  transform: rotate(90deg);
 }
 
 .reading-help-text {
@@ -477,10 +529,15 @@ watch(colorMode, (updatedMode) => {
   max-width: 600px;
 }
 
-.legend-chip {
-  display: inline-flex;
-  align-items: center;
+/* Buttons wie legend-chip auf der Erzeugungsseite */
+.chart-controls {
+  display: flex;
+  flex-wrap: wrap;
   gap: 6px;
+  margin-bottom: 16px;
+}
+
+.chart-button {
   font-family: var(--font-sans);
   font-size: 12px;
   padding: 6px 12px;
@@ -493,15 +550,20 @@ watch(colorMode, (updatedMode) => {
   transition: all 0.15s;
 }
 
-.legend-chip:hover {
+.chart-button:hover {
   border-color: var(--fg-muted);
 }
 
-.legend-chip--active {
+.chart-button--active {
   background: var(--accent);
   color: #fff;
   border-color: var(--accent);
   font-weight: 500;
+}
+
+.chart-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 900px) {

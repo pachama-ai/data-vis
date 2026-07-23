@@ -178,7 +178,7 @@ describe('DeviationChart', () => {
 
     const svgElement = svgElements[0]!
 
-    expect(svgElement.getAttribute('viewBox')).toBe('0 0 860 520')
+    expect(svgElement.getAttribute('viewBox')).toBe('0 0 860 540')
     expect(svgElement.getAttribute('role')).toBe('img')
   })
 
@@ -311,7 +311,7 @@ describe('DeviationChart', () => {
       if (sourceKey === 'lignite') {
         expect(opacity).toBe(1)
       } else {
-        expect(opacity).toBe(0.3)
+        expect(opacity).toBe(0.55)
       }
     })
   })
@@ -406,5 +406,38 @@ describe('DeviationChart', () => {
     chart.destroy()
 
     // Sollte keine Exception werfen
+  })
+
+  it('wechselt die Balkenreihenfolge beim Sortieren nach Klimawirkung', () => {
+    const container = createContainer()
+    const chart = new DeviationChart()
+
+    chart.render(container)
+    chart.setData(createTestData())
+    flushTransitions()
+
+    // Kategorie-Reihenfolge: hydro hat generationShare 0.05, deviationPp -4
+    const getBarKeys = (): string[] => {
+      return Array.from(
+        container.querySelectorAll<SVGRectElement>('.deviation-bar'),
+      ).map((bar) => bar.getAttribute('data-source-key')!)
+    }
+
+    const categoryOrder = getBarKeys()
+
+    // Sortierung nach Klimawirkung umschalten
+    chart.setSortMode('impact')
+    flushTransitions()
+
+    const impactOrder = getBarKeys()
+
+    // Die Reihenfolge muss sich geändert haben
+    expect(impactOrder).not.toEqual(categoryOrder)
+
+    // Bei impact-Sortierung: negativste Abweichung zuerst (wind_onshore: -30)
+    expect(impactOrder[0]).toBe('wind_onshore')
+
+    // positivste Abweichung zuletzt (lignite: +30)
+    expect(impactOrder[impactOrder.length - 1]).toBe('lignite')
   })
 })

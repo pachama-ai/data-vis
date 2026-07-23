@@ -96,4 +96,56 @@ describe('StackedAreaLegend', () => {
 
     expect(allButton.attributes('aria-pressed')).toBe('false')
   })
+
+  it('disables unrelated sources when highlightedSources is set', () => {
+    const wrapper = mount(StackedAreaLegend, {
+      props: {
+        highlighted: null,
+        colorMode: 'default',
+        highlightedSources: ['pv', 'wind_onshore'],
+        hasActiveAnnotation: true,
+      },
+    })
+
+    const buttons = wrapper.findAll('button')
+    const pvButton = buttons.find((btn) => btn.text().includes('Photovoltaik'))
+    const ligniteButton = buttons.find((btn) => btn.text().includes('Braunkohle'))
+
+    // PV is in highlightedSources → not disabled
+    expect(pvButton?.attributes('disabled')).toBeUndefined()
+
+    // Braunkohle is NOT in highlightedSources → disabled
+    expect(ligniteButton?.attributes('disabled')).toBeDefined()
+  })
+
+  it('click on disabled source does nothing', async () => {
+    const wrapper = mount(StackedAreaLegend, {
+      props: {
+        highlighted: null,
+        colorMode: 'default',
+        highlightedSources: ['pv'],
+        hasActiveAnnotation: true,
+      },
+    })
+
+    const buttons = wrapper.findAll('button')
+    const ligniteButton = buttons.find((btn) => btn.text().includes('Braunkohle'))
+
+    await ligniteButton?.trigger('click')
+
+    expect(wrapper.emitted('select')).toBeUndefined()
+  })
+
+  it('all sources are enabled when highlightedSources is null', () => {
+    const wrapper = mount(StackedAreaLegend, {
+      props: { highlighted: null, colorMode: 'default' },
+    })
+
+    const buttons = wrapper.findAll('button')
+    const sourceButtons = buttons.filter((btn) => !btn.classes().includes('legend-all-button') && !btn.classes().includes('legend-contrast-button'))
+
+    for (const btn of sourceButtons) {
+      expect(btn.attributes('disabled')).toBeUndefined()
+    }
+  })
 })

@@ -2,16 +2,22 @@
 /**
  * DeviationSidebar.vue – Seitenleiste für das Abweichungsdiagramm.
  *
- * Zeigt Kennzahlen zum aktiven Jahr, Details bei Hover und
- * einen Vergleich mit dem Basisjahr 2015.
- * Alle Werte werden bereits berechnet über Props geliefert.
+ * Stilistisch an die MixSidebar der Erzeugungsansicht angeglichen.
+ * Zeigt bei Auswahl/Hover Details zum Energieträger, darunter
+ * einen kontextuellen Jahresblock.
  */
 
 import { computed } from 'vue'
 
-import { MIX_COLORS, MIX_LABELS } from '~/utils/mix-config'
+import {
+  MIX_COLORS,
+  MIX_LABELS,
+  MIX_COLORS_ACCESSIBLE,
+  GROUP_OF,
+  MIX_GROUP_LABELS,
+} from '~/utils/mix-config'
 
-import type { DeviationYear, EmissionRow } from '~/types/mix'
+import type { DeviationYear, EmissionRow, MixSourceKey } from '~/types/mix'
 
 // =========================================================================
 // Props
@@ -28,343 +34,250 @@ interface DeviationSidebarProps {
   renewableShare: number
   baseRenewableShare: number
   baseEmissionIntensity: number
+  colorMode?: 'default' | 'accessible'
 }
 
-const props = defineProps<DeviationSidebarProps>()
+const props = withDefaults(defineProps<DeviationSidebarProps>(), {
+  colorMode: 'default',
+})
 
 // =========================================================================
-// Formatierungsfunktionen
+// Formatierung
 // =========================================================================
 
-const numberFormatter = new Intl.NumberFormat('de-DE', {
+const nf1 = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
 
-const integerFormatter = new Intl.NumberFormat('de-DE', {
+const nf0 = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 0,
   maximumFractionDigits: 0,
 })
 
-function formatPercent(share: number): string {
-  const formattedValue = numberFormatter.format(share)
-
-  return `${formattedValue} %`
+function pct(share: number): string {
+  return `${nf1.format(share)} %`
 }
 
-function formatIntensity(value: number): string {
-  const formattedValue = integerFormatter.format(value)
-
-  return `${formattedValue} g CO₂/kWh`
+function pp(n: number): string {
+  const abs = nf1.format(Math.abs(n))
+  if (n > 0) return `+${abs} pp`
+  if (n < 0) return `−${abs} pp`
+  return `${abs} pp`
 }
 
-function formatIntensityRaw(value: number): string {
-  return integerFormatter.format(value)
+function intensity(v: number): string {
+  return `${nf0.format(v)} g CO₂/kWh`
 }
 
-function formatPercentagePoints(value: number): string {
-  const formattedValue = numberFormatter.format(Math.abs(value))
-
-  if (value > 0) {
-    return `+${formattedValue} pp`
-  }
-
-  if (value < 0) {
-    return `−${formattedValue} pp`
-  }
-
-  return `${formattedValue} pp`
+function change(v: number, suffix: string): string {
+  const abs = nf1.format(Math.abs(v))
+  return v >= 0 ? `+${abs} ${suffix}` : `−${abs} ${suffix}`
 }
 
-function formatSignedChange(
-  value: number,
-  suffix: string,
-): string {
-  const formattedValue = numberFormatter.format(Math.abs(value))
-  const sign = value >= 0 ? '+' : '−'
-
-  return `${sign}${formattedValue} ${suffix}`
+/** Balkenbreite in % */
+function barWidth(share: number): string {
+  return Math.max(0, Math.min(100, share * 100)) + '%'
 }
 
 // =========================================================================
-// Hover-Satz
+// Zustand
 // =========================================================================
 
-function createDeviationSentence(row: EmissionRow): string {
-  const absoluteValue = numberFormatter.format(
-    Math.abs(row.deviationPp),
-  )
+const hasData = computed(() => props.activeYear !== null)
 
-  if (row.deviationPp > 0) {
-    return `Der Emissionsanteil liegt ${absoluteValue} Prozentpunkte über dem Erzeugungsanteil.`
-  }
-
-  if (row.deviationPp < 0) {
-    return `Der Emissionsanteil liegt ${absoluteValue} Prozentpunkte unter dem Erzeugungsanteil.`
-  }
-
-  return 'Emissions- und Erzeugungsanteil sind gleich groß.'
-}
-
-// =========================================================================
-// Computed
-// =========================================================================
-
-const hoverSentence = computed<string | null>(() => {
-  if (!props.hoveredRow) {
-    return null
-  }
-
-  return createDeviationSentence(props.hoveredRow)
+const activeRow = computed<EmissionRow | null>(() => {
+  return props.hoveredRow ?? props.selectedRow ?? null
 })
 
-const hasData = computed(() => {
-  return props.activeYear !== null
+const hasSelection = computed(() => {
+  return props.selectedRow !== null && props.hoveredRow === null
 })
 
-const showsHover = computed(() => {
-  return props.hoveredRow !== null
+const showsSource = computed(() => {
+  return activeRow.value !== null
 })
 
-const showsSelection = computed(() => {
-  return props.selectedRow !== null
+const hasZeroGeneration = computed(() => {
+  return activeRow.value !== null && activeRow.value.generationTwh === 0
 })
 
 const showsDefault = computed(() => {
-  return hasData.value && !showsHover.value && !showsSelection.value
+  return hasData.value && activeRow.value === null
 })
 
-const deviationSentence = computed<string>(() => {
-  if (!props.selectedRow) return ''
-  const pp = props.selectedRow.deviationPp
-  const name = MIX_LABELS[props.selectedRow.sourceKey]
+function getColor(key: MixSourceKey): string {
+  const pal = props.colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
+  return pal[key]
+}
 
-  if (pp > 1) {
-    return `verursacht anteilig mehr CO₂-Emissionen, als sie Strom erzeugt.`
-  }
-
-  if (pp < -1) {
-    return `verursacht anteilig weniger CO₂-Emissionen, als sie Strom erzeugt.`
-  }
-
-  return `verursacht anteilig etwa so viel CO₂-Emissionen, wie sie Strom erzeugt.`
+/** Kategorie-Label für den aktiven Energieträger */
+const groupLabel = computed(() => {
+  const row = activeRow.value
+  if (!row) return ''
+  return MIX_GROUP_LABELS[GROUP_OF[row.sourceKey]]
 })
+
+/** Sinnvoller Bedeutungssatz */
+function meaning(row: EmissionRow): string {
+  const name = MIX_LABELS[row.sourceKey]
+  const diff = nf1.format(Math.abs(row.deviationPp))
+
+  if (row.generationTwh === 0) {
+    return ''
+  }
+  if (row.deviationPp > 1) {
+    return `${name} verursacht einen deutlich größeren Anteil der direkten CO₂-Emissionen, als sie zur Stromerzeugung beiträgt.`
+  }
+  if (row.deviationPp < -1) {
+    return `${name} verursacht einen deutlich geringeren Anteil der direkten CO₂-Emissionen, als sie zur Stromerzeugung beiträgt.`
+  }
+  return `${name} verursacht anteilig etwa so viele CO₂-Emissionen, wie sie Strom erzeugt.`
+}
 </script>
 
 <template>
   <aside class="deviation-sidebar">
-    <!-- ========================================================= -->
-    <!-- Fehlende Daten                                             -->
-    <!-- ========================================================= -->
+    <!-- Keine Daten -->
     <p v-if="!hasData" class="sidebar-empty">
       Kennzahlen sind nicht verfügbar.
     </p>
 
-    <!-- ========================================================= -->
-    <!-- Hover-Zustand (hat Vorrang)                                -->
-    <!-- ========================================================= -->
-    <div v-if="showsHover && hoveredRow" class="sidebar-section">
-      <div class="sidebar-hover-block">
-        <span
-          class="sidebar-color"
-          :style="{
-            backgroundColor: MIX_COLORS[hoveredRow.sourceKey],
-          }"
-          aria-hidden="true"
-        />
-
-        <h3 class="sidebar-hover-title">
-          {{ MIX_LABELS[hoveredRow.sourceKey] }}
-        </h3>
-      </div>
-
-      <p class="sidebar-hover-text">
-        {{ hoverSentence }}
-      </p>
-    </div>
-
-    <!-- ========================================================= -->
-    <!-- Ausgewählter Energieträger (Klick)                        -->
-    <!-- ========================================================= -->
-    <template v-if="showsSelection && selectedRow">
+    <!-- =============================================================== -->
+    <!-- QUELLE AUSGEWÄHLT: Details zum Energieträger                    -->
+    <!-- =============================================================== -->
+    <template v-if="showsSource && activeRow">
       <p class="sidebar-year">{{ activeYear?.year }}</p>
+      <div class="sidebar-divider"></div>
 
-      <div class="sidebar-divider" />
-
-      <section class="sidebar-section">
-        <div class="sidebar-mismatch-block">
-          <span
-            class="sidebar-color"
-            :style="{
-              backgroundColor: MIX_COLORS[selectedRow.sourceKey],
-            }"
-            aria-hidden="true"
-          />
-          <h3 class="sidebar-source-name">
-            {{ MIX_LABELS[selectedRow.sourceKey] }}
-          </h3>
-        </div>
-      </section>
-
-      <div class="sidebar-divider" />
-
-      <section class="sidebar-section">
-        <p class="sidebar-eyebrow">Anteil an der Stromerzeugung</p>
-        <p class="sidebar-value-large">
-          {{ formatPercent(selectedRow.generationShare * 100) }}
+      <!-- Null-Erzeugung: Sondermeldung -->
+      <template v-if="hasZeroGeneration">
+        <p class="sidebar-eyebrow">{{ MIX_LABELS[activeRow.sourceKey] }}</p>
+        <p class="sidebar-zero-msg">
+          Im Jahr {{ activeYear?.year }} fand keine Stromerzeugung
+          aus {{ MIX_LABELS[activeRow.sourceKey] }} statt.
         </p>
-      </section>
+      </template>
 
-      <div class="sidebar-divider" />
-
-      <section class="sidebar-section">
-        <p class="sidebar-eyebrow">Anteil an den CO₂-Emissionen</p>
-        <p class="sidebar-value-large">
-          {{ formatPercent(selectedRow.emissionShare * 100) }}
-        </p>
-      </section>
-
-      <div class="sidebar-divider" />
-
-      <section class="sidebar-section">
-        <p class="sidebar-eyebrow">Unterschied</p>
-        <p class="sidebar-value-large"
-           :class="{
-             'sidebar-positive': selectedRow.deviationPp > 0,
-             'sidebar-negative': selectedRow.deviationPp < 0,
-           }"
-        >
-          {{ formatPercentagePoints(selectedRow.deviationPp) }}
-        </p>
-        <p class="sidebar-sentence">
-          {{ MIX_LABELS[selectedRow.sourceKey] }}
-          {{ deviationSentence }}
-        </p>
-      </section>
-
-      <template v-if="selectedRowBaseShare !== null">
-        <div class="sidebar-divider" />
-
+      <!-- Normalfall -->
+      <template v-else>
         <section class="sidebar-section">
-          <p class="sidebar-eyebrow">Entwicklung seit 2015</p>
-          <p class="sidebar-sentence">
-            Der Anteil an der Stromerzeugung sank von
-            {{ formatPercent(selectedRowBaseShare * 100) }}
-            auf
-            {{ formatPercent(selectedRow.generationShare * 100) }}.
+          <div class="sidebar-name-block">
+            <span
+              class="sidebar-color"
+              :style="{ backgroundColor: getColor(activeRow.sourceKey) }"
+              aria-hidden="true"
+            ></span>
+            <span class="sidebar-source-name">{{ MIX_LABELS[activeRow.sourceKey] }}</span>
+            <span class="sidebar-group-label">{{ groupLabel }}</span>
+          </div>
+        </section>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- Vergleichsgrafik -->
+        <section class="sidebar-section">
+          <p class="sidebar-eyebrow">Stromerzeugung und CO₂-Emissionen</p>
+          <div class="cmp-strip">
+            <div class="cmp-strip-row">
+              <span class="cmp-strip-label">Strom</span>
+              <span class="cmp-strip-track">
+                <span
+                  class="cmp-strip-fill cmp-strip-fill--gen"
+                  :style="{ width: barWidth(activeRow.generationShare) }"
+                ></span>
+              </span>
+              <span class="cmp-strip-value">{{ pct(activeRow.generationShare * 100) }}</span>
+            </div>
+            <div class="cmp-strip-row">
+              <span class="cmp-strip-label">CO₂</span>
+              <span class="cmp-strip-track">
+                <span
+                  class="cmp-strip-fill cmp-strip-fill--em"
+                  :style="{ width: barWidth(activeRow.emissionShare) }"
+                ></span>
+              </span>
+              <span class="cmp-strip-value">{{ pct(activeRow.emissionShare * 100) }}</span>
+            </div>
+          </div>
+        </section>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- Differenz -->
+        <section class="sidebar-section">
+          <p class="sidebar-eyebrow">Differenz</p>
+          <p
+            class="sidebar-diff-value"
+            :class="{
+              'diff-positive': activeRow.deviationPp > 0,
+              'diff-negative': activeRow.deviationPp < 0,
+            }"
+          >
+            {{ pp(activeRow.deviationPp) }}
+          </p>
+          <p class="sidebar-diff-calculation">
+            {{ pct(activeRow.emissionShare * 100) }} Emissionen −
+            {{ pct(activeRow.generationShare * 100) }} Strom
           </p>
         </section>
+
+        <div class="sidebar-divider"></div>
+
+        <!-- Bedeutung -->
+        <section class="sidebar-section">
+          <p class="sidebar-eyebrow">Bedeutung</p>
+          <p class="sidebar-sentence">{{ meaning(activeRow) }}</p>
+        </section>
+
+        <!-- Entwicklung seit 2015 -->
+        <template v-if="selectedRowBaseShare !== null && hasSelection">
+          <div class="sidebar-divider"></div>
+          <section class="sidebar-section">
+            <p class="sidebar-eyebrow">Entwicklung seit 2015</p>
+            <p class="sidebar-sentence">
+              Der Anteil an der Stromerzeugung
+              {{ selectedRowBaseShare! > activeRow.generationShare ? 'sank' : 'stieg' }}
+              von {{ pct(selectedRowBaseShare * 100) }}
+              auf {{ pct(activeRow.generationShare * 100) }}.
+            </p>
+          </section>
+        </template>
       </template>
     </template>
 
-    <!-- ========================================================= -->
-    <!-- Standard-Zustand                                           -->
-    <!-- ========================================================= -->
+    <!-- =============================================================== -->
+    <!-- DEFAULT: Nur Jahresüberblick                                    -->
+    <!-- =============================================================== -->
     <template v-if="showsDefault && activeYear">
-      <!-- Jahr -->
-      <p class="sidebar-year">{{ activeYear?.year }}</p>
+      <p class="sidebar-year">{{ activeYear.year }}</p>
+      <div class="sidebar-divider"></div>
 
-      <div class="sidebar-divider" />
+      <section class="sidebar-section sidebar-context">
+        <p class="sidebar-eyebrow">Jahresüberblick</p>
 
-      <!-- Größtes Missverhältnis -->
-      <section
-        v-if="largestMismatch"
-        class="sidebar-section"
-      >
-        <p class="sidebar-eyebrow">Größter Unterschied</p>
-
-        <div class="sidebar-mismatch-block">
-          <span
-            class="sidebar-color"
-            :style="{
-              backgroundColor:
-                MIX_COLORS[largestMismatch.sourceKey],
-            }"
-            aria-hidden="true"
-          />
-
-          <h3 class="sidebar-source-name">
-            {{ MIX_LABELS[largestMismatch.sourceKey] }}
-          </h3>
+        <div class="context-row">
+          <span class="context-label">CO₂-Emissionen je kWh</span>
+          <span class="context-value">{{ intensity(emissionIntensity) }}</span>
         </div>
 
-        <p class="sidebar-mismatch-detail">
-          {{ MIX_LABELS[largestMismatch.sourceKey] }}
-          verursacht
-          {{ formatPercent(largestMismatch.emissionShare * 100) }}
-          der direkten CO₂-Emissionen, liefert aber nur
-          {{ formatPercent(largestMismatch.generationShare * 100) }}
-          der Stromerzeugung.
-        </p>
-      </section>
+        <div class="context-row">
+          <span class="context-label">Erneuerbaren-Anteil</span>
+          <span class="context-value">{{ pct(renewableShare) }}</span>
+        </div>
 
-      <div class="sidebar-divider" />
+        <div class="context-row" v-if="baseEmissionIntensity > 0">
+          <span class="context-label">Veränderung seit 2015</span>
+          <span class="context-value context-value--green">
+            {{ change(emissionIntensity - baseEmissionIntensity, 'g CO₂/kWh') }}
+          </span>
+        </div>
 
-      <!-- Emissionsintensität -->
-      <section class="sidebar-section">
-        <p class="sidebar-eyebrow">CO₂-Emissionen je Kilowattstunde</p>
-
-        <p class="sidebar-value-large">
-          {{ formatIntensity(emissionIntensity) }}
-        </p>
-
-        <p class="sidebar-sentence">
-          Im Jahr {{ activeYear?.year }} entstanden durchschnittlich
-          {{ formatIntensityRaw(emissionIntensity) }}
-          Gramm direkte CO₂-Emissionen je erzeugter Kilowattstunde Strom.
-        </p>
-      </section>
-
-      <div class="sidebar-divider" />
-
-      <!-- Vergleich mit 2015 -->
-      <section class="sidebar-section">
-        <p class="sidebar-eyebrow">Entwicklung seit 2015</p>
-
-        <div class="sidebar-comparison">
-          <p class="sidebar-sentence">
-            Der Anteil erneuerbarer Energien stieg von
-            {{ formatPercent(baseRenewableShare) }}
-            im Jahr 2015 auf
-            {{ formatPercent(renewableShare) }}
-            im Jahr {{ activeYear?.year }}.
-          </p>
-
-          <div style="height: 16px;" />
-
-          <div class="sidebar-comparison-row">
-            <span class="sidebar-comparison-label">
-              CO₂-Emissionen je Kilowattstunde
-            </span>
-
-            <span class="sidebar-comparison-values">
-              {{ formatIntensity(baseEmissionIntensity) }}
-              →
-              {{ formatIntensity(emissionIntensity) }}
-            </span>
-
-            <span
-              v-if="baseEmissionIntensity > 0"
-              class="sidebar-comparison-change"
-            >
-              {{
-                formatSignedChange(
-                  emissionIntensity - baseEmissionIntensity,
-                  'g CO₂/kWh',
-                )
-              }}
-            </span>
-          </div>
-
-          <p class="sidebar-sentence">
-            Die durchschnittlichen direkten CO₂-Emissionen sanken von
-            {{ formatIntensityRaw(baseEmissionIntensity) }}
-            auf
-            {{ formatIntensityRaw(emissionIntensity) }}
-            g CO₂/kWh. Das entspricht einem Rückgang um
-            {{ formatIntensityRaw(Math.abs(baseEmissionIntensity - emissionIntensity)) }}
-            g CO₂/kWh.
-          </p>
+        <div class="context-row" v-if="baseRenewableShare > 0">
+          <span class="context-label">EE-Anteil 2015 → {{ activeYear.year }}</span>
+          <span class="context-value">
+            {{ pct(baseRenewableShare) }} → {{ pct(renewableShare) }}
+          </span>
         </div>
       </section>
     </template>
@@ -381,7 +294,7 @@ const deviationSentence = computed<string>(() => {
   background: var(--bg);
   border: 1px solid var(--hairline);
   border-radius: 6px;
-  padding: 24px;
+  padding: 20px;
 }
 
 .sidebar-empty {
@@ -395,25 +308,18 @@ const deviationSentence = computed<string>(() => {
   font-size: 28px;
   font-weight: 600;
   color: var(--fg);
-  margin: 0 0 8px;
+  margin: 0 0 4px;
   line-height: 1.1;
-}
-
-.sidebar-sentence {
-  margin: 8px 0 0;
-  font-size: 12px;
-  line-height: 1.6;
-  color: var(--fg-muted);
 }
 
 .sidebar-divider {
   height: 1px;
   background: var(--hairline);
-  margin: 28px 0;
+  margin: 12px 0;
 }
 
 .sidebar-section {
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .sidebar-eyebrow {
@@ -422,7 +328,7 @@ const deviationSentence = computed<string>(() => {
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--fg-muted);
-  margin: 0 0 12px;
+  margin: 0 0 8px;
 }
 
 .sidebar-color {
@@ -433,98 +339,150 @@ const deviationSentence = computed<string>(() => {
   flex-shrink: 0;
 }
 
-.sidebar-mismatch-block {
+.sidebar-name-block {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 6px;
+  flex-wrap: wrap;
 }
 
 .sidebar-source-name {
   font-family: var(--font-serif);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 600;
   color: var(--fg);
-  margin: 0;
 }
 
-.sidebar-mismatch-detail {
-  margin: 0;
+.sidebar-group-label {
+  font-size: 11px;
   color: var(--fg-muted);
+}
+
+.sidebar-sentence {
+  margin: 6px 0 0;
   font-size: 12px;
   line-height: 1.6;
+  color: var(--fg-muted);
 }
 
-.sidebar-value-large {
-  font-family: var(--font-serif);
-  font-size: 24px;
-  font-weight: 600;
-  color: var(--fg);
-  margin: 0;
-}
-
-.sidebar-positive {
-  color: #b33;
-}
-
-.sidebar-negative {
-  color: var(--accent);
-}
-
-.sidebar-comparison {
+/* Vergleichs-Strip */
+.cmp-strip {
   display: flex;
   flex-direction: column;
+  gap: 6px;
+}
+
+.cmp-strip-row {
+  display: flex;
+  align-items: center;
   gap: 8px;
 }
 
-.sidebar-comparison-row {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.sidebar-comparison-label {
+.cmp-strip-label {
+  width: 32px;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
   color: var(--fg-muted);
+  text-align: right;
+  flex-shrink: 0;
 }
 
-.sidebar-comparison-values {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--fg);
-  font-variant-numeric: tabular-nums;
+.cmp-strip-track {
+  flex: 1;
+  height: 10px;
+  background: var(--hairline);
+  border-radius: 3px;
+  overflow: hidden;
 }
 
-.sidebar-comparison-change {
+.cmp-strip-fill {
+  display: block;
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.3s ease;
+}
+
+.cmp-strip-fill--gen {
+  background: var(--accent);
+}
+
+.cmp-strip-fill--em {
+  background: #b33;
+  opacity: 0.75;
+}
+
+.cmp-strip-value {
+  width: 52px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--fg-muted);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Hover-Block */
-.sidebar-hover-block {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.sidebar-hover-title {
-  font-family: var(--font-serif);
-  font-size: 16px;
-  font-weight: 600;
   color: var(--fg);
+  text-align: right;
+  flex-shrink: 0;
+  font-feature-settings: 'tnum';
+}
+
+/* Differenz */
+.sidebar-diff-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-feature-settings: 'tnum';
   margin: 0;
 }
 
-.sidebar-hover-text {
-  margin: 0;
+.diff-positive {
+  color: var(--color-diff-positive, #b33);
+  opacity: 0.85;
+}
+
+.diff-negative {
+  color: var(--color-diff-negative, #2a6f4a);
+  opacity: 0.85;
+}
+
+.sidebar-diff-calculation {
+  font-size: 11px;
   color: var(--fg-muted);
-  font-size: 13px;
-  line-height: 1.5;
+  margin: 2px 0 0;
+}
+
+/* Null-Erzeugungs-Meldung */
+.sidebar-zero-msg {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+  margin: 0;
+}
+
+/* Jahreskontext */
+.sidebar-context {
+  font-size: 12px;
+}
+
+.context-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+}
+
+.context-label {
+  color: var(--fg-muted);
+  font-size: 11px;
+}
+
+.context-value {
+  font-weight: 500;
+  font-feature-settings: 'tnum';
+  color: var(--fg);
+  font-size: 12px;
+}
+
+.context-value--green {
+  color: var(--accent);
+}
+
+/* Abstand vor Jahreskontext */
+.sidebar-divider--context {
+  margin-top: 20px;
 }
 </style>
