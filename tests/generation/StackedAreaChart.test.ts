@@ -54,7 +54,7 @@ describe('StackedAreaChart', () => {
   it('shows title', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
-    expect(wrapper.find('.chart-container svg').exists()).toBe(true)
+    expect(wrapper.find('.chart svg').exists()).toBe(true)
   })
 
   it('renders SVG with 10 layers', async () => {
@@ -154,7 +154,7 @@ describe('StackedAreaChart', () => {
     expect(firstMarker.attributes('aria-pressed')).toBe('false')
   })
 
-  it('zeigt feste Guide-Linie bei ausgewählter Annotation', async () => {
+  it('zeigt feste Guide-Linie bei ausgewï¿½hlter Annotation', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
@@ -167,7 +167,7 @@ describe('StackedAreaChart', () => {
     expect(guide.exists()).toBe(true)
   })
 
-  it('zeigt Default-Sidebar mit Übersicht', async () => {
+  it('zeigt Default-Sidebar mit ï¿½bersicht', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
@@ -187,11 +187,11 @@ describe('StackedAreaChart', () => {
 
     expect(wrapper.text()).toContain('Photovoltaik')
     expect(wrapper.text()).toContain('Jahressumme 2024')
-    expect(wrapper.text()).toContain('Höchster Monatswert')
+    expect(wrapper.text()).toContain('Hï¿½chster Monatswert')
     expect(wrapper.text()).toContain('Niedrigster Monatswert')
   })
 
-  it('zeigt wieder Übersicht nach erneutem Legendenklick', async () => {
+  it('zeigt wieder ï¿½bersicht nach erneutem Legendenklick', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
@@ -217,14 +217,14 @@ describe('StackedAreaChart', () => {
     await flushPromises()
 
     expect(wrapper.text()).toContain('Test Event')
-    expect(wrapper.text()).toContain('Anteile im ausgewählten Monat')
+    expect(wrapper.text()).toContain('Anteile im ausgewï¿½hlten Monat')
   })
 
   it('Annotation hat Vorrang vor Quelle', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
-    // Erst Quelle auswählen
+    // Erst Quelle auswï¿½hlen
     const pvButton = wrapper.findAll('button').find((button) => {
       return button.text().includes('Photovoltaik')
     })
@@ -232,7 +232,7 @@ describe('StackedAreaChart', () => {
     await pvButton?.trigger('click')
     await flushPromises()
 
-    // Dann Annotation auswählen
+    // Dann Annotation auswï¿½hlen
     const markers = wrapper.findAll('.annotation-button')
     const firstMarker = markers[0]!
     await firstMarker.trigger('click')
@@ -240,14 +240,14 @@ describe('StackedAreaChart', () => {
 
     // Annotation-Text sichtbar
     expect(wrapper.text()).toContain('Test Event')
-    expect(wrapper.text()).toContain('Anteile im ausgewählten Monat')
+    expect(wrapper.text()).toContain('Anteile im ausgewï¿½hlten Monat')
   })
 
-  it('"Alle"-Button setzt Hervorhebung zurück', async () => {
+  it('"Alle"-Button setzt Hervorhebung zurï¿½ck', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
 
-    // Photovoltaik auswählen
+    // Photovoltaik auswï¿½hlen
     const pvButton = wrapper.findAll('button').find((button) => {
       return button.text().includes('Photovoltaik')
     })!
@@ -255,7 +255,7 @@ describe('StackedAreaChart', () => {
     await pvButton.trigger('click')
     await flushPromises()
 
-    // Prüfe: pv-Layer opacity 1, gas-Layer opacity 0.15
+    // Prï¿½fe: pv-Layer opacity 1, gas-Layer opacity 0.15
     expect(
       wrapper.find('.layer-pv').attributes('opacity'),
     ).toBe('1')
@@ -272,7 +272,7 @@ describe('StackedAreaChart', () => {
     await allButton.trigger('click')
     await flushPromises()
 
-    // Prüfe: alle Layer wieder opacity 1
+    // Prï¿½fe: alle Layer wieder opacity 1
     expect(
       wrapper.find('.layer-pv').attributes('opacity'),
     ).toBe('1')
@@ -302,7 +302,7 @@ describe('StackedAreaChart', () => {
     expect(wrapper.text()).not.toContain('Datenstand:')
   })
 
-  it('Marker-Bereich enthält nicht "Aktueller Datenstand"', async () => {
+  it('Marker-Bereich enthï¿½lt nicht "Aktueller Datenstand"', async () => {
     const wrapper = mount(StackedAreaChart)
     await flushPromises()
 

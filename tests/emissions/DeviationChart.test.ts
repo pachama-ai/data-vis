@@ -130,7 +130,7 @@ describe('DeviationChart', () => {
     // Warten auf asynchrone Initialisierung
     await new Promise((resolve) => setTimeout(resolve, 100))
 
-    expect(wrapper.find('.chart-container svg').exists()).toBe(true)
+    expect(wrapper.find('.chart svg').exists()).toBe(true)
   })
 
   it('zeigt ein SVG mit Balken', async () => {
@@ -151,7 +151,7 @@ describe('DeviationChart', () => {
     const svgElements = wrapper.findAllComponents({ deep: true })
 
     // Prüfe, ob der Chart-Container existiert
-    const chartContainer = wrapper.find('.chart-container')
+    const chartContainer = wrapper.find('.chart')
 
     expect(chartContainer.exists()).toBe(true)
   })
@@ -172,7 +172,7 @@ describe('DeviationChart', () => {
     d3.timerFlush()
 
     // Chart-Container wurde befüllt (SVG mit Achsentext)
-    expect(wrapper.find('.chart-container svg').exists()).toBe(true)
+    expect(wrapper.find('.chart svg').exists()).toBe(true)
     expect(wrapper.text()).toContain('Wasserkraft')
     expect(wrapper.text()).toContain('Braunkohle')
   })

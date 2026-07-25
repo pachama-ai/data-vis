@@ -73,31 +73,31 @@ import DeviationChart from '~/components/emissions/DeviationChart.vue'
 }
 
 .emission-panel-eyebrow {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   margin: 0 0 8px;
 }
 
 .emission-panel-title {
-  font-family: var(--font-serif);
+  font-family: var(--serif-font);
   font-size: clamp(24px, 3vw, 36px);
   font-weight: 600;
   line-height: 1.15;
-  color: var(--fg);
+  color: var(--text-color);
   margin: 0;
   letter-spacing: -0.01em;
 }
 
 .emission-panel-subtitle {
   margin: 10px 0 0;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 15px;
   line-height: 1.6;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
 }
 
 .emission-panel-visualization {
@@ -106,7 +106,7 @@ import DeviationChart from '~/components/emissions/DeviationChart.vue'
 
 .emission-panel-footer {
   margin-top: 32px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--line-color);
   padding-top: 20px;
 }
 
@@ -123,19 +123,19 @@ import DeviationChart from '~/components/emissions/DeviationChart.vue'
 }
 
 .source-label {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   margin: 0;
 }
 
 .source-text {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 13px;
-  color: var(--fg);
+  color: var(--text-color);
   line-height: 1.45;
   margin: 0;
 }

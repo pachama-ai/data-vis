@@ -49,7 +49,7 @@ async function getTimestamps(filter: number): Promise<number[]> {
   if (!json) return [];
 
   const ts = (json as { timestamps: number[] }).timestamps
-  return ts.filter((t: number) => t >= START);
+  return ts.filter(function (t: number) { return t >= START });
 }
 
 async function fetchBlock(filter: number, timestamp: number): Promise<number[][]> {
@@ -79,7 +79,7 @@ async function fetchFilter(name: string, filter: number): Promise<number[][]> {
     const chunk = timestamps.slice(i, i + concurrency);
 
     const data = await Promise.all(
-      chunk.map((ts: number) => fetchBlock(filter, ts))
+      chunk.map(function (ts: number) { return fetchBlock(filter, ts) })
     );
 
     for (const series of data) {
@@ -118,8 +118,9 @@ async function main() {
   }
 
   const data = Object.values(merged).sort(
-    (a: Record<string, number | string>, b: Record<string, number | string>) =>
-      (a.timestamp as number) - (b.timestamp as number),
+    function (a: Record<string, number | string>, b: Record<string, number | string>) {
+      return (a.timestamp as number) - (b.timestamp as number)
+    },
   );
 
   fs.mkdirSync("./public/data", { recursive: true });

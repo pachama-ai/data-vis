@@ -59,7 +59,7 @@ function formatPercentagePoints(value: number): string {
 // Position
 // =========================================================================
 
-const tooltipStyle = computed(() => {
+const tooltipStyle = computed(function () {
   return {
     left: `${props.chartX + 12}px`,
     top: `${props.chartY + 12}px`,
@@ -119,11 +119,11 @@ const tooltipStyle = computed(() => {
   min-width: 220px;
   white-space: nowrap;
   background: #ffffff;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--line-color);
   border-radius: 6px;
   padding: 10px 14px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 12px;
   line-height: 1.5;
 }
@@ -143,10 +143,10 @@ const tooltipStyle = computed(() => {
 }
 
 .tooltip-title {
-  font-family: var(--font-serif);
+  font-family: var(--serif-font);
   font-size: 14px;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--text-color);
   margin: 0;
 }
 
@@ -163,26 +163,26 @@ const tooltipStyle = computed(() => {
 }
 
 .tooltip-row dt {
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   font-weight: 400;
 }
 
 .tooltip-row dd {
-  color: var(--fg);
+  color: var(--text-color);
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   margin: 0;
 }
 
 .tooltip-row--result {
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--line-color);
   margin-top: 4px;
   padding-top: 6px;
 }
 
 .tooltip-row--result dt {
   font-weight: 500;
-  color: var(--fg);
+  color: var(--text-color);
 }
 
 .tooltip-row--result dd {

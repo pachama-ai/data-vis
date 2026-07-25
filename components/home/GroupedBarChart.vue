@@ -59,11 +59,11 @@ const activeCategory = ref<EnergyCategory | null>(null)
  * Gefilterte Daten – abgeleitet aus Props und Filter.
  * Wenn kein Filter aktiv ist, werden alle Daten zurückgegeben.
  */
-const filteredData = computed<EnergyDataPoint[]>(() => {
+const filteredData = computed<EnergyDataPoint[]>(function () {
   if (activeCategory.value === null) {
     return props.data
   }
-  return props.data.filter((dataPoint) => {
+  return props.data.filter(function (dataPoint) {
     return dataPoint.category === activeCategory.value
   })
 })
@@ -75,7 +75,7 @@ const tooltip = ref<TooltipState | null>(null)
  * Passt den Klick-Hinweistext an den aktuellen Filter-Zustand an.
  * Ohne Filter: Aufforderung zum Filtern. Mit Filter: Rückkehr-Hinweis.
  */
-const chartHintText = computed<string>(() => {
+const chartHintText = computed<string>(function () {
   if (activeCategory.value === null) {
     return 'Energieträger anklicken, um die zugehörige Kategorie hervorzuheben.'
   }
@@ -86,7 +86,7 @@ const chartHintText = computed<string>(() => {
  * Liefert das Vergleichsjahr für die Delta-Beschriftung im Tooltip.
  * Wenn 2024 gehovert wird, wird gegen 2015 verglichen und umgekehrt.
  */
-const tooltipComparisonYear = computed<number>(() => {
+const tooltipComparisonYear = computed<number>(function () {
   if (tooltip.value === null) {
     return 2015
   }
@@ -224,7 +224,7 @@ function getBarLabelColor(year: '2015' | '2024'): string {
   if (year === '2015') {
     return '#8a8a85'
   }
-  return 'var(--fg)'
+  return 'var(--text-color)'
 }
 
 // Dunkelgraue Textfarbe für alle Delta-Labels.
@@ -288,7 +288,7 @@ function renderChart(): void {
   // ebenen haben: Energieträger → Jahr.
   // -----------------------------------------------------------------------
   const outerScale = d3.scaleBand<string>()
-    .domain(currentData.map((d) => d.id))
+    .domain(currentData.map(function (d) { return d.id }))
     .range([0, currentInnerHeight])
     .padding(OUTER_BAND_PADDING)
 
@@ -348,7 +348,7 @@ function renderChart(): void {
   legendGroup.append('text')
     .attr('x', legendX + 18).attr('y', 24)
     .attr('font-size', '11px').attr('fill', '#8a8a85')
-    .attr('font-family', 'var(--font-sans)')
+    .attr('font-family', 'var(--sans-font)')
     .style('letter-spacing', '0.05em').style('text-transform', 'uppercase')
     .text('2015')
   legendGroup.append('rect')
@@ -359,7 +359,7 @@ function renderChart(): void {
   legendGroup.append('text')
     .attr('x', legendX + 84).attr('y', 24)
     .attr('font-size', '11px').attr('fill', '#8a8a85')
-    .attr('font-family', 'var(--font-sans)')
+    .attr('font-family', 'var(--sans-font)')
     .style('letter-spacing', '0.05em').style('text-transform', 'uppercase')
     .text('2024')
 
@@ -373,15 +373,15 @@ function renderChart(): void {
   gridGroup.selectAll<SVGLineElement, number>('.grid-line')
     .data(X_AXIS_TICK_VALUES)
     .join(
-      (enter) => enter.append('line').attr('class', 'grid-line')
+      function (enter) { return enter.append('line').attr('class', 'grid-line')
         .attr('y1', CHART_MARGIN.top)
         .attr('y2', CHART_MARGIN.top + currentInnerHeight)
-        .attr('stroke', '#f0ede8').attr('stroke-width', 1),
-      (update) => update,
-      (exit) => exit.remove(),
+        .attr('stroke', '#f0ede8').attr('stroke-width', 1) },
+      function (update) { return update },
+      function (exit) { return exit.remove() },
     )
-    .attr('x1', (tickValue) => CHART_MARGIN.left + xScale(tickValue))
-    .attr('x2', (tickValue) => CHART_MARGIN.left + xScale(tickValue))
+    .attr('x1', function (tickValue) { return CHART_MARGIN.left + xScale(tickValue) })
+    .attr('x2', function (tickValue) { return CHART_MARGIN.left + xScale(tickValue) })
 
   // -----------------------------------------------------------------------
   // y-Achse (links)
@@ -390,7 +390,7 @@ function renderChart(): void {
   // Die Tick-Format-Funktion gibt einen leeren String zurück, weil wir
   // eigene Zeilenbeschriftungen links rendern.
   // -----------------------------------------------------------------------
-  const yAxis = d3.axisLeft(outerScale).tickSize(0).tickFormat(() => '')
+  const yAxis = d3.axisLeft(outerScale).tickSize(0).tickFormat(function () { return '' })
   const yAxisGroup = svgElement.select<SVGGElement>('.y-axis')
     .attr('transform', `translate(${CHART_MARGIN.left}, ${CHART_MARGIN.top})`)
   yAxisGroup.call(yAxis)
@@ -404,7 +404,7 @@ function renderChart(): void {
   // -----------------------------------------------------------------------
   const xAxis = d3.axisBottom(xScale)
     .tickValues(X_AXIS_TICK_VALUES)
-    .tickFormat((tickValue) => {
+    .tickFormat(function (tickValue) {
       return germanNumberFormat.format('.0f')(Number(tickValue)) + ' %'
     })
     .tickSize(4)
@@ -414,7 +414,7 @@ function renderChart(): void {
   xAxisGroup.select('.domain').remove()
   xAxisGroup.selectAll('.tick text')
     .attr('font-size', '11px').attr('fill', '#8a8a85')
-    .attr('font-family', 'var(--font-sans)')
+    .attr('font-family', 'var(--sans-font)')
 
   // -----------------------------------------------------------------------
   // Achsentitel unter der x-Achse
@@ -426,7 +426,7 @@ function renderChart(): void {
     .attr('y', CHART_MARGIN.top + currentInnerHeight + 52)
     .attr('text-anchor', 'middle')
     .attr('font-size', '10px').attr('fill', '#8a8a85')
-    .attr('font-family', 'var(--font-sans)')
+    .attr('font-family', 'var(--sans-font)')
     .style('letter-spacing', '0.05em').style('text-transform', 'uppercase')
     .text('Anteil an der öffentlichen Nettostromerzeugung')
 
@@ -444,45 +444,45 @@ function renderChart(): void {
   // -----------------------------------------------------------------------
   const chartContent = svgElement.select<SVGGElement>('.chart-content')
   chartContent.selectAll<SVGRectElement, FlatBarItem>('.bar')
-    .data(flatBars, (flatBar: FlatBarItem) => flatBar.id)
+    .data(flatBars, function (flatBar: FlatBarItem) { return flatBar.id })
     .join(
-      (enter) => {
+      function (enter) {
         const newBars = enter.append('rect')
           .attr('class', 'bar')
           .attr('x', CHART_MARGIN.left)
           .attr('y', getBarTopY)
           .attr('height', innerScale.bandwidth())
           .attr('width', 0)
-          .attr('fill', (bar) => getCategoryColor(bar.parent.category, bar.year))
+          .attr('fill', function (bar) { return getCategoryColor(bar.parent.category, bar.year) })
           .attr('opacity', getBarOpacity)
           .attr('rx', 2).attr('ry', 2)
 
         // Breite direkt setzen (keine Transition beim ersten Rendern,
         // weil D3-Transitions im join-Enter-Kontext nicht stabil laufen)
-        newBars.attr('width', (bar) => xScale(bar.value))
+        newBars.attr('width', function (bar) { return xScale(bar.value) })
 
         return newBars
       },
-      (update) => update
-        .attr('fill', (bar) => getCategoryColor(bar.parent.category, bar.year))
+      function (update) { return update
+        .attr('fill', function (bar) { return getCategoryColor(bar.parent.category, bar.year) })
         .attr('opacity', getBarOpacity)
-        .call((updateSelection) => updateSelection.transition().duration(ANIMATION_DURATION_MS)
+        .call(function (updateSelection) { return updateSelection.transition().duration(ANIMATION_DURATION_MS)
           .attr('y', getBarTopY)
           .attr('height', innerScale.bandwidth())
-          .attr('width', (bar) => xScale(bar.value)),
-        ),
-      (exit) => exit
-        .call((exitSelection) => exitSelection.transition().duration(ANIMATION_DURATION_MS)
+          .attr('width', function (bar) { return xScale(bar.value) }) },
+        ) },
+      function (exit) { return exit
+        .call(function (exitSelection) { return exitSelection.transition().duration(ANIMATION_DURATION_MS)
           .attr('width', 0)
-          .remove(),
-        ),
+          .remove() },
+        ) },
     )
 
   // -----------------------------------------------------------------------
   // Tooltip-Events auf Balken
   // -----------------------------------------------------------------------
   chartContent.selectAll<SVGRectElement, FlatBarItem>('.bar')
-    .on('mouseenter', (event: MouseEvent, flatBar: FlatBarItem) => {
+    .on('mouseenter', function (event: MouseEvent, flatBar: FlatBarItem) {
       const deltaText = formatDelta(flatBar.parent.displayedDelta)
       tooltip.value = {
         visible: true,
@@ -495,13 +495,13 @@ function renderChart(): void {
         clientY: event.clientY,
       }
     })
-    .on('mousemove', (event: MouseEvent) => {
+    .on('mousemove', function (event: MouseEvent) {
       if (tooltip.value !== null) {
         tooltip.value.clientX = event.clientX
         tooltip.value.clientY = event.clientY
       }
     })
-    .on('mouseleave', () => {
+    .on('mouseleave', function () {
       tooltip.value = null
     })
 
@@ -512,36 +512,36 @@ function renderChart(): void {
   // Join-Muster wie bei den Balken, aber mit Opacity-Transition.
   // -----------------------------------------------------------------------
   chartContent.selectAll<SVGTextElement, FlatBarItem>('.bar-label')
-    .data(labelBars, (flatBar: FlatBarItem) => flatBar.id)
+    .data(labelBars, function (flatBar: FlatBarItem) { return flatBar.id })
     .join(
-      (enter) => enter.append('text')
+      function (enter) { return enter.append('text')
         .attr('class', 'bar-label')
         .attr('x', CHART_MARGIN.left)
-        .attr('y', (bar) => getBarTopY(bar) + innerScale.bandwidth() / 2)
+        .attr('y', function (bar) { return getBarTopY(bar) + innerScale.bandwidth() / 2 })
         .attr('opacity', 0)
         .attr('text-anchor', 'start')
         .attr('dominant-baseline', 'middle')
         .attr('font-size', '12px')
-        .attr('fill', (bar) => getBarLabelColor(bar.year))
-        .attr('font-family', 'var(--font-sans)')
+        .attr('fill', function (bar) { return getBarLabelColor(bar.year) })
+        .attr('font-family', 'var(--sans-font)')
         .style('font-variant-numeric', 'tabular-nums')
-        .text((bar) => formatPercent(bar.value))
-        .call((enterSelection) => enterSelection.transition().duration(ANIMATION_DURATION_MS).delay(LABEL_DELAY_MS)
+        .text(function (bar) { return formatPercent(bar.value) })
+        .call(function (enterSelection) { return enterSelection.transition().duration(ANIMATION_DURATION_MS).delay(LABEL_DELAY_MS)
           .attr('opacity', 1)
-          .attr('x', (bar) => CHART_MARGIN.left + xScale(bar.value) + BAR_LABEL_OFFSET_X),
-        ),
-      (update) => update
-        .call((updateSelection) => updateSelection.transition().duration(ANIMATION_DURATION_MS)
-          .attr('y', (bar) => getBarTopY(bar) + innerScale.bandwidth() / 2)
-          .attr('x', (bar) => CHART_MARGIN.left + xScale(bar.value) + BAR_LABEL_OFFSET_X)
-          .text((bar) => formatPercent(bar.value)),
+          .attr('x', function (bar) { return CHART_MARGIN.left + xScale(bar.value) + BAR_LABEL_OFFSET_X }) },
+        ) },
+      function (update) { return update
+        .call(function (updateSelection) { return updateSelection.transition().duration(ANIMATION_DURATION_MS)
+          .attr('y', function (bar) { return getBarTopY(bar) + innerScale.bandwidth() / 2 })
+          .attr('x', function (bar) { return CHART_MARGIN.left + xScale(bar.value) + BAR_LABEL_OFFSET_X })
+          .text(function (bar) { return formatPercent(bar.value) }) },
         )
-        .attr('fill', (bar) => getBarLabelColor(bar.year)),
-      (exit) => exit
-        .call((exitSelection) => exitSelection.transition().duration(300)
+        .attr('fill', function (bar) { return getBarLabelColor(bar.year) }) },
+      function (exit) { return exit
+        .call(function (exitSelection) { return exitSelection.transition().duration(300)
           .attr('opacity', 0)
-          .remove(),
-        ),
+          .remove() },
+        ) },
     )
 
   // -----------------------------------------------------------------------
@@ -565,10 +565,10 @@ function renderChart(): void {
   // Muster mit vier Hilfsfunktionen.
   const rowLabelGroups = chartContent
     .selectAll<SVGGElement, EnergyDataPoint>('.row-label-group')
-    .data(currentData, (dataPoint) => dataPoint.id)
+    .data(currentData, function (dataPoint) { return dataPoint.id })
     .join('g')
     .attr('class', 'row-label-group')
-    .attr('transform', (dataPoint) => {
+    .attr('transform', function (dataPoint) {
       const yTop = CHART_MARGIN.top + (outerScale(dataPoint.id) ?? 0)
       return `translate(0, ${yTop})`
     })
@@ -589,11 +589,11 @@ function renderChart(): void {
       .attr('text-anchor', 'end')
       .attr('dominant-baseline', 'alphabetic')
       .attr('font-size', '14px')
-      .attr('fill', 'var(--fg)')
-      .attr('font-family', 'var(--font-sans)')
+      .attr('fill', 'var(--text-color)')
+      .attr('font-family', 'var(--sans-font)')
       .style('cursor', 'pointer')
       .text(dataPoint.label)
-      .on('click', () => toggleCategoryFilter(dataPoint.category))
+      .on('click', function () { toggleCategoryFilter(dataPoint.category) })
 
     // Kategorie-Untertitel (untere Zeile)
     groupElement.append('text')
@@ -604,10 +604,10 @@ function renderChart(): void {
       .attr('dominant-baseline', 'hanging')
       .attr('font-size', '11px')
       .attr('fill', '#8a8a85')
-      .attr('font-family', 'var(--font-sans)')
+      .attr('font-family', 'var(--sans-font)')
       .style('cursor', 'pointer')
       .text(CATEGORY_LABELS[dataPoint.category])
-      .on('click', () => toggleCategoryFilter(dataPoint.category))
+      .on('click', function () { toggleCategoryFilter(dataPoint.category) })
   })
 
   // -----------------------------------------------------------------------
@@ -618,14 +618,14 @@ function renderChart(): void {
   // aber am rechten Rand des Plots.
   // -----------------------------------------------------------------------
   chartContent.selectAll<SVGTextElement, EnergyDataPoint>('.delta-label')
-    .data(currentData, (dataPoint: EnergyDataPoint) => dataPoint.id)
+    .data(currentData, function (dataPoint: EnergyDataPoint) { return dataPoint.id })
     .join(
-      (enter) => enter.append('text').attr('class', 'delta-label'),
-      (update) => update,
-      (exit) => exit.remove(),
+      function (enter) { return enter.append('text').attr('class', 'delta-label') },
+      function (update) { return update },
+      function (exit) { return exit.remove() },
     )
     .attr('x', CHART_MARGIN.left + innerWidth + DELTA_LABEL_OFFSET_X)
-    .attr('y', (dataPoint) => {
+    .attr('y', function (dataPoint) {
       const bandTop = outerScale(dataPoint.id) ?? 0
       const rowCenter = bandTop + outerScale.bandwidth() / 2
       return CHART_MARGIN.top + rowCenter
@@ -635,7 +635,7 @@ function renderChart(): void {
     .attr('font-size', '12px')
     .attr('font-family', "'SFMono-Regular', Consolas, monospace")
     .style('font-variant-numeric', 'tabular-nums')
-    .text((dataPoint) => formatDelta(dataPoint.displayedDelta))
+    .text(function (dataPoint) { return formatDelta(dataPoint.displayedDelta) })
     .attr('fill', DELTA_LABEL_COLOR)
 }
 
@@ -645,11 +645,11 @@ function renderChart(): void {
 
 let contrastObserver: MutationObserver | null = null
 
-onMounted(() => {
+onMounted(function () {
   renderChart()
 
   // Neu zeichnen, wenn sich der Kontrastmodus ändert
-  contrastObserver = new MutationObserver(() => {
+  contrastObserver = new MutationObserver(function () {
     renderChart()
   })
 
@@ -659,7 +659,7 @@ onMounted(() => {
   })
 })
 
-onBeforeUnmount(() => {
+onBeforeUnmount(function () {
   contrastObserver?.disconnect()
   contrastObserver = null
 
@@ -670,7 +670,7 @@ onBeforeUnmount(() => {
   }
 })
 
-watch(filteredData, () => { renderChart() }, { flush: 'post', deep: true })
+watch(filteredData, function () { renderChart() }, { flush: 'post', deep: true })
 </script>
 
 <template>
@@ -712,10 +712,10 @@ watch(filteredData, () => { renderChart() }, { flush: 'post', deep: true })
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 12px;
   letter-spacing: 0.03em;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   padding: 6px 14px;
   background: rgba(0, 0, 0, 0.03);
   border: 1px solid rgba(0, 0, 0, 0.06);
@@ -740,7 +740,7 @@ watch(filteredData, () => { renderChart() }, { flush: 'post', deep: true })
   pointer-events: none;
   background: rgba(42, 42, 38, 0.92);
   color: #f0f0ea;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 12px;
   padding: 8px 12px;
   border-radius: 6px;
@@ -785,7 +785,7 @@ watch(filteredData, () => { renderChart() }, { flush: 'post', deep: true })
 
 :deep(.x-axis .tick text),
 :deep(.y-axis .tick text) {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 11px;
   fill: #8a8a85;
 }

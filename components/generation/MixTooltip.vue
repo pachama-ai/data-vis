@@ -107,7 +107,7 @@ const totalValue = computed(function () {
   return total
 })
 
-const groupValues = computed<TooltipGroupValue[]>(() => {
+const groupValues = computed<TooltipGroupValue[]>(function () {
   const valuesByGroup = createEmptyGroupValues()
 
   for (const sourceKey of STACK_ORDER) {
@@ -227,27 +227,27 @@ const tooltipStyle = computed(function () {
   min-width: 300px;
   white-space: nowrap;
   background: #ffffff;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--line-color);
   border-radius: 6px;
   padding: 8px 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 12px;
   line-height: 1.5;
 }
 
 .tooltip-title {
-  font-family: var(--font-serif);
+  font-family: var(--serif-font);
   font-size: 14px;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--text-color);
   margin: 0;
   white-space: nowrap;
 }
 
 .tooltip-source-value {
   margin: 6px 0 0;
-  color: var(--fg);
+  color: var(--text-color);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -281,7 +281,7 @@ const tooltipStyle = computed(function () {
 .tooltip-label {
   flex: 0 1 auto;
   min-width: 0;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -303,7 +303,7 @@ const tooltipStyle = computed(function () {
 .tooltip-pct {
   min-width: 55px;
   text-align: right;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   font-variant-numeric: tabular-nums;
 }
 </style>

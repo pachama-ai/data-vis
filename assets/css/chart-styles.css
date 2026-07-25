@@ -1,54 +1,60 @@
-/* assets/css/chart-styles.css
- * Allgemeine Chart-Grundstile für D3-Visualisierungen.
- * Noch nicht in nuxt.config.ts eingebunden – wird später aktiviert.
+/*
+ * Gemeinsame Grundstile für die D3-Diagramme.
  *
- * Verwendet nur CSS-Variablen, die in assets/css/main.css definiert sind:
- * --font-sans, --fg-muted, --hairline, --bg
+ * D3 erstellt die Elemente im SVG.
+ * Die gemeinsame Gestaltung wird hier mit CSS festgelegt.
+ *
+ * Farben und Schriften kommen aus den CSS-Variablen
+ * in assets/css/main.css.
  */
 
-.chart-container {
+.chart {
   width: 100%;
   min-width: 0;
 }
 
-.chart-container svg {
+/* Passt das SVG an die Breite des Containers an. */
+.chart svg {
   display: block;
   width: 100%;
   height: auto;
 }
 
-.chart-container .x-axis text,
-.chart-container .y-axis text {
-  font-family: var(--font-sans);
+/* Gemeinsame Schrift für die Beschriftungen beider Achsen. */
+.chart .x-axis text,
+.chart .y-axis text {
+  font-family: var(--sans-font);
   font-size: 12px;
-  fill: var(--fg-muted);
+  fill: var(--muted-text-color);
 }
 
-/* Wertelabels im Abweichungsdiagramm */
-.chart-container text.deviation-value {
+/* Beschriftet die Werte im Abweichungsdiagramm. */
+.chart .deviation-label {
   font-size: 12px;
   fill: currentColor;
 }
 
-/* Richtungsbeschriftungen unter der x-Achse */
-.chart-container .direction-label {
+/* Beschriftungen für die beiden Richtungen unter der x-Achse. */
+.chart .axis-direction-label {
   font-size: 11px;
   fill: currentColor;
 }
 
-.chart-container .x-axis path,
-.chart-container .x-axis line,
-.chart-container .y-axis path,
-.chart-container .y-axis line {
-  stroke: var(--hairline);
+/* Gestaltet die Achsenlinien und Teilstriche. */
+.chart .x-axis path,
+.chart .x-axis line,
+.chart .y-axis path,
+.chart .y-axis line {
+  stroke: var(--line-color);
 }
 
-/* Im Kontrastmodus kräftigere Achsenlinien */
-[data-contrast='on'] .chart-container .x-axis line,
-[data-contrast='on'] .chart-container .y-axis line {
+/* Macht die Teilstriche im Kontrastmodus besser sichtbar. */
+[data-contrast='on'] .chart .x-axis line,
+[data-contrast='on'] .chart .y-axis line {
   stroke: #b8b6b0;
 }
 
-.chart-container .layer {
+/* Stellt die Flächen im SVG möglichst genau dar. */
+.chart .chart-area {
   shape-rendering: geometricPrecision;
 }

@@ -1,15 +1,15 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
- * StackedArea.vue – Vue-Adapter für die StackedAreaChart-Klasse.
+ * StackedArea.vue � Vue-Adapter f�r die StackedAreaChart-Klasse.
  *
- * Lädt Daten über useMixData, initialisiert die Chart-Klasse in
- * onMounted und räumt in onBeforeUnmount auf.
- * Keine Chart-Berechnungen – alles in StackedAreaChart.ts.
+ * L�dt Daten �ber useMixData, initialisiert die Chart-Klasse in
+ * onMounted und r�umt in onBeforeUnmount auf.
+ * Keine Chart-Berechnungen � alles in StackedAreaChart.ts.
  */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
-import ChartTemplate from '~/components/common/ChartTemplate.vue'
+import ChartTemplate from '~/components/shared/ChartTemplate.vue'
 import StackedAreaLegend from '~/components/generation/StackedAreaLegend.vue'
 import MixTooltip from '~/components/generation/MixTooltip.vue'
 import AnnotationMarkers from '~/components/generation/AnnotationMarkers.vue'
@@ -24,7 +24,7 @@ import {
 } from '~/composables/useMixMetrics'
 
 import type { MixMode, MixSourceKey, MixAnnotation } from '~/types/mix'
-import type { MixHoverPayload } from '~/utils/charts/StackedAreaChart'
+import type { MixHoverPayload } from '~/utils/charts/stackedAreaHelpers'
 
 type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 
@@ -118,7 +118,6 @@ function initializeChart(): void {
   chart.setBackgroundClickHandler(handleChartBackgroundClick)
   chart.setHighlightedSources(highlightedSources.value)
   chart.setColors(colorMode.value)
-  chart.setSubtitle('')
   chart.setMode(mode.value)
   chart.setData(monthRows.value)
   chart.setAnnotations(annotations.value)
@@ -157,7 +156,7 @@ function handleAnnotationSelect(annotation: MixAnnotation): void {
   const parts = annotation.date.split('-')
   const year = Number.parseInt(parts[0] ?? '0', 10)
 
-  // Ereignisauswahl setzt vorherige Quellenwahl zurück
+  // Ereignisauswahl setzt vorherige Quellenwahl zur�ck
   setHighlighted(null)
   toggleAnnotation(annotation.id, year)
 }
@@ -182,7 +181,7 @@ onMounted(async function () {
 })
 
 // =========================================================================
-// Auf Daten-, Modus- oder Highlight-Änderungen reagieren
+// Auf Daten-, Modus- oder Highlight-�nderungen reagieren
 // =========================================================================
 
 watch(monthRows, function (updatedMonthRows) {
@@ -191,7 +190,6 @@ watch(monthRows, function (updatedMonthRows) {
 
 watch(mode, function (updatedMode) {
   chart?.setMode(updatedMode)
-  chart?.setSubtitle('')
   hoverPayload.value = null
 })
 
@@ -212,7 +210,7 @@ watch(colorMode, function (updatedMode) {
 })
 
 // =========================================================================
-// Aufräumen
+// Aufr�umen
 // =========================================================================
 
 onBeforeUnmount(function () {
@@ -272,7 +270,7 @@ onBeforeUnmount(function () {
           @select="handleSourceSelect"
         />
 
-        <p v-if="pending" class="chart-note">Daten werden geladen …</p>
+        <p v-if="pending" class="chart-note">Daten werden geladen �</p>
         <p v-else-if="error" class="chart-note chart-note-error">
           Daten konnten nicht geladen werden: {{ error }}
         </p>
@@ -308,24 +306,24 @@ onBeforeUnmount(function () {
 }
 
 .chart-note-error {
-  color: var(--accent);
+  color: var(--accent-color);
 }
 
 .mode-toggle {
   display: inline-flex;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--line-color);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .mode-button {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 12px;
   font-weight: 400;
   padding: 10px 12px;
   border: none;
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   cursor: pointer;
   transition: all 0.15s;
   white-space: nowrap;
@@ -333,7 +331,7 @@ onBeforeUnmount(function () {
 }
 
 .mode-button + .mode-button {
-  border-left: 1px solid var(--hairline);
+  border-left: 1px solid var(--line-color);
 }
 
 .mode-button:hover {
@@ -341,17 +339,17 @@ onBeforeUnmount(function () {
 }
 
 .mode-button--active {
-  background: var(--accent);
+  background: var(--accent-color);
   color: #fff;
   font-weight: 500;
 }
 
 .mode-button--active:hover {
-  background: var(--accent);
+  background: var(--accent-color);
 }
 
 .mode-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-color);
   outline-offset: -2px;
 }
 

@@ -128,9 +128,9 @@ const zoomLabel = computed(function () {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: var(--bg);
-  border-bottom: 1px solid var(--hairline);
-  font-family: var(--font-sans);
+  background: var(--background-color);
+  border-bottom: 1px solid var(--line-color);
+  font-family: var(--sans-font);
   font-size: 11px;
 }
 
@@ -169,7 +169,7 @@ const zoomLabel = computed(function () {
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   text-decoration: none;
   cursor: pointer;
   transition: color 150ms ease-out;
@@ -187,39 +187,39 @@ const zoomLabel = computed(function () {
   transform: translateX(-50%) scaleX(0);
   width: calc(100% - 40px);
   height: 2px;
-  background: var(--accent);
+  background: var(--accent-color);
   transition: transform 150ms ease-out;
 }
 
 .nav-underline:hover {
-  color: var(--fg);
+  color: var(--text-color);
 }
 
 .nav-underline:hover::after {
   transform: translateX(-50%) scaleX(1);
-  background: var(--hairline);
+  background: var(--line-color);
   height: 1px;
 }
 
 .nav-underline--active {
-  color: var(--accent);
+  color: var(--accent-color);
   font-weight: 600;
   cursor: default;
 }
 
 .nav-underline--active::after {
   transform: translateX(-50%) scaleX(1);
-  background: var(--accent);
+  background: var(--accent-color);
   height: 2px;
 }
 
 .nav-underline--active:hover::after {
-  background: var(--accent);
+  background: var(--accent-color);
   height: 2px;
 }
 
 .nav-underline:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-color);
   outline-offset: -2px;
 }
 
@@ -242,7 +242,7 @@ const zoomLabel = computed(function () {
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--accent);
+  color: var(--accent-color);
 }
 
 /* Separator */
@@ -250,7 +250,7 @@ const zoomLabel = computed(function () {
   display: inline-block;
   width: 1px;
   height: 16px;
-  background: var(--hairline);
+  background: var(--line-color);
   margin: 0 1.5rem;
 }
 

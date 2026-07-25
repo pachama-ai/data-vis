@@ -30,8 +30,8 @@
   grid-template-columns: 1fr 1fr 1fr;
   gap: 32px;
   padding: 24px 0;
-  border-top: 1px solid var(--hairline);
-  border-bottom: 1px solid var(--hairline);
+  border-top: 1px solid var(--line-color);
+  border-bottom: 1px solid var(--line-color);
   margin-bottom: 64px;
 }
 
@@ -42,18 +42,18 @@
 }
 
 .trust-label {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
 }
 
 .trust-value {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 13px;
-  color: var(--fg);
+  color: var(--text-color);
   line-height: 1.45;
 }
 

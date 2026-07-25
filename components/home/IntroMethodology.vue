@@ -28,15 +28,15 @@
 <style scoped>
 .intro-methodology {
   margin-bottom: 48px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--line-color);
   padding-top: 24px;
 }
 
 .method-summary {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 14px;
   font-weight: 500;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   cursor: pointer;
   list-style: none;
   display: flex;
@@ -49,7 +49,7 @@
 }
 
 .method-summary:hover {
-  color: var(--fg);
+  color: var(--text-color);
   background: rgba(0,0,0,0.03);
 }
 
@@ -75,9 +75,9 @@ details[open] .method-chevron {
   max-width: 720px;
   margin-top: 20px;
   padding-bottom: 12px;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 14px;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   line-height: 1.7;
 }
 
@@ -86,7 +86,7 @@ details[open] .method-chevron {
 }
 
 .method-content strong {
-  color: var(--fg);
+  color: var(--text-color);
   font-weight: 600;
 }
 

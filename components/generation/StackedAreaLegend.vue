@@ -33,7 +33,7 @@ const emit = defineEmits<{
   select: [sourceKey: MixSourceKey | null]
 }>()
 
-const activeColors = computed(() => {
+const activeColors = computed(function () {
   return props.colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
 })
 
@@ -49,7 +49,7 @@ function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   return sources
 }
 
-const hasEvent = computed(() => {
+const hasEvent = computed(function () {
   return props.highlightedSources != null && props.highlightedSources.length > 0
 })
 
@@ -67,11 +67,11 @@ function isSourceDisabled(sourceKey: MixSourceKey): boolean {
   return !props.highlightedSources.includes(sourceKey)
 }
 
-const showAllDisabled = computed(() => {
+const showAllDisabled = computed(function () {
   return props.hasActiveAnnotation === true
 })
 
-const showAllActive = computed(() => {
+const showAllActive = computed(function () {
   return props.highlightedSources == null && props.highlighted === null
 })
 
@@ -166,12 +166,12 @@ function handleShowAll(): void {
 }
 
 .legend-group-title {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   margin: 0 0 4px;
 }
 
@@ -186,24 +186,24 @@ function handleShowAll(): void {
   align-items: center;
   gap: 4px;
   padding: 3px 8px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--line-color);
   border-radius: 4px;
   background: transparent;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 11px;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .legend-chip:hover {
-  color: var(--fg);
-  border-color: var(--fg-muted);
+  color: var(--text-color);
+  border-color: var(--muted-text-color);
 }
 
 .legend-chip--active {
-  color: var(--fg);
-  border-color: var(--accent);
+  color: var(--text-color);
+  border-color: var(--accent-color);
   background: rgba(45, 106, 79, 0.06);
 }
 
@@ -218,7 +218,7 @@ function handleShowAll(): void {
 }
 
 .legend-chip:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
@@ -237,10 +237,10 @@ function handleShowAll(): void {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 12px;
   letter-spacing: 0.03em;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   padding: 6px 14px;
   background: rgba(0, 0, 0, 0.03);
   border: 1px solid rgba(0, 0, 0, 0.06);

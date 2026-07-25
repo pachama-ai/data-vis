@@ -1,10 +1,9 @@
-ï»¿```vue
 <script setup lang="ts">
 /**
  * Startseite mit dem Vergleich des deutschen Strommixes
  * in den Jahren 2015 und 2024.
  *
- * Die Daten werden geladen, aufbereitet und anschlieÃŸend
+ * Die Daten werden geladen, aufbereitet und anschließend
  * in einem gruppierten Balkendiagramm dargestellt.
  *
  * @author Selina Schneider
@@ -32,9 +31,9 @@ const loading = ref(true)
 const error = ref<string | null>(null)
 
 /**
- * Sucht die Daten fÃ¼r ein bestimmtes Jahr.
+ * Sucht die Daten für ein bestimmtes Jahr.
  *
- * @param data Alle verfÃ¼gbaren Jahresdaten
+ * @param data Alle verfügbaren Jahresdaten
  * @param year Gesuchtes Jahr
  * @returns Daten des Jahres oder undefined
  */
@@ -52,12 +51,12 @@ function findYear(
 }
 
 /**
- * Bereitet die Daten fÃ¼r das Balkendiagramm auf.
+ * Bereitet die Daten für das Balkendiagramm auf.
  *
  * Solange noch keine Jahresdaten geladen wurden,
- * wird ein leeres Array zurÃ¼ckgegeben.
+ * wird ein leeres Array zurückgegeben.
  *
- * @returns Daten fÃ¼r das Balkendiagramm
+ * @returns Daten für das Balkendiagramm
  */
 function createChartData(): EnergyDataPoint[] {
   const data = yearlyData.value
@@ -75,10 +74,10 @@ function createChartData(): EnergyDataPoint[] {
 const strommixData = computed<EnergyDataPoint[]>(createChartData)
 
 /**
- * LÃ¤dt die Daten fÃ¼r die beiden Vergleichsjahre.
+ * Lädt die Daten für die beiden Vergleichsjahre.
  *
  * Fehlt eines der Jahre, wird eine Fehlermeldung
- * fÃ¼r die Startseite gesetzt.
+ * für die Startseite gesetzt.
  *
  * Bei dieser Funktion habe ich KI genutzt, weil ich bei der
  * Fehlerbehandlung mit try, catch und finally unsicher war.
@@ -86,7 +85,7 @@ const strommixData = computed<EnergyDataPoint[]>(createChartData)
  * als unknown behandelt wird und wie ich trotzdem sicher auf
  * die Fehlermeldung zugreifen kann.
  *
- * @returns Promise ohne RÃ¼ckgabewert
+ * @returns Promise ohne Rückgabewert
  */
 async function loadPageData(): Promise<void> {
   try {
@@ -96,7 +95,7 @@ async function loadPageData(): Promise<void> {
     const year2024 = findYear(data.yearlyMix, 2024)
 
     if (year2015 === undefined || year2024 === undefined) {
-      throw new Error('Jahresdaten unvollstÃ¤ndig')
+      throw new Error('Jahresdaten unvollständig')
     }
 
     yearlyData.value = {
@@ -116,14 +115,14 @@ async function loadPageData(): Promise<void> {
 }
 
 /**
- * LÃ¤dt die Daten noch einmal im Hintergrund.
+ * Lädt die Daten noch einmal im Hintergrund.
  *
  * Dadurch stehen sie beim Wechsel zum Dashboard
- * mÃ¶glichst schon im Zwischenspeicher bereit.
+ * möglichst schon im Zwischenspeicher bereit.
  */
 function preloadDashboardData(): void {
   loadVisualizationData().catch(function () {
-    // Das Vorladen ist nur eine UnterstÃ¼tzung.
+    // Das Vorladen ist nur eine Unterstützung.
     // Ein Fehler beeinflusst die Startseite nicht.
   })
 }
@@ -135,8 +134,8 @@ function preloadDashboardData(): void {
  * Hier habe ich KI genutzt, weil ich requestIdleCallback
  * vorher nicht kannte. Ich wollte die Daten im Hintergrund
  * laden, ohne den sichtbaren Aufbau der Startseite zu bremsen.
- * Die ErsatzlÃ¶sung mit setTimeout war nÃ¶tig, weil
- * requestIdleCallback nicht in jedem Browser verfÃ¼gbar ist.
+ * Die Ersatzlösung mit setTimeout war nötig, weil
+ * requestIdleCallback nicht in jedem Browser verfügbar ist.
  */
 function startPreloading(): void {
   if (typeof requestIdleCallback === 'function') {
@@ -155,7 +154,7 @@ function startPreloading(): void {
  * Bereitet die Startseite nach dem Laden vor.
  *
  * Zuerst werden die sichtbaren Daten geladen.
- * Danach beginnt das Vorladen fÃ¼r das Dashboard.
+ * Danach beginnt das Vorladen für das Dashboard.
  *
  * Bei dieser Stelle wurde kurz KI genutzt, weil ich
  * unsicher war, wie eine asynchrone Funktion mit
@@ -163,7 +162,7 @@ function startPreloading(): void {
  * das Vorladen erst nach dem Laden der sichtbaren
  * Daten beginnt.
  *
- * @returns Promise ohne RÃ¼ckgabewert
+ * @returns Promise ohne Rückgabewert
  */
 async function preparePage(): Promise<void> {
   await loadPageData()
@@ -181,7 +180,7 @@ onMounted(preparePage)
       <IntroTrustLine />
     </div>
 
-    <!-- Zustand wÃ¤hrend des Ladens -->
+    <!-- Zustand während des Ladens -->
     <div
       v-if="loading"
       class="chart-loading"
@@ -202,19 +201,19 @@ onMounted(preparePage)
       v-else-if="yearlyData === null"
       class="chart-error"
     >
-      FÃ¼r den Vergleich 2015â€“2024 sind keine vollstÃ¤ndigen Daten verfÃ¼gbar.
+      Für den Vergleich 2015–2024 sind keine vollständigen Daten verfügbar.
     </div>
 
-    <!-- Vergleich der EnergietrÃ¤ger -->
+    <!-- Vergleich der Energieträger -->
     <GroupedBarChart
       v-else
       :data="strommixData"
     />
 
     <p class="chart-footnote">
-      Dargestellt sind zehn ausgewÃ¤hlte EnergietrÃ¤ger der Ã¶ffentlichen
-      Nettostromerzeugung nach SMARD. Kleinere EnergietrÃ¤ger wie sonstige
-      erneuerbare Energien und Pumpspeicher sind nicht einzeln aufgefÃ¼hrt.
+      Dargestellt sind zehn ausgewählte Energieträger der öffentlichen
+      Nettostromerzeugung nach SMARD. Kleinere Energieträger wie sonstige
+      erneuerbare Energien und Pumpspeicher sind nicht einzeln aufgeführt.
       Deshalb ergeben die dargestellten Anteile zusammen rund 97,9&nbsp;% im
       Jahr 2015 und 97,3&nbsp;% im Jahr 2024. Die Werte sind auf eine
       Nachkommastelle gerundet.
@@ -225,14 +224,14 @@ onMounted(preparePage)
 </template>
 
 <style scoped>
-/* Begrenzt die Breite und setzt die Ã¤uÃŸeren AbstÃ¤nde der Startseite. */
+/* Begrenzt die Breite und setzt die äußeren Abstände der Startseite. */
 .intro-page {
   max-width: 900px;
   margin: 0 auto;
   padding: 48px 24px 64px;
 }
 
-/* HÃ¤lt den Abstand zwischen den Hauptbereichen einheitlich. */
+/* Hält den Abstand zwischen den Hauptbereichen einheitlich. */
 .intro-page > :deep(*) {
   margin-bottom: 48px;
 }
@@ -241,7 +240,7 @@ onMounted(preparePage)
   margin-bottom: 0;
 }
 
-/* Platzhalter wÃ¤hrend die Diagrammdaten geladen werden. */
+/* Platzhalter während die Diagrammdaten geladen werden. */
 .chart-loading {
   margin-bottom: 48px;
 }
@@ -271,31 +270,30 @@ onMounted(preparePage)
   }
 }
 
-/* Gemeinsame Darstellung fÃ¼r Lade- und Datenfehler. */
+/* Gemeinsame Darstellung für Lade- und Datenfehler. */
 .chart-error {
   margin-bottom: 96px;
   padding: 80px 0;
-  color: var(--fg-muted);
-  font-family: var(--font-sans);
+  color: var(--muted-text-color);
+  font-family: var(--sans-font);
   font-size: 15px;
   text-align: center;
 }
 
-/* ErgÃ¤nzende Angaben direkt unter dem Diagramm. */
+/* Ergänzende Angaben direkt unter dem Diagramm. */
 .chart-footnote {
   max-width: 62ch;
   margin-top: 24px;
   margin-bottom: 48px;
-  color: var(--fg-muted);
-  font-family: var(--font-sans);
+  color: var(--muted-text-color);
+  font-family: var(--sans-font);
   font-size: 12px;
   line-height: 1.55;
 }
 
-/* Bezugspunkt fÃ¼r Elemente innerhalb des oberen Bereichs. */
+/* Bezugspunkt für Elemente innerhalb des oberen Bereichs. */
 .intro-top-bar {
   position: relative;
 }
 </style>
-```
 

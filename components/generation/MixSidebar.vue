@@ -48,11 +48,11 @@ function handleAnnotationSelect(annotation: MixAnnotation): void {
 // Zustands-Computed-Werte
 // =========================================================================
 
-const showsAnnotation = computed(() => {
+const showsAnnotation = computed(function () {
   return props.annotationContext !== null
 })
 
-const showsSource = computed(() => {
+const showsSource = computed(function () {
   return (
     props.annotationContext === null &&
     props.sourceMetrics !== null
@@ -373,14 +373,14 @@ function formatMonth(date: Date): string {
 
 <style scoped>
 .mix-sidebar {
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 13px;
-  color: var(--fg);
+  color: var(--text-color);
 }
 
 .sidebar-state {
-  background: var(--bg);
-  border: 1px solid var(--hairline);
+  background: var(--background-color);
+  border: 1px solid var(--line-color);
   border-radius: 6px;
   padding: 16px;
 }
@@ -388,7 +388,7 @@ function formatMonth(date: Date): string {
 .sidebar-eyebrow {
   margin: 0 0 2px;
   font-size: 11px;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -403,14 +403,14 @@ function formatMonth(date: Date): string {
 .sidebar-section {
   margin-top: 12px;
   padding-top: 10px;
-  border-top: 1px solid var(--hairline);
+  border-top: 1px solid var(--line-color);
 }
 
 .sidebar-section-title {
   margin: 0 0 6px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -424,7 +424,7 @@ function formatMonth(date: Date): string {
 }
 
 .metric-label {
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   font-size: 13px;
 }
 
@@ -443,7 +443,7 @@ function formatMonth(date: Date): string {
 }
 
 .metric-change--positive {
-  color: var(--accent);
+  color: var(--accent-color);
 }
 
 .metric-change--negative {
@@ -470,20 +470,20 @@ function formatMonth(date: Date): string {
 .annotation-text {
   margin: 0 0 8px;
   line-height: 1.5;
-  color: var(--fg);
+  color: var(--text-color);
   font-size: 13px;
 }
 
 .empty-message {
   margin: 0;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   font-style: italic;
 }
 
 .comparison-note {
   margin: 0 0 8px;
   font-size: 12px;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   line-height: 1.4;
 }
 
@@ -491,7 +491,7 @@ function formatMonth(date: Date): string {
   margin: 10px 0 0;
   font-size: 12px;
   line-height: 1.5;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   padding: 8px;
   background: rgba(45, 106, 79, 0.04);
   border-radius: 4px;
@@ -499,7 +499,7 @@ function formatMonth(date: Date): string {
 
 .sidebar-divider {
   height: 1px;
-  background: var(--hairline);
+  background: var(--line-color);
   margin: 12px 0;
 }
 </style>

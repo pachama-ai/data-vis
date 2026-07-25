@@ -1,13 +1,17 @@
 ﻿<script setup lang="ts">
 /**
- * Hauptseite des interaktiven Dashboards.
+ * Hauptseite des Dashboards.
  *
- * Die Seite wechselt zwischen den Bereichen
- * Stromerzeugung und Emissionen.
+ * Auf der Seite werden entweder die Daten zur
+ * Stromerzeugung oder zu den Emissionen angezeigt.
  *
- * Der gewünschte Bereich wird über den
+ * Welcher Bereich sichtbar ist, wird über den
  * Query-Parameter „tab“ in der URL festgelegt.
- * Ohne gültigen Parameter wird die Stromerzeugung angezeigt.
+ * Fehlt der Parameter, wird die Erzeugungsansicht geöffnet.
+ *
+ * @author Selina Schneider
+ * @created 11.06.2026
+ * @lastModified 23.07.2026
  */
 
 import { computed } from 'vue'
@@ -16,18 +20,25 @@ import { useRoute } from 'nuxt/app'
 import GenerationPanel from '~/components/generation/GenerationPanel.vue'
 import EmissionsPanel from '~/components/emissions/EmissionsPanel.vue'
 
+/**
+ * Mögliche Bereiche des Dashboards.
+ */
 type DashboardTab = 'generation' | 'emissions'
 
 const route = useRoute()
 
 /**
- * Ermittelt den aktuell angezeigten Bereich aus der URL.
+ * Liest den ausgewählten Bereich aus der URL.
  *
- * Unterstützte Werte:
- * - generation
- * - emissions
+ * Bei dieser Stelle wurde KI genutzt, weil zunächst
+ * unklar war, wie der Query-Parameter mit useRoute()
+ * ausgelesen wird. 
  *
- * Unbekannte oder fehlende Werte führen zur Erzeugungsansicht.
+ * Ist in der URL „emissions“ eingetragen, wird die
+ * Emissionsansicht angezeigt. Bei allen anderen Werten
+ * bleibt die Erzeugungsansicht aktiv.
+ *
+ * @returns Aktuell ausgewählter Bereich des Dashboards
  */
 const activeTab = computed<DashboardTab>(function () {
   const tab = route.query.tab
@@ -42,14 +53,14 @@ const activeTab = computed<DashboardTab>(function () {
 
 <template>
   <main class="dashboard-page">
-    <!-- Je nach URL wird die Erzeugungs- oder Emissionsansicht angezeigt. -->
+    <!-- Zeigt den Bereich, der über die URL ausgewählt wurde. -->
     <GenerationPanel v-if="activeTab === 'generation'" />
     <EmissionsPanel v-else />
   </main>
 </template>
 
 <style scoped>
-/* Grundfläche der Dashboard-Seite */
+/* Sorgt dafür, dass die Seite mindestens das ganze Fenster ausfüllt. */
 .dashboard-page {
   min-height: 100vh;
 }

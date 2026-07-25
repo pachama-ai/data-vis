@@ -84,25 +84,25 @@ function barWidth(share: number): string {
 // Zustand
 // =========================================================================
 
-const hasData = computed(() => props.activeYear !== null)
+const hasData = computed(function () { return props.activeYear !== null })
 
-const activeRow = computed<EmissionRow | null>(() => {
+const activeRow = computed<EmissionRow | null>(function () {
   return props.hoveredRow ?? props.selectedRow ?? null
 })
 
-const hasSelection = computed(() => {
+const hasSelection = computed(function () {
   return props.selectedRow !== null && props.hoveredRow === null
 })
 
-const showsSource = computed(() => {
+const showsSource = computed(function () {
   return activeRow.value !== null
 })
 
-const hasZeroGeneration = computed(() => {
+const hasZeroGeneration = computed(function () {
   return activeRow.value !== null && activeRow.value.generationTwh === 0
 })
 
-const showsDefault = computed(() => {
+const showsDefault = computed(function () {
   return hasData.value && activeRow.value === null
 })
 
@@ -112,7 +112,7 @@ function getColor(key: MixSourceKey): string {
 }
 
 /** Kategorie-Label für den aktiven Energieträger */
-const groupLabel = computed(() => {
+const groupLabel = computed(function () {
   const row = activeRow.value
   if (!row) return ''
   return MIX_GROUP_LABELS[GROUP_OF[row.sourceKey]]
@@ -152,7 +152,7 @@ function meaning(row: EmissionRow): string {
 
       <!-- Null-Erzeugung: Sondermeldung -->
       <template v-if="hasZeroGeneration">
-        <p class="eyebrow">{{ MIX_LABELS[activeRow.sourceKey] }}</p>
+        <p class="title-label">{{ MIX_LABELS[activeRow.sourceKey] }}</p>
         <p class="sidebar-zero-msg">
           Im Jahr {{ activeYear?.year }} fand keine Stromerzeugung
           aus {{ MIX_LABELS[activeRow.sourceKey] }} statt.
@@ -177,7 +177,7 @@ function meaning(row: EmissionRow): string {
 
         <!-- Vergleichsgrafik -->
         <section class="sidebar-section">
-          <p class="eyebrow">Stromerzeugung und CO₂-Emissionen</p>
+          <p class="title-label">Stromerzeugung und CO₂-Emissionen</p>
           <div class="cmp-strip">
             <div class="cmp-strip-row">
               <span class="cmp-strip-label">Strom</span>
@@ -206,7 +206,7 @@ function meaning(row: EmissionRow): string {
 
         <!-- Differenz -->
         <section class="sidebar-section">
-          <p class="eyebrow">Differenz</p>
+          <p class="title-label">Differenz</p>
           <p
             class="sidebar-diff-value"
             :class="{
@@ -226,7 +226,7 @@ function meaning(row: EmissionRow): string {
 
         <!-- Bedeutung -->
         <section class="sidebar-section">
-          <p class="eyebrow">Bedeutung</p>
+          <p class="title-label">Bedeutung</p>
           <p class="sidebar-sentence">{{ meaning(activeRow) }}</p>
         </section>
 
@@ -234,7 +234,7 @@ function meaning(row: EmissionRow): string {
         <template v-if="selectedRowBaseShare !== null && hasSelection">
           <div class="sidebar-divider"></div>
           <section class="sidebar-section">
-            <p class="eyebrow">Entwicklung seit 2015</p>
+            <p class="title-label">Entwicklung seit 2015</p>
             <p class="sidebar-sentence">
               Der Anteil an der Stromerzeugung
               {{ selectedRowBaseShare! > activeRow.generationShare ? 'sank' : 'stieg' }}
@@ -254,7 +254,7 @@ function meaning(row: EmissionRow): string {
       <div class="sidebar-divider"></div>
 
       <section class="sidebar-section sidebar-context">
-        <p class="eyebrow">Jahresüberblick</p>
+        <p class="title-label">Jahresüberblick</p>
 
         <div class="context-row">
           <span class="context-label">CO₂-Emissionen je kWh</span>
@@ -287,34 +287,34 @@ function meaning(row: EmissionRow): string {
 <style scoped>
 .deviation-sidebar {
   width: 100%;
-  font-family: var(--font-sans);
+  font-family: var(--sans-font);
   font-size: 13px;
   line-height: 1.5;
-  color: var(--fg);
-  background: var(--bg);
-  border: 1px solid var(--hairline);
+  color: var(--text-color);
+  background: var(--background-color);
+  border: 1px solid var(--line-color);
   border-radius: 6px;
   padding: 20px;
 }
 
 .sidebar-empty {
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   font-style: italic;
   padding: 16px 0;
 }
 
 .sidebar-year {
-  font-family: var(--font-serif);
+  font-family: var(--serif-font);
   font-size: 28px;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--text-color);
   margin: 0 0 4px;
   line-height: 1.1;
 }
 
 .sidebar-divider {
   height: 1px;
-  background: var(--hairline);
+  background: var(--line-color);
   margin: 12px 0;
 }
 
@@ -342,22 +342,22 @@ function meaning(row: EmissionRow): string {
 }
 
 .sidebar-source-name {
-  font-family: var(--font-serif);
+  font-family: var(--serif-font);
   font-size: 15px;
   font-weight: 600;
-  color: var(--fg);
+  color: var(--text-color);
 }
 
 .sidebar-group-label {
   font-size: 11px;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
 }
 
 .sidebar-sentence {
   margin: 6px 0 0;
   font-size: 12px;
   line-height: 1.6;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
 }
 
 /* Vergleichs-Strip */
@@ -377,7 +377,7 @@ function meaning(row: EmissionRow): string {
   width: 32px;
   font-size: 11px;
   font-weight: 600;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   text-align: right;
   flex-shrink: 0;
 }
@@ -385,7 +385,7 @@ function meaning(row: EmissionRow): string {
 .cmp-strip-track {
   flex: 1;
   height: 10px;
-  background: var(--hairline);
+  background: var(--line-color);
   border-radius: 3px;
   overflow: hidden;
 }
@@ -398,7 +398,7 @@ function meaning(row: EmissionRow): string {
 }
 
 .cmp-strip-fill--gen {
-  background: var(--accent);
+  background: var(--accent-color);
 }
 
 .cmp-strip-fill--em {
@@ -410,7 +410,7 @@ function meaning(row: EmissionRow): string {
   width: 52px;
   font-size: 12px;
   font-weight: 500;
-  color: var(--fg);
+  color: var(--text-color);
   text-align: right;
   flex-shrink: 0;
   font-feature-settings: 'tnum';
@@ -436,7 +436,7 @@ function meaning(row: EmissionRow): string {
 
 .sidebar-diff-calculation {
   font-size: 11px;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   margin: 2px 0 0;
 }
 
@@ -444,7 +444,7 @@ function meaning(row: EmissionRow): string {
 .sidebar-zero-msg {
   font-size: 12px;
   line-height: 1.6;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   margin: 0;
 }
 
@@ -461,19 +461,19 @@ function meaning(row: EmissionRow): string {
 }
 
 .context-label {
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   font-size: 11px;
 }
 
 .context-value {
   font-weight: 500;
   font-feature-settings: 'tnum';
-  color: var(--fg);
+  color: var(--text-color);
   font-size: 12px;
 }
 
 .context-value--green {
-  color: var(--accent);
+  color: var(--accent-color);
 }
 
 /* Abstand vor Jahreskontext */

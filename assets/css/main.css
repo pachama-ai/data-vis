@@ -1,15 +1,47 @@
-/* assets/css/main.css — Globales CSS, Design-Tokens, Reset
- * ==========================================================
- * Stil: Kühl, journalistisch, klar.
- * Heller Grauhintergrund, blaue Akzente, Source Serif 4.
- * Fonts: Lokal gehostet (public/fonts/), kein CDN erforderlich.
+/*
+ * Globale Grundstile für die gesamte Anwendung.
+ *
+ * Hier stehen die Schriftarten, Farben und allgemeinen Gestaltungsregeln,
+ * die überall im Projekt gelten. Die Schriftdateien werden lokal geladen,
+ * damit nichts von externen CDNs nachgeladen werden muss.
+ *
+ * Alles Diagramm-spezifische ist bewusst in einer eigenen Datei
+ * (charts.css), damit diese Datei hier nur die globale Basis abbildet.
+ *
+ * Hinweis zur KI-Nutzung: Für das responsive Verhalten (Reset-Verhalten
+ * und rem-basiertes Skalieren der Typografie) habe ich der KI gesagt,
+ * dass die Seite responsiv sein soll. Die Umsetzung dazu ist eins zu
+ * eins von der KI gekommen – siehe Kommentare an den betroffenen Stellen.
+ *
+ * @author Selina Schneider
  */
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/*
+ * Reset für Standardabstände und Größenberechnung.
+ *
+ * Der Block ist Teil des responsiven Setups, das mir die KI vorgegeben hat.
+ * Ich hatte nur die Anforderung „soll auf allen Bildschirmgrößen sauber
+ * aussehen" formuliert, und dieser Reset war Teil der Antwort. Übernommen
+ * ohne inhaltliche Änderung.
+ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
-/* ----------------------------------------------------------------
-   Lokale Fonts (Offline-fähig)
-   ---------------------------------------------------------------- */
+/*
+ * Lokal eingebundene Schriftarten.
+ *
+ * font-display: swap sorgt dafür, dass zuerst eine System-Fallback-Schrift
+ * angezeigt wird und die eigentliche Schrift nachgeladen wird, sobald sie
+ * da ist. Dadurch bleibt der Text vom ersten Moment an lesbar.
+ *
+ * Die Weights habe ich bewusst nur für die tatsächlich genutzten
+ * Schnitte eingebunden, damit nichts unnötig geladen wird.
+ */
 @font-face {
   font-family: 'Inter';
   src: url('/fonts/Inter-400.ttf') format('truetype');
@@ -17,6 +49,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: 'Inter';
   src: url('/fonts/Inter-500.ttf') format('truetype');
@@ -24,6 +57,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: 'Inter';
   src: url('/fonts/Inter-600.ttf') format('truetype');
@@ -31,6 +65,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: 'Inter';
   src: url('/fonts/Inter-700.ttf') format('truetype');
@@ -38,6 +73,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: 'Source Serif 4';
   src: url('/fonts/SourceSerif4-600.ttf') format('truetype');
@@ -45,6 +81,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: 'Source Serif 4';
   src: url('/fonts/SourceSerif4-700.ttf') format('truetype');
@@ -52,6 +89,7 @@
   font-style: normal;
   font-display: swap;
 }
+
 @font-face {
   font-family: 'Source Serif 4';
   src: url('/fonts/SourceSerif4-800.ttf') format('truetype');
@@ -60,69 +98,148 @@
   font-display: swap;
 }
 
+/*
+ * Zentrale Design-Tokens: Farben und Schriftarten als CSS-Variablen.
+ * Ich habe die Werte hier gesammelt, damit ich sie nicht überall im
+ * Projekt duplizieren muss und ein Theme-Wechsel an einer Stelle reicht.
+ */
 :root {
-  --bg:        #faf8f4;
-  --fg:        #2a2a26;
-  --fg-muted:  #8a8a85;
-  --accent:    #2D6A4F;
-  --hairline:  #e8e6e0;
-  --font-sans: 'Inter', 'Plus Jakarta Sans', -apple-system, sans-serif;
-  --font-serif:'Source Serif 4', 'Spectral', Georgia, serif;
+  --background-color: #faf8f4;
+  --text-color: #2a2a26;
+  --muted-text-color: #8a8a85;
+  --accent-color: #2d6a4f;
+  --line-color: #e8e6e0;
+
+  /* Fallback-Ketten für den Fall, dass die lokale Schrift (noch) nicht da ist. */
+  --sans-font: 'Inter', 'Plus Jakarta Sans', -apple-system, sans-serif;
+  --serif-font: 'Source Serif 4', 'Spectral', Georgia, serif;
 }
 
-/* ── Kontrastmodus (data-contrast="on") ── */
-/* Überschreibt die Design-Tokens für kräftigere Farben.     */
-/* Keine Neonfarben – die Farbwelt bleibt erdig, nur dunkler. */
+/*
+ * Kontrastmodus.
+ * Ich überschreibe hier nur die Werte, die für die Lesbarkeit wichtig sind
+ * (dunklerer Text, kräftigere gedämpfte Farbe, deutlichere Linien).
+ * Hintergrund und Akzentfarbe bleiben absichtlich gleich, damit der
+ * grundsätzliche Look erhalten bleibt.
+ */
 [data-contrast='on'] {
-  --fg:        #1a1a16;
-  --fg-muted:  #5a5a55;
-  --hairline:  #b8b6b0;
+  --text-color: #1a1a16;
+  --muted-text-color: #5a5a55;
+  --line-color: #b8b6b0;
 }
 
+/*
+ * Basis-Schriftgröße.
+ *
+ * Die Zahl selbst (17px als Basis) und das gesamte Konzept, davon die
+ * Überschriften über rem abzuleiten, kommen aus dem KI-Vorschlag zum
+ * responsiven Verhalten. Ich hatte nur formuliert, dass die Typografie
+ * auf unterschiedlich großen Bildschirmen konsistent wirken soll –
+ * die konkrete Umsetzung ist so übernommen, wie sie geliefert wurde.
+ *
+ * Font-Smoothing macht die Schrift auf macOS/iOS etwas dünner und
+ * gleichmäßiger – reine Optik.
+ */
 html {
   font-size: 17px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Grundgestaltung der gesamten Seite. */
 body {
-  font-family: var(--font-sans);
-  color: var(--fg);
-  background: var(--bg);
+  font-family: var(--sans-font);
+  color: var(--text-color);
+  background: var(--background-color);
   line-height: 1.6;
 }
 
+/*
+ * Sichtbarer Fokus bei Tastaturbedienung.
+ * :focus-visible statt :focus, damit der Ring nur bei Tab-Navigation
+ * erscheint und nicht bei jedem Mausklick. Für die Barrierefreiheit
+ * war mir das wichtig – ohne sichtbaren Fokus verliert man sich schnell.
+ */
 *:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-color);
   outline-offset: 4px;
 }
 
-a, button, summary, [tabindex] {
+/*
+ * Kurzer Übergang für interaktive Zustände (Hover, Fokus etc.).
+ * "all" ist bewusst gewählt, weil die Übergänge sowieso nur auf wenige
+ * Eigenschaften angewendet werden – so muss ich nicht bei jedem neuen
+ * Effekt die Property-Liste nachziehen.
+ */
+a,
+button,
+summary,
+[tabindex] {
   transition: all 200ms ease-out;
 }
 
-h1, h2, h3 {
-  font-family: var(--font-serif);
+/*
+ * Überschriften bekommen die Serifen-Schrift, damit sie sich klar vom
+ * Fließtext (Sans) abheben.
+ *
+ * Die Größen sind bewusst in rem angegeben, damit sie mit der Basisgröße
+ * von html mitskalieren. Diese Struktur ist ebenfalls Teil des von der KI
+ * gelieferten responsiven Setups – die konkreten rem-Werte für h1/h2/h3
+ * habe ich so übernommen.
+ */
+h1,
+h2,
+h3 {
+  font-family: var(--serif-font);
   font-weight: 700;
-  color: var(--fg);
+  color: var(--text-color);
 }
 
-h1 { font-size: 2.4rem; line-height: 1.08; letter-spacing: -0.02em; }
-h2 { font-size: 1.5rem; line-height: 1.2; }
-h3 { font-size: 1.125rem; line-height: 1.3; }
+h1 {
+  font-size: 2.4rem;
+  line-height: 1.08;
+  /* Etwas engeres Tracking bei großer Serifen-Schrift, sonst wirkt sie zerfleddert. */
+  letter-spacing: -0.02em;
+}
 
-p { margin-bottom: 1rem; color: var(--fg-muted); }
+h2 {
+  font-size: 1.5rem;
+  line-height: 1.2;
+}
 
-a { color: var(--accent); text-decoration: none; }
-a:hover { text-decoration: underline; }
+h3 {
+  font-size: 1.125rem;
+  line-height: 1.3;
+}
 
-/* ── Eyebrow-Utility: kleine Versalien-Überschrift ── */
-.eyebrow {
-  font-family: var(--font-sans);
+/* Absätze: gedämpfte Farbe, damit Überschriften optisch führen. */
+p {
+  margin-bottom: 1rem;
+  color: var(--muted-text-color);
+}
+
+/* Links in der Akzentfarbe, Unterstrich erst beim Hover. */
+a {
+  color: var(--accent-color);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/*
+ * Kleine Überschrift oberhalb eines Haupttitels ("Kicker"/"Eyebrow").
+ * Uppercase + leichtes Letter-Spacing macht sie ruhig lesbar, obwohl sie
+ * klein ist. user-select: none, weil sie eher dekorativ ist und beim
+ * Markieren des eigentlichen Titels nicht mitkopiert werden soll.
+ */
+.title-label {
+  font-family: var(--sans-font);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--fg-muted);
+  color: var(--muted-text-color);
   user-select: none;
 }

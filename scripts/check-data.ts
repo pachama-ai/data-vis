@@ -108,7 +108,7 @@ const ALLOWED_CONTAINING = [
 
 function isForbidden(key: string): boolean {
   if (ALLOWED_CONTAINING.includes(key)) return false
-  return FORBIDDEN_PATTERNS.some(p => key.includes(p))
+  return FORBIDDEN_PATTERNS.some(function (p) { return key.includes(p) })
 }
 
 function checkForbiddenFields(obj: Record<string, unknown>, path: string): void {
@@ -215,7 +215,7 @@ function validateMonthlyMix(data: MonthlyMixPoint[]): void {
   }
 
   // Januar 2015: bekannte Anfangslücke (Datenstart 05.01.2015)
-  const jan2015 = data.find(m => m.month === '2015-01')
+  const jan2015 = data.find(function (m) { return m.month === '2015-01' })
   if (jan2015 && jan2015.availableHourCount !== 744) {
     warn(`monthlyMix 2015-01: ${jan2015.availableHourCount}h (Datenstart 05.01.2015 – erwartete Lücke)`)
   }
@@ -419,7 +419,7 @@ function validateYearlyMix(data: YearlyMixPoint[]): void {
   }
 
   // Kernenergie 2024 muss nach dem Atomausstieg exakt 0 sein
-  const y2024 = data.find(y => y.year === 2024)
+  const y2024 = data.find(function (y) { return y.year === 2024 })
   if (y2024) {
     if (y2024.sources.nuclear !== 0) {
       err(`yearlyMix 2024: Kernenergie-Summe ist ${y2024.sources.nuclear}, erwartet 0`)
@@ -539,7 +539,7 @@ function printResults(): void {
 // Einstieg
 // ===========================================================================
 
-main().catch((caughtError: unknown) => {
+main().catch(function (caughtError: unknown) {
   const message = caughtError instanceof Error ? caughtError.message : String(caughtError)
   console.error('Fehler:', message)
   process.exit(1)

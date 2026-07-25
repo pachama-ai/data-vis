@@ -63,9 +63,6 @@ export interface MixMonthRow {
  */
 export type RawMixMonthPoint = MonthlyMixPoint
 
-/** Alias für den vorhandenen Jahres-Rohdaten-Typ. */
-export type RawMixYearPoint = YearlyMixPoint
-
 // =========================================================================
 // Annotationstyp
 // =========================================================================

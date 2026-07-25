@@ -1,5 +1,5 @@
 /**
- * tests/common/ChartTemplate.test.ts
+ * tests/shared/ChartTemplate.test.ts
  *
  * Testet den wiederverwendbaren Chart-Rahmen.
  * - Titel und Untertitel werden angezeigt
@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest'
 import { mount } from '@vue/test-utils'
-import ChartTemplate from '~/components/common/ChartTemplate.vue'
+import ChartTemplate from '~/components/shared/ChartTemplate.vue'
 
 describe('ChartTemplate', function () {
   it('zeigt den Titel an', function () {

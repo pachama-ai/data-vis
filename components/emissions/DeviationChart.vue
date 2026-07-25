@@ -1,10 +1,12 @@
 <script setup lang="ts">
 /**
- * DeviationChartView.vue – Vue-Adapter für das DeviationChart.
+ * Verbindet das Abweichungsdiagramm mit der Vue-Oberfläche.
  *
- * Verbindet Daten, Emissionsfaktoren, Berechnungen, D3-Klasse und
- * UI-Komponenten (Tooltip, Slider, Sidebar).
- * Enthält keine Fachberechnung – ruft nur reine Funktionen auf.
+ * Die Komponente lädt die Daten, verwaltet das ausgewählte Jahr
+ * und gibt die passenden Werte an Diagramm, Tooltip, Slider
+ * und Seitenleiste weiter.
+ *
+ * @author Selina Schneider
  */
 
 import {
@@ -16,77 +18,125 @@ import {
   watch,
 } from 'vue'
 
-import ChartTemplate from '~/components/common/ChartTemplate.vue'
+import ChartTemplate from '~/components/shared/ChartTemplate.vue'
+import DeviationSidebar from '~/components/emissions/DeviationSidebar.vue'
 import DeviationTooltip from '~/components/emissions/DeviationTooltip.vue'
 import YearSlider from '~/components/emissions/YearSlider.vue'
-import DeviationSidebar from '~/components/emissions/DeviationSidebar.vue'
+
 import { useMixData } from '~/composables/useMixData'
 import { useMixSelection } from '~/composables/useMixSelection'
+
 import {
-  loadEmissionFactorsFile,
   calculateEmissionIntensity,
+  loadEmissionFactorsFile,
 } from '~/components/emissions/emissionsData'
+
 import {
-  calculateMultipleYears,
-  findLargestPositiveDeviation,
-  calculateRenewableShare,
   BASE_YEAR,
+  calculateMultipleYears,
+  calculateRenewableShare,
+  findLargestPositiveDeviation,
 } from '~/components/emissions/deviationData'
-import {
-  DeviationChart,
-  createSymmetricDomain,
-  findMaximumAbsoluteDeviation,
-} from '~/utils/charts/DeviationChart'
 
-import type { EmissionFactorsFile, EmissionRow, MixSourceKey } from '~/types/mix'
+import { DeviationChart } from '~/utils/charts/DeviationChart'
+
 import type { DeviationHoverPayload } from '~/utils/charts/DeviationChart'
+import type {
+  EmissionFactorsFile,
+  MixSourceKey,
+} from '~/types/mix'
 
+/**
+ * Instanz des gemeinsamen Diagrammrahmens.
+ */
 type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
+
+/**
+ * Mögliche Sortierungen des Diagramms.
+ */
+type SortMode = 'category' | 'impact'
+
+/**
+ * Ein Eintrag für die Sortierauswahl.
+ */
+interface SortOption {
+  key: SortMode
+  label: string
+}
 
 const chartTemplate = ref<ChartTemplateInstance | null>(null)
 
-const { monthRows, yearRows, pending, error, loadData } = useMixData()
-const { selectedYear, colorMode, setSelectedYear } = useMixSelection()
+const {
+  yearRows,
+  pending,
+  loadData,
+} = useMixData()
 
-const hoverPayload = ref<DeviationHoverPayload | null>(null)
-const selectedSourceKey = ref<MixSourceKey | null>(null)
-const sortMode = ref<'category' | 'impact'>('category')
-
-const sortModes = [
-  { key: 'category' as const, label: 'Nach Kategorie' },
-  { key: 'impact' as const, label: 'Nach Klimawirkung' },
-]
-
-// =========================================================================
-// Emissionsfaktoren laden
-// =========================================================================
+const {
+  selectedYear,
+  colorMode,
+  setSelectedYear,
+} = useMixSelection()
 
 const emissionFactors = ref<EmissionFactorsFile | null>(null)
 const emissionError = ref<string | null>(null)
 
+const hoverPayload = ref<DeviationHoverPayload | null>(null)
+const selectedSourceKey = ref<MixSourceKey | null>(null)
+const sortMode = ref<SortMode>('category')
+
+const sortOptions: SortOption[] = [
+  {
+    key: 'category',
+    label: 'Nach Kategorie',
+  },
+  {
+    key: 'impact',
+    label: 'Nach Klimawirkung',
+  },
+]
+
+/**
+ * Feste x-Achse für alle Jahre.
+ *
+ * Dadurch lassen sich die Jahre direkt vergleichen.
+ */
+const xDomain: [number, number] = [-50, 50]
+
+let chart: DeviationChart | null = null
+
+/**
+ * Lädt die Emissionsfaktoren.
+ *
+ * KI-Hilfe bei der Fehlerbehandlung. TypeScript behandelt
+ * den Fehler im catch-Block als unknown. Der direkte Zugriff
+ * auf message führte deshalb zu einem Typfehler.
+ *
+ * @returns Promise ohne Rückgabewert
+ */
 async function loadEmissionFactors(): Promise<void> {
   emissionError.value = null
 
   try {
-    const data = await loadEmissionFactorsFile()
-
-    emissionFactors.value = data
+    emissionFactors.value = await loadEmissionFactorsFile()
   } catch (caughtError: unknown) {
-    const message =
-      caughtError instanceof Error
-        ? caughtError.message
-        : 'Emissionsfaktoren konnten nicht geladen werden.'
+    if (caughtError instanceof Error) {
+      emissionError.value = caughtError.message
+      return
+    }
 
-    emissionError.value = message
+    emissionError.value =
+      'Emissionsfaktoren konnten nicht geladen werden.'
   }
 }
 
-// =========================================================================
-// Berechnungen
-// =========================================================================
-
-const deviationYears = computed(function () {
-  if (!emissionFactors.value) {
+/**
+ * Berechnet die Werte für alle Jahre.
+ *
+ * @returns Jahresdaten oder ein leeres Array
+ */
+function createDeviationYears() {
+  if (emissionFactors.value === null) {
     return []
   }
 
@@ -94,9 +144,16 @@ const deviationYears = computed(function () {
     yearRows.value,
     emissionFactors.value.factors,
   )
-})
+}
 
-const availableYears = computed(function () {
+const deviationYears = computed(createDeviationYears)
+
+/**
+ * Sammelt alle verfügbaren Jahre.
+ *
+ * @returns Liste der verfügbaren Jahre
+ */
+function createAvailableYears(): number[] {
   const years: number[] = []
 
   for (const yearData of deviationYears.value) {
@@ -104,187 +161,334 @@ const availableYears = computed(function () {
   }
 
   return years
-})
+}
 
-const latestYear = computed(function () {
+const availableYears = computed(createAvailableYears)
+
+/**
+ * Liest das letzte Jahr aus der Liste.
+ *
+ * @returns Letztes Jahr oder null
+ */
+function findLatestYear(): number | null {
   const years = availableYears.value
   const lastYear = years[years.length - 1]
 
   return lastYear ?? null
-})
+}
 
-const activeYearNumber = computed(function () {
-  if (selectedYear.value !== null) {
-    const yearExists = availableYears.value.includes(
-      selectedYear.value,
-    )
+const latestYear = computed(findLatestYear)
 
-    if (yearExists) {
-      return selectedYear.value
-    }
+/**
+ * Bestimmt das aktuell angezeigte Jahr.
+ *
+ * @returns Gewähltes Jahr oder letztes verfügbares Jahr
+ */
+function findActiveYearNumber(): number | null {
+  const currentYear = selectedYear.value
+
+  if (
+    currentYear !== null
+    && availableYears.value.includes(currentYear)
+  ) {
+    return currentYear
   }
 
   return latestYear.value
-})
+}
 
-const activeYear = computed(function () {
+const activeYearNumber = computed(findActiveYearNumber)
+
+/**
+ * Sucht die Daten des aktiven Jahres.
+ *
+ * @returns Jahresdaten oder null
+ */
+function findActiveYear() {
   const year = activeYearNumber.value
 
   if (year === null) {
     return null
   }
 
-  return (
-    deviationYears.value.find(function (yearData) {
-      return yearData.year === year
-    }) ?? null
-  )
-})
+  for (const yearData of deviationYears.value) {
+    if (yearData.year === year) {
+      return yearData
+    }
+  }
 
-const baseYear = computed(function () {
-  return (
-    deviationYears.value.find(function (yearData) {
-      return yearData.year === BASE_YEAR
-    }) ?? null
-  )
-})
+  return null
+}
 
-// =========================================================================
-// Feste x-Domain über alle Jahre
-// =========================================================================
+const activeYear = computed(findActiveYear)
 
-// Feste x-Achse von −50 bis +50 pp für ehrlichen Jahresvergleich
-const xDomain: [number, number] = [-50, 50]
+/**
+ * Sucht die Daten des Basisjahres.
+ *
+ * @returns Daten von 2015 oder null
+ */
+function findBaseYear() {
+  for (const yearData of deviationYears.value) {
+    if (yearData.year === BASE_YEAR) {
+      return yearData
+    }
+  }
 
-// =========================================================================
-// Sidebar-Werte
-// =========================================================================
+  return null
+}
 
-const largestMismatch = computed(function () {
-  if (!activeYear.value) {
+const baseYear = computed(findBaseYear)
+
+/**
+ * Sucht die größte positive Abweichung im aktiven Jahr.
+ *
+ * @returns Größte Abweichung oder null
+ */
+function findLargestMismatch() {
+  if (activeYear.value === null) {
     return null
   }
 
-  return findLargestPositiveDeviation(activeYear.value.rows)
-})
+  return findLargestPositiveDeviation(
+    activeYear.value.rows,
+  )
+}
 
-const emissionIntensity = computed(function () {
-  if (!activeYear.value || activeYear.value.totalGenerationTwh === 0) {
+const largestMismatch = computed(findLargestMismatch)
+
+/**
+ * Berechnet die Emissionsintensität des aktiven Jahres.
+ *
+ * @returns Emissionsintensität oder 0
+ */
+function calculateActiveEmissionIntensity(): number {
+  const yearData = activeYear.value
+
+  if (
+    yearData === null
+    || yearData.totalGenerationTwh === 0
+  ) {
     return 0
   }
 
   return calculateEmissionIntensity(
-    activeYear.value.totalEmissionsMt,
-    activeYear.value.totalGenerationTwh,
+    yearData.totalEmissionsMt,
+    yearData.totalGenerationTwh,
   )
-})
+}
 
-const renewableShare = computed(function () {
-  if (!activeYear.value) {
+const emissionIntensity = computed(
+  calculateActiveEmissionIntensity,
+)
+
+/**
+ * Berechnet den Anteil erneuerbarer Energien
+ * im aktiven Jahr.
+ *
+ * @returns Anteil in Prozent oder 0
+ */
+function calculateActiveRenewableShare(): number {
+  if (activeYear.value === null) {
     return 0
   }
 
-  return calculateRenewableShare(activeYear.value)
-})
+  return calculateRenewableShare(
+    activeYear.value,
+  )
+}
 
-const baseRenewableShare = computed(function () {
-  if (!baseYear.value) {
+const renewableShare = computed(
+  calculateActiveRenewableShare,
+)
+
+/**
+ * Berechnet den Anteil erneuerbarer Energien
+ * im Basisjahr.
+ *
+ * @returns Anteil in Prozent oder 0
+ */
+function calculateBaseRenewableShare(): number {
+  if (baseYear.value === null) {
     return 0
   }
 
-  return calculateRenewableShare(baseYear.value)
-})
+  return calculateRenewableShare(
+    baseYear.value,
+  )
+}
 
-const baseEmissionIntensity = computed(function () {
-  if (!baseYear.value || baseYear.value.totalGenerationTwh === 0) {
+const baseRenewableShare = computed(
+  calculateBaseRenewableShare,
+)
+
+/**
+ * Berechnet die Emissionsintensität des Basisjahres.
+ *
+ * @returns Emissionsintensität oder 0
+ */
+function calculateBaseEmissionIntensity(): number {
+  const yearData = baseYear.value
+
+  if (
+    yearData === null
+    || yearData.totalGenerationTwh === 0
+  ) {
     return 0
   }
 
   return calculateEmissionIntensity(
-    baseYear.value.totalEmissionsMt,
-    baseYear.value.totalGenerationTwh,
+    yearData.totalEmissionsMt,
+    yearData.totalGenerationTwh,
   )
-})
+}
 
-// =========================================================================
-// Chart-Instanz
-// =========================================================================
+const baseEmissionIntensity = computed(
+  calculateBaseEmissionIntensity,
+)
 
-let chart: DeviationChart | null = null
-
-// =========================================================================
-// Hover-Handler
-// =========================================================================
-
-function handleChartHover(payload: DeviationHoverPayload): void {
+/**
+ * Speichert den Balken unter dem Mauszeiger.
+ *
+ * @param payload Daten und Position des Balkens
+ */
+function handleChartHover(
+  payload: DeviationHoverPayload,
+): void {
   hoverPayload.value = payload
 }
 
+/**
+ * Entfernt die Hover-Daten.
+ */
 function handleChartLeave(): void {
   hoverPayload.value = null
 }
 
-function handleChartSelection(sourceKey: MixSourceKey | null): void {
+/**
+ * Speichert den angeklickten Energieträger.
+ *
+ * @param sourceKey Energieträger oder null
+ */
+function handleChartSelection(
+  sourceKey: MixSourceKey | null,
+): void {
   selectedSourceKey.value = sourceKey
 }
 
-const selectedRow = computed(function () {
-  if (selectedSourceKey.value === null || !activeYear.value) {
+/**
+ * Sucht die ausgewählte Zeile im aktiven Jahr.
+ *
+ * @returns Ausgewählte Zeile oder null
+ */
+function findSelectedRow() {
+  const sourceKey = selectedSourceKey.value
+  const yearData = activeYear.value
+
+  if (
+    sourceKey === null
+    || yearData === null
+  ) {
     return null
   }
 
-  return (
-    activeYear.value.rows.find(function (row) {
-      return row.sourceKey === selectedSourceKey.value
-    }) ?? null
-  )
-})
+  for (const row of yearData.rows) {
+    if (row.sourceKey === sourceKey) {
+      return row
+    }
+  }
 
-const selectedRowBaseShare = computed(function () {
-  if (selectedSourceKey.value === null || !baseYear.value) {
+  return null
+}
+
+const selectedRow = computed(findSelectedRow)
+
+/**
+ * Sucht den Erzeugungsanteil der ausgewählten Quelle
+ * im Basisjahr.
+ *
+ * @returns Erzeugungsanteil oder null
+ */
+function findSelectedBaseShare(): number | null {
+  const sourceKey = selectedSourceKey.value
+  const yearData = baseYear.value
+
+  if (
+    sourceKey === null
+    || yearData === null
+  ) {
     return null
   }
 
-  const baseRow = baseYear.value.rows.find(function (row) {
-    return row.sourceKey === selectedSourceKey.value
-  })
+  for (const row of yearData.rows) {
+    if (row.sourceKey === sourceKey) {
+      return row.generationShare
+    }
+  }
 
-  return baseRow?.generationShare ?? null
-})
+  return null
+}
 
-// =========================================================================
-// Slider-Handler
-// =========================================================================
+const selectedRowBaseShare = computed(
+  findSelectedBaseShare,
+)
 
+/**
+ * Übernimmt das ausgewählte Jahr.
+ *
+ * @param year Neues Jahr
+ */
 function handleYearChange(year: number): void {
   setSelectedYear(year)
 }
 
-function handleSortChange(mode: 'category' | 'impact'): void {
+/**
+ * Ändert die Sortierung der Balken.
+ *
+ * @param mode Neue Sortierung
+ */
+function handleSortChange(mode: SortMode): void {
   sortMode.value = mode
   chart?.setSortMode(mode)
 }
 
-// =========================================================================
-// Initialisierung
-// =========================================================================
-
-async function initializeAll(): Promise<void> {
-  await Promise.all([loadData(), loadEmissionFactors()])
+/**
+ * Lädt die Daten und erstellt danach das Diagramm.
+ *
+ * KI-Einsatz bei der Reihenfolge. Das Diagramm wurde
+ * vorher erstellt, bevor Daten und Container bereit waren.
+ * Dadurch blieb die Zeichenfläche leer. nextTick wartet,
+ * bis Vue den Container in das DOM eingefügt hat.
+ *
+ * @returns Promise ohne Rückgabewert
+ */
+async function loadAndCreateChart(): Promise<void> {
+  await Promise.all([
+    loadData(),
+    loadEmissionFactors(),
+  ])
 
   await nextTick()
 
-  initializeChart()
+  createChart()
 }
 
-function initializeChart(): void {
-  const container = chartTemplate.value?.chartContainer
+/**
+ * Erstellt das D3-Diagramm und verbindet die Ereignisse.
+ *
+ * KI-Hilfe beim Zugriff auf chartContainer. Der Wert war
+ * beim ersten Aufruf null, weil die Kindkomponente noch nicht
+ * fertig aufgebaut war. Die Prüfung verhindert den Aufbau
+ * ohne Container.
+ */
+function createChart(): void {
+  const container =
+    chartTemplate.value?.chartContainer
 
-  if (!container) {
-    return
-  }
-
-  if (!emissionFactors.value) {
+  if (
+    container === null
+    || container === undefined
+    || emissionFactors.value === null
+  ) {
     return
   }
 
@@ -292,52 +496,76 @@ function initializeChart(): void {
 
   chart.setHoverHandler(handleChartHover)
   chart.setHoverEndHandler(handleChartLeave)
-  chart.setColors(colorMode.value)
   chart.setSelectionHandler(handleChartSelection)
+  chart.setColors(colorMode.value)
 
   chart.render(container)
   chart.setXDomain(xDomain)
 
-  if (activeYear.value) {
+  if (activeYear.value !== null) {
     chart.setData(activeYear.value.rows)
   }
 }
 
-// =========================================================================
-// Lifecycle
-// =========================================================================
+/**
+ * Startet das Laden nach dem Aufbau der Komponente.
+ */
+function handleMounted(): void {
+  loadAndCreateChart()
+}
 
-onMounted(function () {
-  initializeAll()
-})
-
-onBeforeUnmount(function () {
+/**
+ * Entfernt das Diagramm vor dem Verlassen der Seite.
+ */
+function handleBeforeUnmount(): void {
   chart?.destroy()
   chart = null
   hoverPayload.value = null
-})
+  selectedSourceKey.value = null
+}
 
-// =========================================================================
-// Watcher
-// =========================================================================
-
-watch(activeYear, function (updatedYear) {
+/**
+ * Aktualisiert das Diagramm nach einem Jahreswechsel.
+ *
+ * KI-Einsatz bei der Verbindung zwischen Vue und D3.
+ * Die Vue-Daten änderten sich vorher, das SVG blieb aber
+ * beim alten Jahr. Der Watcher gibt die neuen Zeilen
+ * direkt an die D3-Klasse weiter.
+ *
+ * @param updatedYear Neue Jahresdaten oder null
+ */
+function updateChartYear(
+  updatedYear: typeof activeYear.value,
+): void {
   const rows = updatedYear?.rows ?? []
 
   chart?.setData(rows)
 
   hoverPayload.value = null
   selectedSourceKey.value = null
-})
+}
 
-watch(colorMode, function (updatedMode) {
+/**
+ * Übernimmt den neuen Farbmodus im Diagramm.
+ *
+ * @param updatedMode Neuer Farbmodus
+ */
+function updateChartColors(
+  updatedMode: 'default' | 'accessible',
+): void {
   chart?.setColors(updatedMode)
-})
+}
+
+onMounted(handleMounted)
+onBeforeUnmount(handleBeforeUnmount)
+
+watch(activeYear, updateChartYear)
+watch(colorMode, updateChartColors)
 </script>
 
 <template>
   <div class="deviation-layout">
-    <!-- Fehlerzustand -->
+    <!-- Fehler beim Laden -->
     <div
       v-if="emissionError"
       class="deviation-error"
@@ -345,7 +573,7 @@ watch(colorMode, function (updatedMode) {
       {{ emissionError }}
     </div>
 
-    <!-- Ladezustand -->
+    <!-- Ladeanzeige -->
     <div
       v-else-if="pending && emissionFactors === null"
       class="deviation-loading"
@@ -353,14 +581,10 @@ watch(colorMode, function (updatedMode) {
       Daten werden geladen …
     </div>
 
-    <!-- Normalzustand -->
     <template v-else>
+      <!-- Diagramm und Sortierung -->
       <div class="deviation-main">
-        <ChartTemplate
-          ref="chartTemplate"
-          title=""
-          subtitle=""
-        >
+        <ChartTemplate ref="chartTemplate">
           <template #overlay>
             <DeviationTooltip
               v-if="hoverPayload"
@@ -370,27 +594,42 @@ watch(colorMode, function (updatedMode) {
             />
           </template>
 
-          <div class="sort-section" role="radiogroup" aria-label="Sortierung">
-            <h3 class="eyebrow">Sortierung</h3>
+          <div
+            class="sort-section"
+            role="radiogroup"
+            aria-label="Sortierung"
+          >
+            <h3 class="title-label">
+              Sortierung
+            </h3>
+
             <div class="sort-chips">
               <button
-                v-for="mode in sortModes"
-                :key="mode.key"
+                v-for="option in sortOptions"
+                :key="option.key"
                 type="button"
                 class="sort-chip"
                 role="radio"
-                :aria-checked="sortMode === mode.key"
-                :class="{ 'sort-chip--active': sortMode === mode.key }"
-                @click="handleSortChange(mode.key)"
+                :aria-checked="
+                  sortMode === option.key
+                "
+                :class="{
+                  'sort-chip--active':
+                    sortMode === option.key,
+                }"
+                @click="
+                  handleSortChange(option.key)
+                "
               >
-                {{ mode.label }}
+                {{ option.label }}
               </button>
             </div>
           </div>
         </ChartTemplate>
       </div>
 
-      <div class="deviation-sidebar-wrapper">
+      <!-- Jahresauswahl und Kennzahlen -->
+      <div class="deviation-sidebar">
         <YearSlider
           v-if="activeYearNumber !== null"
           :years="availableYears"
@@ -398,28 +637,43 @@ watch(colorMode, function (updatedMode) {
           @change="handleYearChange"
         />
 
-        <div class="sidebar-divider" />
+        <div class="sidebar-divider"></div>
 
         <DeviationSidebar
           :active-year="activeYear"
           :base-year="baseYear"
-          :hovered-row="hoverPayload?.row ?? null"
+          :hovered-row="
+            hoverPayload?.row ?? null
+          "
           :selected-row="selectedRow"
-          :selected-row-base-share="selectedRowBaseShare"
-          :largest-mismatch="largestMismatch"
-          :emission-intensity="emissionIntensity"
-          :renewable-share="renewableShare"
-          :base-renewable-share="baseRenewableShare"
-          :base-emission-intensity="baseEmissionIntensity"
+          :selected-row-base-share="
+            selectedRowBaseShare
+          "
+          :largest-mismatch="
+            largestMismatch
+          "
+          :emission-intensity="
+            emissionIntensity
+          "
+          :renewable-share="
+            renewableShare
+          "
+          :base-renewable-share="
+            baseRenewableShare
+          "
+          :base-emission-intensity="
+            baseEmissionIntensity
+          "
           :color-mode="colorMode"
         />
       </div>
     </template>
 
-    <!-- Keine Daten für Jahr -->
+    <!-- Hinweis bei fehlenden Jahresdaten -->
     <p
       v-if="
-        activeYearNumber !== null && activeYear === null
+        activeYearNumber !== null
+        && activeYear === null
       "
       class="deviation-empty"
     >
@@ -429,89 +683,53 @@ watch(colorMode, function (updatedMode) {
 </template>
 
 <style scoped>
+/*
+ * Ordnet Diagramm und Seitenleiste nebeneinander an.
+ *
+ * KI hat responsives Grid umgesetzt. Die erste Version
+ * war auf schmalen Bildschirmen breiter als das Fenster
+ * und erzeugte einen horizontalen Scrollbalken.
+ */
 .deviation-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
-  gap: 24px;
+  grid-template-columns:
+    minmax(0, 2fr)
+    minmax(260px, 1fr);
   align-items: start;
+  gap: 24px;
 }
 
 .deviation-main {
   min-width: 0;
 }
 
+/* Statusmeldungen der Seite. */
 .deviation-loading,
 .deviation-error,
 .deviation-empty {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  color: var(--fg-muted);
   padding: 24px 0;
-}
-
-.deviation-sidebar-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-}
-
-.sidebar-divider {
-  height: 1px;
-  background: var(--hairline);
-  margin: 12px 0;
+  color: var(--muted-text-color);
+  font-family: var(--sans-font);
+  font-size: 14px;
 }
 
 .deviation-error {
   color: #b33;
 }
 
-.reading-help-summary {
-  font-family: var(--font-sans);
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--fg-muted);
-  cursor: pointer;
-  list-style: none;
+/* Jahresregler und Kennzahlen. */
+.deviation-sidebar {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  user-select: none;
-  padding: 8px 0;
-  border-radius: 4px;
-  transition: color 200ms ease-out, background 200ms ease-out;
+  flex-direction: column;
 }
 
-.reading-help-summary:hover {
-  color: var(--fg);
+.sidebar-divider {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--line-color);
 }
 
-.reading-help-summary::-webkit-details-marker {
-  display: none;
-}
-
-.reading-help-chevron {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 12px;
-  height: 12px;
-  transition: transform 200ms ease-out;
-  flex-shrink: 0;
-}
-
-details[open] .reading-help-chevron {
-  transform: rotate(90deg);
-}
-
-.reading-help-text {
-  margin: 12px 0 0;
-  font-size: 13px;
-  line-height: 1.6;
-  color: var(--fg);
-  max-width: 600px;
-}
-
-/* Sortier-Steuerung – als Legenden-Chips */
+/* Bereich der Sortierauswahl. */
 .sort-section {
   margin-bottom: 16px;
 }
@@ -520,6 +738,7 @@ details[open] .reading-help-chevron {
   margin-bottom: 12px;
 }
 
+/* Knöpfe für die Sortierung. */
 .sort-chips {
   display: flex;
   flex-wrap: wrap;
@@ -529,38 +748,40 @@ details[open] .reading-help-chevron {
 .sort-chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
   padding: 3px 8px;
-  border: 1px solid var(--hairline);
+  border: 1px solid var(--line-color);
   border-radius: 4px;
   background: transparent;
-  font-family: var(--font-sans);
+  color: var(--muted-text-color);
+  font-family: var(--sans-font);
   font-size: 11px;
-  color: var(--fg-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition:
+    color 150ms,
+    border-color 150ms,
+    background 150ms;
 }
 
 .sort-chip:hover {
-  color: var(--fg);
-  border-color: var(--fg-muted);
+  border-color: var(--muted-text-color);
+  color: var(--text-color);
 }
 
 .sort-chip--active {
-  color: var(--fg);
-  border-color: var(--accent);
+  border-color: var(--accent-color);
   background: rgba(45, 106, 79, 0.06);
+  color: var(--text-color);
 }
 
 .sort-chip:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-color);
   outline-offset: 2px;
 }
 
+/* Setzt die Seitenleiste unter das Diagramm. */
 @media (max-width: 900px) {
   .deviation-layout {
     grid-template-columns: 1fr;
   }
 }
 </style>
-
