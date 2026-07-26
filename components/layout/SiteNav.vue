@@ -1,13 +1,9 @@
 <script setup lang="ts">
 /**
- * SiteNav.vue — Globale Navigation mit 3 Tabs + Zoom + Kontrastmodus.
+ * SiteNav.vue – Globale Navigation
  *
- * Zeigt immer die drei Hauptbereiche an (Strommix, Entwicklung,
- * CO₂-Vergleich), rechts einen Zoom-Button (Lupe mit Plus)
- * und einen Schalter für den Kontrastmodus.
- *
- * Zoom und Kontrast werden über Modul-Composables geteilt
- * und bleiben beim Seitenwechsel erhalten.
+ * Zeigt die drei Hauptbereiche an: Strommix, Entwicklung,
+ * CO₂-Vergleich. Rechts Zoom-Button und Kontrast-Schalter.
  */
 
 import { computed } from 'vue'
@@ -18,7 +14,10 @@ import { useHighContrast } from '~/composables/useHighContrast'
 const route = useRoute()
 
 const { level, cycle } = usePageZoom()
-const { isActive: contrastOn, toggle: toggleContrast } = useHighContrast()
+const {
+  isActive: contrastOn,
+  toggle: toggleContrast,
+} = useHighContrast()
 
 interface NavItem {
   label: string
@@ -26,33 +25,52 @@ interface NavItem {
   isActive: boolean
 }
 
-const navItems = computed<NavItem[]>(function () { return [
-  {
-    label: 'Strommix',
-    to: '/',
-    isActive: route.path === '/',
-  },
-  {
-    label: 'Entwicklung',
-    to: '/dashboard',
-    isActive: route.path === '/dashboard' && route.query.tab !== 'emissions',
-  },
-  {
-    label: 'CO₂-Vergleich',
-    to: '/dashboard?tab=emissions',
-    isActive: route.path === '/dashboard' && route.query.tab === 'emissions',
-  },
-] })
+function isDevelopmentActive(): boolean {
+  return (
+    route.path === '/dashboard'
+    && route.query.tab !== 'emissions'
+  )
+}
+
+function isEmissionsActive(): boolean {
+  return (
+    route.path === '/dashboard'
+    && route.query.tab === 'emissions'
+  )
+}
+
+const navItems = computed<NavItem[]>(function () {
+  return [
+    {
+      label: 'Strommix',
+      to: '/',
+      isActive: route.path === '/',
+    },
+    {
+      label: 'Entwicklung',
+      to: '/dashboard',
+      isActive: isDevelopmentActive(),
+    },
+    {
+      label: 'CO\u2082-Vergleich',
+      to: '/dashboard?tab=emissions',
+      isActive: isEmissionsActive(),
+    },
+  ]
+})
 
 const zoomLabel = computed(function () {
-  return `Ansicht vergrößern (aktuell ${level.value} %)`
+  return 'Ansicht vergr\u00f6\u00dfern (aktuell ' + level.value + ' %)'
 })
 </script>
 
 <template>
-  <nav class="site-nav" aria-label="Hauptnavigation">
+  <nav
+    class="site-nav"
+    aria-label="Hauptnavigation"
+  >
     <div class="site-nav-inner">
-      <!-- Navigation Links -->
+      <!-- Hauptbereiche -->
       <div class="site-nav-links">
         <NuxtLink
           v-for="item in navItems"
@@ -67,7 +85,7 @@ const zoomLabel = computed(function () {
         </NuxtLink>
       </div>
 
-      <!-- Zoom + Contrast controls -->
+      <!-- Einstellungen -->
       <div class="site-nav-controls">
         <!-- Zoom -->
         <button
@@ -75,12 +93,13 @@ const zoomLabel = computed(function () {
           class="zoom-btn nav-underline"
           :class="{ 'nav-underline--active': level > 100 }"
           :aria-label="zoomLabel"
-          :title="'Vergrößert die gesamte Seite. Mehrfach klicken für weitere Stufen.'"
+          title="Vergrößert die gesamte Seite. Mehrfach klicken für weitere Stufen."
           @click="cycle"
         >
           <svg
             class="zoom-icon"
-            width="16" height="16"
+            width="16"
+            height="16"
             viewBox="0 0 16 16"
             fill="none"
             stroke="currentColor"
@@ -89,11 +108,8 @@ const zoomLabel = computed(function () {
             stroke-linejoin="round"
             aria-hidden="true"
           >
-            <!-- Lupenglas -->
             <circle cx="7" cy="7" r="5" />
-            <!-- Griff -->
             <line x1="10.5" y1="10.5" x2="14" y2="14" />
-            <!-- Plus -->
             <line x1="7" y1="4.5" x2="7" y2="9.5" />
             <line x1="4.5" y1="7" x2="9.5" y2="7" />
           </svg>
@@ -104,10 +120,13 @@ const zoomLabel = computed(function () {
           >{{ level }}%</span>
         </button>
 
-        <!-- Separator -->
-        <span class="control-separator" aria-hidden="true" />
+        <!-- Trennlinie -->
+        <span
+          class="control-separator"
+          aria-hidden="true"
+        />
 
-        <!-- Kontrastmodus -->
+        <!-- Kontrast -->
         <button
           type="button"
           class="contrast-btn nav-underline"
@@ -144,21 +163,21 @@ const zoomLabel = computed(function () {
   height: 44px;
 }
 
-/* ── Links ── */
+/* Hauptbereiche */
 .site-nav-links {
   display: flex;
   align-items: center;
   gap: 0;
 }
 
-/* ── Rechte Steuerung ── */
+/* Einstellungen */
 .site-nav-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-/* ─── Gemeinsame Unterstrich-Klasse ─── */
+/* Gemeinsamer Stil */
 .nav-underline {
   position: relative;
   display: inline-flex;
@@ -223,7 +242,7 @@ const zoomLabel = computed(function () {
   outline-offset: -2px;
 }
 
-/* ── Zoom ── */
+/* Zoom */
 .zoom-btn {
   gap: 6px;
   padding: 0 8px;
@@ -245,7 +264,7 @@ const zoomLabel = computed(function () {
   color: var(--accent-color);
 }
 
-/* Separator */
+/* Trennlinie */
 .control-separator {
   display: inline-block;
   width: 1px;
@@ -254,36 +273,12 @@ const zoomLabel = computed(function () {
   margin: 0 1.5rem;
 }
 
-/* ── Kontrast-Button ── */
+/* Kontrast */
 .contrast-btn {
   padding: 0 8px;
 }
 
 .contrast-btn.nav-underline::after {
   width: calc(100% - 16px);
-}
-
-/* ── Responsive ── */
-@media (max-width: 640px) {
-  .zoom-value {
-    display: none;
-  }
-}
-
-@media (max-width: 500px) {
-  .nav-underline {
-    padding: 0 12px;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-  }
-  .nav-underline::after {
-    width: calc(100% - 24px);
-  }
-  .site-nav-inner {
-    padding: 0 12px;
-  }
-  .contrast-btn {
-    font-size: 9px;
-  }
 }
 </style>

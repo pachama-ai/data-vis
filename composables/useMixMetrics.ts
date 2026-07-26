@@ -147,6 +147,13 @@ function calculateMonthGroupValues(
 }
 
 /**
+ * Rundet einen Wert auf eine Nachkommastelle.
+ */
+function roundToOneDecimal(value: number): number {
+  return Math.round(value * 10) / 10
+}
+
+/**
  * Berechnet einen Anteil sicher ohne Division durch null.
  */
 function calculateShare(value: number, total: number): number {
@@ -204,10 +211,12 @@ export function getOverviewMetrics(
     const share2015 = calculateShare(value2015, total2015)
     const share2024 = calculateShare(value2024, total2024)
 
-    // Auf eine Nachkommastelle runden für konsistente Anzeige
-    const displayed2015 = Math.round(share2015 * 1000) / 10
-    const displayed2024 = Math.round(share2024 * 1000) / 10
-    const percentagePointChange = Math.round((displayed2024 - displayed2015) * 10) / 10
+    // Auf eine Nachkommastelle runden
+    const displayed2015 = roundToOneDecimal(share2015 * 100)
+    const displayed2024 = roundToOneDecimal(share2024 * 100)
+    const percentagePointChange = roundToOneDecimal(
+      displayed2024 - displayed2015,
+    )
 
     groups.push({
       group,

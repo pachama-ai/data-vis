@@ -33,19 +33,6 @@ export interface MonthlyMixPoint {
   availableHourCount: number
 }
 
-/** Eine Zelle der CO₂-Heatmap (24h × 12 Monate) – für HeatmapCO2. */
-export interface HeatmapCo2Cell {
-  year: number
-  /** Monat 1–12 (Berliner Lokalzeit). */
-  month: number
-  /** Stunde 0–23 (Berliner Lokalzeit). */
-  hour: number
-  /** Erzeugungsgewichtete CO₂-Intensität in g CO₂/kWh. */
-  co2GramsPerKwh: number
-  /** Anzahl der Beobachtungen (≈ Tage im Monat für diese Stunde). */
-  observationCount: number
-}
-
 /** Ein Tageswert für das Streudiagramm – für ScatterSimple. */
 export interface ScatterDailyPoint {
   /** Format "YYYY-MM-DD" in Berliner Lokalzeit. */
@@ -75,7 +62,6 @@ export interface YearlyMixPoint {
 /** Gesamtstruktur der visualization-data.json. */
 export interface VisualizationData {
   monthlyMix: MonthlyMixPoint[]
-  heatmapCo2: HeatmapCo2Cell[]
   scatterDaily: ScatterDailyPoint[]
   yearlyMix: YearlyMixPoint[]
 }

@@ -67,10 +67,6 @@ export function useMixSelection() {
     colorMode.value = nextMode
   }
 
-  function toggleColorMode(): void {
-    colorMode.value = colorMode.value === 'default' ? 'accessible' : 'default'
-  }
-
   return {
     mode,
     colorMode,
@@ -79,7 +75,6 @@ export function useMixSelection() {
     selectedAnnotation,
     setMode,
     setColorMode,
-    toggleColorMode,
     setHighlighted,
     toggleHighlighted,
     toggleAnnotation,

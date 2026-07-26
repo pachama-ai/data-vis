@@ -1,10 +1,13 @@
 /**
  * Hilfsfunktionen für das Abweichungsdiagramm.
  *
- * Enthält zustandslose Berechnungen für Balkenpositionen,
- * Labelpositionen, den Achsenbereich und die Textformatierung.
- * Keine dieser Funktionen greift auf den Zustand der
- * DeviationChart-Klasse zu.
+ * Alle Funktionen hier sind zustandslos – sie greifen nicht auf die
+ * DeviationChart-Klasse zu und lassen sich einzeln testen.
+ *
+ * MIT KI: Die Auslagerung der zustandslosen Hilfsfunktionen in eine
+ * eigene Datei wurde von KI empfohlen.
+ * OHNE KI: Die grundlegende Idee, zustandslose Funktionen auszulagern,
+ * ist ein allgemeines Programmierprinzip.
  *
  * @author Selina Schneider
  */
@@ -24,8 +27,15 @@ const percentFormatter = new Intl.NumberFormat('de-DE', {
 /**
  * Bestimmt, wo ein Balken auf der x-Achse beginnt.
  *
- * Negative Balken beginnen am Wert und enden an der Nulllinie.
- * Positive Balken beginnen an der Nulllinie.
+ * Negative Balken beginnen am (negativen) Wert und laufen zur Nulllinie.
+ * Positive Balken beginnen an der Nulllinie und laufen nach rechts.
+ * Diese Fallunterscheidung ist der Grund, warum das nicht einfach
+ * xScale(deviationPp) ist.
+ *
+ * MIT KI: Die unterschiedliche Startposition für negative und positive
+ * Balken (divergierendes Layout um die Nulllinie) wurde mit KI entwickelt.
+ * OHNE KI: Die Verwendung von xScale zur Umrechnung von Werten in
+ * Pixelpositionen ist eine Standard-D3-Technik aus dem Vorlesungsskript.
  *
  * @param deviationPp Abweichung in Prozentpunkten
  * @param xScale Skala der x-Achse
@@ -47,6 +57,9 @@ export function getDeviationBarX(
 /**
  * Berechnet die Breite eines Balkens bis zur Nulllinie.
  *
+ * OHNE KI: Die Breitenberechnung mit Math.abs und xScale ist eine
+ * einfache D3- und Mathematik-Grundlage aus dem Vorlesungsskript.
+ *
  * @param deviationPp Abweichung in Prozentpunkten
  * @param xScale Skala der x-Achse
  * @returns Breite des Balkens in Pixeln
@@ -64,6 +77,12 @@ export function getDeviationBarWidth(
 /**
  * Erstellt einen symmetrischen Wertebereich um die Nulllinie.
  *
+ * MIT KI: Die feste symmetrische Domain, die beim Jahreswechsel nicht
+ * springt, sowie das Aufrunden auf den nächsten Zehnerwert
+ * (Math.ceil(x / 10) * 10) wurden mit KI-Unterstützung entwickelt.
+ * Den Sonderfall <= 0 habe ich danach ergänzt, damit der
+ * Start-/Leerzustand vor dem ersten Datenladen sauber abgefangen ist.
+ *
  * @param maximumDeviation Größte absolute Abweichung
  * @returns Untere und obere Grenze der x-Achse
  */
@@ -80,7 +99,13 @@ export function createSymmetricDomain(
 }
 
 /**
- * Sucht die größte absolute Abweichung in allen Jahren.
+ * Sucht die größte absolute Abweichung über alle Jahre hinweg.
+ * Damit kann die x-Achse einmal fest gesetzt werden und springt
+ * beim Jahreswechsel nicht.
+ *
+ * MIT KI: Die verschachtelten Schleifen über Jahre und Datenzeilen
+ * sowie der Vergleich der absoluten Abweichungen wurden mit
+ * KI-Unterstützung entwickelt.
  *
  * @param rowsByYear Datenzeilen nach Jahren
  * @returns Größte Abweichung ohne Vorzeichen
@@ -88,7 +113,7 @@ export function createSymmetricDomain(
 export function findMaximumAbsoluteDeviation(
   rowsByYear: EmissionRow[][],
 ): number {
-  let maximum: number = 0
+  let maximum = 0
 
   for (const rows of rowsByYear) {
     for (const row of rows) {
@@ -106,8 +131,13 @@ export function findMaximumAbsoluteDeviation(
 /**
  * Bestimmt die horizontale Position eines Wertelabels.
  *
- * Negative Werte: Label links vom Balkenende.
- * Positive Werte und 0: Label rechts vom Balkenende.
+ * Negative Werte bekommen das Label links vom Balkenende,
+ * positive Werte (und 0) rechts. Zusammen mit labelAnchor ergibt
+ * das eine saubere Ausrichtung an der jeweiligen Balkenkante.
+ *
+ * MIT KI: Die unterschiedliche Position und Textausrichtung von
+ * Wertelabels außerhalb positiver und negativer Balken wurde mit
+ * KI-Unterstützung entwickelt.
  *
  * @param value Abweichung in Prozentpunkten
  * @param xScale Skala der x-Achse
@@ -125,7 +155,11 @@ export function labelX(
 }
 
 /**
- * Bestimmt die Textausrichtung eines Wertelabels.
+ * Bestimmt die Textausrichtung eines Wertelabels passend zu labelX.
+ *
+ * MIT KI: Die unterschiedliche Textausrichtung ('end' für negative,
+ * 'start' für positive Werte) ist Teil der KI-gestützten
+ * Labelpositionierung außerhalb der Balken.
  *
  * @param value Abweichung in Prozentpunkten
  * @returns Ausrichtung des SVG-Texts
@@ -140,6 +174,12 @@ export function labelAnchor(value: number): 'start' | 'end' {
 
 /**
  * Formatiert Prozentpunkte für Achse und Wertelabels.
+ * Verwendet ein echtes Minuszeichen (−) statt Bindestrich, damit die
+ * Ausrichtung im SVG-Text nicht verrutscht.
+ *
+ * MIT KI: Die spezielle Darstellung von Prozentpunkten mit '+' bei
+ * positiven Werten, '−' bei negativen Werten, der Einheit 'pp' und
+ * der Behandlung des Werts 0 wurde mit KI-Unterstützung entwickelt.
  *
  * @param value Wert in Prozentpunkten
  * @returns Formatierter Wert mit Vorzeichen und Einheit

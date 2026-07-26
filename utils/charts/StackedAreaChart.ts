@@ -1,12 +1,17 @@
 /**
  * Zeichnet den Strommix als gestapeltes Flächendiagramm.
  *
- * Die Monatswerte der Energieträger liegen übereinander.
- * Das Diagramm zeigt entweder absolute Werte in TWh
- * oder prozentuale Anteile.
+ * Die Monatswerte der Energieträger liegen übereinander. Das Diagramm
+ * kann entweder absolute Werte in TWh oder prozentuale Anteile zeigen.
+ * Zusätzlich übernimmt die Klasse Hover, Hervorhebungen und die feste
+ * Linie für ausgewählte Ereignisse.
  *
- * Die Klasse übernimmt außerdem Hover, Hervorhebungen
- * und Linien für ausgewählte Ereignisse.
+ * OHNE KI: Das Grundgerüst (BaseChart, D3-Skalen, Achsen, SVG-Elemente)
+ * folgt dem Vorlesungsskript.
+ *
+ * MIT KI: Data-Join mit Key-Funktion, separate Highlight-Konturen,
+ * Bisector-basierte Monatssuche und das Zusammenspiel von Hover und
+ * fester Auswahl wurden mit KI entwickelt.
  *
  * @author Selina Schneider
  */
@@ -32,40 +37,36 @@ import type {
 } from '~/types/mix'
 import type { MixHoverPayload } from '~/utils/charts/stackedAreaHelpers'
 
-/**
- * Funktion für eine Bewegung über dem Diagramm.
+
+/*
+ * Callback-Typen für die Chart-Interaktionen.
+ *
+ * MIT KI: Die Form „aufrufbares Interface" habe ich mit KI-Hilfe gewählt.
  */
+
+/** Funktion für eine Bewegung über dem Diagramm. */
 interface HoverHandler {
   (payload: MixHoverPayload): void
 }
 
-/**
- * Funktion für das Verlassen des Diagramms.
- */
+/** Funktion für das Verlassen des Diagramms. */
 interface HoverEndHandler {
   (): void
 }
 
-/**
- * Funktion für einen Klick auf die freie Diagrammfläche.
- */
+/** Funktion für einen Klick auf den freien Bereich. */
 interface BackgroundClickHandler {
   (): void
 }
 
 /**
  * Vereinfachter Typ für eine gestapelte D3-Datenreihe.
- *
  * Jede Reihe gehört zu einem Energieträger und enthält für
  * jeden Monat eine Unterkante und eine Oberkante.
  */
 type StackedSeries = d3.Series<MixMonthRow, string>
 
-/**
- * Zeichnet den Strommix als gestapeltes Flächendiagramm.
- *
- * @author Selina Schneider
- */
+
 export class StackedAreaChart extends BaseChart {
   /** Alle Monatswerte, die aktuell im Diagramm gezeigt werden. */
   #data: MixMonthRow[] = []
@@ -94,12 +95,14 @@ export class StackedAreaChart extends BaseChart {
    */
   #chartGroup: d3.Selection<SVGGElement, undefined, null, undefined> | null =
     null
+
   /**
    * Eigene Gruppe für Konturen über hervorgehobenen Flächen.
-   * Dadurch werden Füllung und Kontur getrennt behandelt.
+   * Dadurch bleiben Füllung und Kontur sauber getrennt.
    */
   #outlineGroup: d3.Selection<SVGGElement, undefined, null, undefined> | null =
     null
+
   /**
    * Aktuelle Zeitachse.
    * Sie wird später auch für Hover und Ereignisse gebraucht.
@@ -124,15 +127,10 @@ export class StackedAreaChart extends BaseChart {
    */
   #hoverEndHandler: HoverEndHandler | null = null
 
-  /**
-   * Wird bei einem Klick auf die freie Diagrammfläche ausgeführt.
-   * Damit kann eine Auswahl außerhalb der D3-Klasse aufgehoben werden.
-   */
+  /** Funktion für einen Klick auf den freien Bereich */
   #backgroundClickHandler: BackgroundClickHandler | null = null
 
-  /**
-   * Alle Ereignisse, die mit einer Linie gezeigt werden können.
-   */
+  /** Alle Ereignisse, die mit einer Linie gezeigt werden können. */
   #annotations: MixAnnotation[] = []
 
   /**
@@ -141,14 +139,16 @@ export class StackedAreaChart extends BaseChart {
    */
   #selectedAnnotationId: number | null = null
 
-  // Daten setzen
+
+  // Setter
 
   /**
    * Setzt den Darstellungsmodus.
    *
-   * Hier hat KI geholfen, weil ich zuerst nur den Wert von mode
-   * geändert habe. Das sichtbare Diagramm blieb dadurch gleich.
-   * Erst durch update() werden Flächen und Achse neu gezeichnet.
+   * OHNE KI: Ein Setter, der einen Wert speichert und update() aufruft
+   * – einfaches Klassenmuster.
+   * MIT KI: Dass update() nach dem Setzen aufgerufen werden muss, war
+   * ein KI-Hinweis, weil das Diagramm sonst optisch gleich blieb.
    *
    * @param mode Absolute Werte oder Anteile
    */
@@ -160,10 +160,9 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Setzt die hervorgehobenen Energieträger.
    *
-   * Hier hat KI geholfen, weil anfangs nur ein einzelner
-   * Energieträger markiert werden konnte. Bei einem Ereignis
-   * gehören aber oft mehrere Energieträger zusammen. Deshalb
-   * wird hier eine Liste gespeichert.
+   * MIT KI: Die Umstellung von einer einzelnen Quelle auf eine Liste
+   * mehrerer hervorgehobener Energieträger (MixSourceKey[]) wurde mit
+   * KI-Unterstützung entwickelt.
    *
    * @param sourceKeys Energieträger oder null
    */
@@ -175,9 +174,7 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Übernimmt neue Monatsdaten.
    *
-   * Hier hat KI geholfen, weil neue Daten zuerst zwar gespeichert
-   * wurden, das SVG aber die alten Werte behalten hat. Der Aufruf
-   * von update() sorgt dafür, dass auch die Darstellung neu wird.
+   * OHNE KI: Einfacher Setter – selbst geschrieben.
    *
    * @param data Monatswerte des Strommixes
    */
@@ -189,6 +186,8 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Speichert die Funktion für Mausbewegungen.
    *
+   * OHNE KI: Einfacher Setter – selbst geschrieben.
+   *
    * @param handler Hover-Funktion oder null
    */
   setHoverHandler(handler: HoverHandler | null): void {
@@ -197,6 +196,8 @@ export class StackedAreaChart extends BaseChart {
 
   /**
    * Speichert die Funktion für das Verlassen des Diagramms.
+   *
+   * OHNE KI: Einfacher Setter – selbst geschrieben.
    *
    * @param handler Funktion oder null
    */
@@ -207,7 +208,7 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Speichert die Funktion für einen Hintergrundklick.
    *
-   * @param handler Klickfunktion oder null
+   * OHNE KI: Einfacher Setter – selbst geschrieben.
    */
   setBackgroundClickHandler(handler: BackgroundClickHandler | null): void {
     this.#backgroundClickHandler = handler
@@ -216,10 +217,9 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Übernimmt die Ereignisse der Zeitreihe.
    *
-   * KI hat mir bei der Reihenfolge. Die Ereignisse konnten schon
-   * gesetzt sein, bevor die x-Skala vorhanden war. Der erneute
-   * Aufruf von updateFixedAnnotationLine() zeigt die Linie später,
-   * sobald Diagramm und Skala aufgebaut sind.
+   * MIT KI: Dass #updateFixedAnnotationLine() hier noch einmal
+   * aufgerufen werden muss (weil Ereignisse vor der x-Skala gesetzt
+   * werden können), wurde mit KI-Unterstützung entwickelt.
    *
    * @param annotations Ereignisse für das Diagramm
    */
@@ -231,9 +231,10 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Setzt das ausgewählte Ereignis.
    *
-   * KI hat mir beim Zurücksetzen. Mit null wird die feste Linie
-   * wieder ausgeblendet. In der ersten Version blieb die alte Linie
-   * nach dem Abwählen im Diagramm stehen.
+   * MIT KI: Dass die alte Linie stehen bleibt, wenn man sie nicht
+   * explizit zurücksetzt, und dass der Reset-Zweig in
+   * #updateFixedAnnotationLine wichtig ist – darauf hat mich KI
+   * aufmerksam gemacht.
    *
    * @param annotationId ID des Ereignisses oder null
    */
@@ -245,9 +246,7 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Setzt die normale oder kontrastreiche Farbpalette.
    *
-   * KI hat mir bei der Aktualisierung der bereits gezeichneten
-   * Flächen. Ein Wechsel der Farbpalette änderte zuerst nur die
-   * gespeicherten Farben. update() überträgt sie auf die SVG-Pfade.
+   * OHNE KI: Ein Setter mit Fallunterscheidung – selbst geschrieben.
    *
    * @param colorMode Gewählte Farbpalette
    */
@@ -256,81 +255,86 @@ export class StackedAreaChart extends BaseChart {
     this.update()
   }
 
-  // render – SVG anlegen
+
+  // render
 
   /**
    * Erstellt das SVG und die festen Diagrammelemente.
    *
-   * KI hat mir beim Neuaufbau. Ohne destroy() entstanden beim
-   * erneuten Rendern mehrere SVG-Elemente im gleichen Container.
-   * Die alte Zeichnung wird deshalb zuerst vollständig entfernt.
+   * OHNE KI: d3.create('svg') und das Anhängen an den Container sind
+   * grundlegende D3-Techniken.
+   *
+   * MIT KI: Der destroy()-Aufruf am Anfang (zum Schutz vor doppelten
+   * SVGs) wurde mit KI-Unterstützung umgesetzt.
    *
    * @param container HTML-Element für das Diagramm
    */
   override render(container: HTMLElement): void {
-    // Vorhandenes SVG entfernen, damit kein Duplikat entsteht
+    // Vorhandenes SVG zuerst wegräumen, sonst entstehen Duplikate.
     this.destroy()
 
-    // Das SVG ist der äußere Zeichenbereich des Diagramms.
+    // SVG mit den festen Abmessungen aus der Basisklasse erstellen.
     const svg = d3
       .create('svg')
-      .attr('viewBox', `0 0 ${this.width} ${this.height}`)
-      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .attr('width', this.width)
+      .attr('height', this.height)
       .attr('role', 'img')
       .attr(
         'aria-label',
         'Gestapeltes Flächendiagramm zum deutschen Strommix von 2015 bis 2024',
       )
 
-    // Die innere Gruppe hält Abstand zu den Rändern des SVG.
+    // Innere Gruppe hält Abstand zu den Rändern.
     const chartGroup = svg
       .append('g')
       .attr('class', 'chart-group')
       .attr('transform', `translate(${this.margin.left},${this.margin.top})`)
 
-    // Das fertige SVG wird in den übergebenen Container eingefügt.
     container.appendChild(svg.node()!)
 
     this.#svg = svg
     this.#chartGroup = chartGroup
 
-    // Outline-Gruppe für Highlight-Kontur einmalig anlegen
+    // Outline-Gruppe für Highlight-Konturen einmalig anlegen.
+    // Sie liegt über den Flächen, damit die Konturen nicht überdeckt werden.
     this.#outlineGroup = chartGroup.append('g').attr('class', 'highlight-outlines')
 
-    // this.update() wird hier nicht aufgerufen, weil beim ersten render
-    // noch keine Daten vorhanden sind. Der erste update() erfolgt aus setData().
+    // Kein update() an dieser Stelle: beim ersten render() sind noch
+    // keine Daten da. update() läuft später aus setData() heraus.
 
-    // Hover-Elemente einmalig anlegen
+    // Hover-Elemente einmalig aufbauen.
     this.#createHoverElements()
   }
 
-  // update – gesamte Zeichenlogik
+
+  // update
 
   /**
    * Aktualisiert Flächen, Achsen und Ereignislinie.
    *
-   * KI hat mir bei der Reihenfolge der Schritte. Die x-Skala
-   * muss gespeichert sein, bevor Hover und Ereignislinie berechnet
-   * werden. Sonst lagen Führungslinie und Annotation an der falschen
-   * Position oder wurden nicht angezeigt.
+   * MIT KI: Auf die Reihenfolge (zuerst x-Skala speichern, dann Hover
+   * und Annotation) hat mich KI hingewiesen – sonst lagen Linien an
+   * falscher Stelle.
+   * OHNE KI: Das Entfernen alter Achsen und das Zeichnen neuer
+   * Elemente sind Standard-D3.
    */
   override update(): void {
-    if (!this.#hasRequiredState()) {
+    if (!this.#svg || !this.#chartGroup) {
       return
     }
 
-    // Bei leeren Daten alte Darstellung entfernen
+    // Bei leeren Daten die alte Darstellung wegräumen.
     if (this.#data.length === 0) {
       this.#clearChart()
       return
     }
 
-    // Zuerst werden Daten und Skalen für die neue Darstellung erstellt.
+    // Erst Daten und Skalen für die neue Darstellung erstellen.
     const stackedSeries = this.#createStackedSeries()
     const xScale = this.#createXScale()
     const yScale = this.#createYScale(stackedSeries)
 
-    // Die Zeitachse wird gespeichert, weil Hover und Ereignisse sie brauchen.
+    // Zeitachse merken, weil Hover und Ereignisse sie brauchen.
     this.#xScale = xScale
 
     this.#renderAreas(stackedSeries, xScale, yScale)
@@ -338,17 +342,25 @@ export class StackedAreaChart extends BaseChart {
     this.#renderXAxis(xScale)
     this.#renderYAxis(yScale)
     this.#updateFixedAnnotationLine()
+
+    // Hover-Linie und Annotationen nach vorne holen (über den Flächen)
+    this.#chartGroup.select('.hover-guide').raise()
+    this.#chartGroup.select('.fixed-annotation-guide').raise()
+    this.#chartGroup.select('.fixed-annotation-label').raise()
   }
 
-  // destroy – SVG entfernen
+
+  // destroy
 
   /**
    * Entfernt das SVG und leert die gespeicherten Zustände.
    *
-   * KI hat mir beim Aufräumen der Referenzen. Das SVG war zwar
-   * entfernt, einige Handler und Annotationen blieben aber im
-   * Objekt gespeichert. Beim nächsten Aufbau wurden dadurch alte
-   * Zustände übernommen.
+   * OHNE KI: Ein SVG zu entfernen und Referenzen auf null zu setzen
+   * ist grundlegende Aufräumarbeit.
+   *
+   * MIT KI: Die Reihenfolge (SVG raus, dann Referenzen leeren) und
+   * dass alte Zustände sonst hängen bleiben – darauf hat mich KI
+   * hingewiesen.
    */
   override destroy(): void {
     if (this.#svg) {
@@ -359,34 +371,21 @@ export class StackedAreaChart extends BaseChart {
     }
 
     this.#xScale = null
-    this.#hoverHandler = null
-    this.#hoverEndHandler = null
-    this.#backgroundClickHandler = null
     this.#annotations = []
     this.#selectedAnnotationId = null
   }
 
-  // Private Hilfsmethoden
 
-  /**
-   * Prüft, ob das SVG und die innere Gruppe vorhanden sind.
-   *
-   * @returns true bei vollständig aufgebautem Diagramm
-   */
-  #hasRequiredState(): boolean {
-    if (!this.#svg || !this.#chartGroup) {
-      return false
-    }
-
-    return true
-  }
+  // Zustands- und Aufräumhilfen
 
   /**
    * Entfernt Flächen und Achsen bei leeren Daten.
    *
-   * KI hat mir bei einem Zustand ohne Daten. Die erste Version
-   * zeigte weiterhin die Werte des vorherigen Zeitraums. Deshalb
-   * werden auch Hover-Linie und Tooltip-Zustand zurückgesetzt.
+   * MIT KI: Dass auch der Hover-Handler nach außen zurückgesetzt
+   * werden muss (sonst zeigt der Vue-Tooltip alte Werte), hat mich
+   * KI hingewiesen.
+   * OHNE KI: Das Entfernen von SVG-Elementen mit selectAll und remove
+   * ist Standard-D3.
    */
   #clearChart(): void {
     if (!this.#chartGroup) {
@@ -397,20 +396,26 @@ export class StackedAreaChart extends BaseChart {
     this.#chartGroup.selectAll('.x-axis').remove()
     this.#chartGroup.selectAll('.y-axis').remove()
 
-    // Hover-Elemente ausblenden
     this.#chartGroup.selectAll('.hover-guide').style('display', 'none')
-    this.#chartGroup.selectAll('.hover-month-label').style('display', 'none')
+    this.#chartGroup.selectAll('.highlight-outline').remove()
+    this.#chartGroup.selectAll('.fixed-annotation-guide').style('display', 'none')
+    this.#chartGroup.selectAll('.fixed-annotation-label').style('display', 'none')
 
     this.#hoverEndHandler?.()
   }
 
+
+  // Daten und Skalen
+
   /**
    * Erstellt die gestapelten Reihen aus den Monatsdaten.
    *
-   * KI hat mir bei der Typisierung von d3.stack().
-   * D3 behandelt die Schlüssel als string, die Daten verwenden
-   * aber MixSourceKey. Der Zugriff führte vorher zu einem
-   * TypeScript-Fehler.
+   * OHNE KI: d3.stack mit keys und offset ist Standard-D3 aus dem
+   * Vorlesungsskript. Die Fallunterscheidung für stackOffsetExpand
+   * habe ich selbst ergänzt.
+   *
+   * MIT KI: Der Cast (sourceKey as MixSourceKey) im value-Zugriff
+   * kam aus einem KI-Vorschlag.
    *
    * @returns Gestapelte Reihen in der festen Reihenfolge
    */
@@ -418,14 +423,11 @@ export class StackedAreaChart extends BaseChart {
     const stackGenerator = d3
       .stack<MixMonthRow>()
       .keys(STACK_ORDER)
-      // d3.stack erwartet für jeden Key einen Zahlenwert aus dem Datenpunkt.
-      // Der sourceKey ist vom Typ MixSourceKey, wird aber von D3 als string
-      // behandelt – daher der Type-Zugriff über den Index.
+      // D3 arbeitet mit `string`-Keys, ich mit MixSourceKey – daher der Cast.
       .value(function (monthRow, sourceKey) {
         return monthRow.values[sourceKey as MixSourceKey]
       })
 
-    // Im Share-Modus werden die Werte auf 0–1 normalisiert
     if (this.#mode === 'share') {
       stackGenerator.offset(d3.stackOffsetExpand)
     }
@@ -439,9 +441,12 @@ export class StackedAreaChart extends BaseChart {
    * Erstellt die Zeitachse vom ersten Monat bis Januar
    * nach dem letzten Datenjahr.
    *
-   * KI hat mir bei der rechten Grenze der Achse.
-   * Die erste Fassung endete direkt am letzten Monatswert.
-   * Dadurch fehlte der letzte Jahres-Tick.
+   * OHNE KI: d3.scaleTime, domain, range und d3.extent sind
+   * Standard-D3 aus dem Vorlesungsskript.
+   *
+   * MIT KI: Die Idee, die Domain bis Januar des Folgejahres zu
+   * erweitern (damit der letzte Jahres-Tick sichtbar ist), kam
+   * aus einer KI-Antwort.
    *
    * @returns Skala für die x-Achse
    * @throws Fehler, wenn kein Datumsbereich gefunden wird
@@ -449,17 +454,16 @@ export class StackedAreaChart extends BaseChart {
   #createXScale(): d3.ScaleTime<number, number> {
     const dateExtent = d3.extent(this.#data, function (row) { return row.date })
 
-    // d3.extent kann bei leeren Daten undefined zurückgeben,
-    // aber update() stellt sicher, dass Daten vorhanden sind.
+    // d3.extent kann bei leeren Daten undefined liefern, aber update()
+    // stellt vorher sicher, dass überhaupt Daten da sind.
     if (!dateExtent[0] || !dateExtent[1]) {
       throw new Error(
         'StackedAreaChart: Datumsextent konnte nicht bestimmt werden.',
       )
     }
 
-    // Domain bis Januar des Folgejahres erweitern,
-    // damit der 2025-Tick sichtbar ist und kein zweiter
-    // Tick am Domain-Ende entsteht.
+    // Domain bis Januar des Folgejahres erweitern, damit der letzte
+    // Jahres-Tick sichtbar ist und kein zweiter Tick am Domainende sitzt.
     const lastYear = dateExtent[1].getFullYear()
     const domainEnd = new Date(lastYear + 1, 0, 1)
 
@@ -474,16 +478,17 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Erstellt die Skala für absolute Werte oder Anteile.
    *
-   * KI hat mir bei den zwei unterschiedlichen Wertebereichen.
-   * Im Anteilmodus darf nicht der größte Monatswert als Grenze
-   * verwendet werden. Die Skala muss dort immer von 0 bis 1 reichen.
-   * Im absoluten Modus wird dagegen die obere Kante aller Stapel gesucht.
+   * OHNE KI: d3.scaleLinear, domain, range und nice sind Standard-D3
+   * aus dem Vorlesungsskript. Eine Schleife über Daten ist
+   * grundlegende Programmierlogik.
+   *
+   * MIT KI: Dass die beiden Fälle (Anteil vs. absolut) getrennt
+   * werden müssen, hat mir KI geholfen.
    *
    * @param stackedSeries Gestapelte Datenreihen
    * @returns Skala der y-Achse
    */
   #createYScale(stackedSeries: StackedSeries[]): d3.ScaleLinear<number, number> {
-    // Im Share-Modus ist die Skala immer 0 bis 1 (= 0 % bis 100 %)
     if (this.#mode === 'share') {
       return d3
         .scaleLinear()
@@ -491,12 +496,12 @@ export class StackedAreaChart extends BaseChart {
         .range([this.innerHeight, 0])
     }
 
-    // Absoluter Modus: Maximalwert aus den gestapelten Daten ermitteln
+    // Absoluter Modus: höchste obere Kante über alle Serien suchen.
     let maximumStackValue = 0
 
     for (const series of stackedSeries) {
       for (const point of series) {
-        // point[1] ist der obere Wert der gestapelten Fläche
+        // point[1] ist die obere Kante der Stapelschicht.
         const upperValue = point[1]
 
         if (upperValue > maximumStackValue) {
@@ -514,12 +519,17 @@ export class StackedAreaChart extends BaseChart {
     return yScale
   }
 
+
+  // Flächen zeichnen
+
   /**
    * Zeichnet neue Flächen und aktualisiert vorhandene Flächen.
    *
-   * KI hat mir beim D3-Join. Auswahl und neue Pfade
-   * verwendeten zuerst unterschiedliche Klassen. Dadurch
-   * fand D3 vorhandene Flächen beim Update nicht wieder.
+   * OHNE KI: d3.area mit x, y0, y1 und der grundlegende Data-Join
+   * (join('path')) sind Standard-D3 aus dem Vorlesungsskript.
+   *
+   * MIT KI: Die stabile Key-Funktion (series.key) im .data()-Aufruf
+   * für Modus- und Farbwechsel wurde mit KI-Hilfe entwickelt.
    *
    * @param stackedSeries Gestapelte Datenreihen
    * @param xScale Skala der Zeitachse
@@ -534,65 +544,41 @@ export class StackedAreaChart extends BaseChart {
 
     const areaGenerator = d3
       .area<d3.SeriesPoint<MixMonthRow>>()
-      // X-Position aus dem Datum des Datenpunkts
-      .x(function (point) {
-        return xScale(point.data.date)
-      })
-      // Unterkante der Schicht
-      .y0(function (point) {
-        return yScale(point[0])
-      })
-      // Oberkante der Schicht
-      .y1(function (point) {
-        return yScale(point[1])
-      })
+      .x(function (point) { return xScale(point.data.date) })
+      .y0(function (point) { return yScale(point[0]) })
+      .y1(function (point) { return yScale(point[1]) })
 
     if (!this.#chartGroup) {
       return
     }
 
-    // Daten-Join: Jede gestapelte Serie wird einem path-Element zugeordnet.
-    // Der Key ist der Serien-Key (z. B. "pv", "gas").
-    // Dadurch ist später für Highlight-Updates das Datenobjekt verfügbar.
-    // Vorhandene Flächen werden über ihre Klasse wiedergefunden.
-    const layers = this.#chartGroup
+    // Data-Join mit Key-Funktion: dadurch bleibt jede Serie beim Wechsel
+    // (z. B. Modus- oder Farbwechsel) an demselben Pfad-Element hängen.
+    this.#chartGroup
       .selectAll<SVGPathElement, StackedSeries>('path.chart-area')
       .data(stackedSeries, function (series) { return series.key })
-
-    // enter erstellt neue Pfade, update ändert vorhandene Pfade
-    // und exit entfernt Reihen, die nicht mehr gebraucht werden.
-    layers.join(
-      function (enter) {
-        return enter
-          .append('path')
-          .attr('class', function (series) { return `chart-area layer layer-${series.key}` })
-          .attr('data-series-key', function (series) { return series.key })
-          .attr('fill', function (series) {
-            const seriesKey = series.key as MixSourceKey
-            return self.#colors[seriesKey]
-          })
-          .attr('d', function (series) { return areaGenerator(series) })
-          .style('pointer-events', 'none')
-      },
-      function (update) {
-        return update
-          .attr('fill', function (series) {
-            const seriesKey = series.key as MixSourceKey
-            return self.#colors[seriesKey]
-          })
-          .attr('d', function (series) { return areaGenerator(series) })
-          .style('pointer-events', 'none')
-      },
-      function (exit) { return exit.remove() },
-    )
+      .join('path')
+      .attr('class', function (series) { return `chart-area layer layer-${series.key}` })
+      .attr('data-series-key', function (series) { return series.key })
+      .attr('fill', function (series) {
+        const seriesKey = series.key as MixSourceKey
+        return self.#colors[seriesKey]
+      })
+      .attr('d', function (series) { return areaGenerator(series) })
+      .style('pointer-events', 'none')
   }
+
+
+  // Achsen
 
   /**
    * Zeichnet die Jahreszahlen an der x-Achse.
    *
-   * KI hat mir bei den festen Tickwerten. Die automatische
-   * D3-Einteilung ließ je nach Breite einzelne Jahre aus oder setzte
-   * zusätzliche Zwischenwerte. Die Jahre werden deshalb selbst erzeugt.
+   * OHNE KI: d3.axisBottom, tickValues, tickFormat und d3.timeFormat
+   * sind Standard-D3 aus dem Vorlesungsskript.
+   *
+   * MIT KI: Die Idee, die Ticks über eine feste Liste selbst zu
+   * bauen (weil D3 sonst Jahre weglässt), kam von KI.
    *
    * @param xScale Skala der Zeitachse
    */
@@ -601,15 +587,13 @@ export class StackedAreaChart extends BaseChart {
       return
     }
 
-    // Vorhandene Achse entfernen
     this.#chartGroup.selectAll('.x-axis').remove()
 
-    // Feste Tickwerte vom ersten bis zum letzten Datenjahr + 1
-    // Damit auch der letzte Tick (Dez→Jan Übergang) beschriftet wird
+    // Feste Tickwerte vom ersten Datenjahr bis lastYear + 1,
+    // damit auch der Dezember→Januar-Übergang beschriftet wird.
     const firstYear = this.#data[0]?.date.getFullYear() ?? 2015
     const lastYear = this.#data[this.#data.length - 1]?.date.getFullYear() ?? 2024
 
-    // Die Tickwerte werden selbst aufgebaut, damit jedes Jahr erscheint.
     const yearTicks: Date[] = []
 
     for (let year = firstYear; year <= lastYear + 1; year += 1) {
@@ -633,9 +617,9 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Zeichnet die y-Achse für TWh oder Prozentwerte.
    *
-   * KI hat mir bei der Formatierung der beiden Modi. Die gleiche
-   * Formatierung zeigte im Anteilmodus Werte wie 0,2 statt 20 %.
-   * Deshalb erhält jeder Modus eine eigene Tickdarstellung.
+   * OHNE KI: d3.axisLeft, ticks und tickFormat sind Standard-D3 aus
+   * dem Vorlesungsskript. d3.format('.0%') und die
+   * Fallunterscheidung für die Formatierung habe ich selbst ergänzt.
    *
    * @param yScale Skala der Werteachse
    */
@@ -644,13 +628,11 @@ export class StackedAreaChart extends BaseChart {
       return
     }
 
-    // Vorhandene Achse entfernen
     this.#chartGroup.selectAll('.y-axis').remove()
 
-    // Fünf Tickwerte reichen für eine ruhige und lesbare Achse.
+    // Fünf Ticks reichen für eine ruhige und lesbare Achse.
     const yAxis = d3.axisLeft<number>(yScale).ticks(5)
 
-    // Unterschiedliche Formatierung je nach Modus
     if (this.#mode === 'share') {
       // d3.format('.0%'): 0.2 → "20%"
       yAxis.tickFormat(function (value: number) {
@@ -668,13 +650,18 @@ export class StackedAreaChart extends BaseChart {
       .call(yAxis)
   }
 
+
+  // Hervorhebung
+
   /**
    * Passt die Sichtbarkeit der Flächen an.
    *
-   * KI hat mir bei der Trennung von Fläche und Kontur. Ein Stroke
-   * direkt auf dem gefüllten Pfad lag teilweise zwischen zwei
-   * gestapelten Flächen und wirkte dadurch unruhig. Die Flächen
-   * ändern nur ihre Deckkraft. Die Kontur wird getrennt gezeichnet.
+   * OHNE KI: Die Deckkraft (opacity) von SVG-Elementen zu ändern,
+   * ist eine grundlegende D3-Technik.
+   *
+   * MIT KI: Die Trennung von Flächen-Deckkraft und separater
+   * Kontur-Ebene (weil ein Stroke auf der gefüllten Fläche zwischen
+   * gestapelten Schichten unruhig wirkte) wurde mit KI entwickelt.
    */
   #updateHighlight(): void {
     if (!this.#chartGroup) {
@@ -682,12 +669,12 @@ export class StackedAreaChart extends BaseChart {
     }
 
     const highlightedSources = this.#highlightedSources
-    // Ein Highlight ist aktiv, sobald mindestens eine Quelle gesetzt ist.
     const hasActiveHighlight =
       highlightedSources !== null &&
       highlightedSources.length > 0
 
-    // Layer-Opazität setzen, Stroke immer entfernen
+    // Layer-Deckkraft setzen, Stroke bewusst immer wegnehmen –
+    // die Kontur läuft komplett über die Outline-Ebene.
     this.#chartGroup
       .selectAll<SVGPathElement, StackedSeries>('path.chart-area')
       .attr('opacity', function (series) {
@@ -704,16 +691,16 @@ export class StackedAreaChart extends BaseChart {
       .attr('stroke', 'none')
       .attr('stroke-width', 0)
 
-    // Separate Konturlinien für hervorgehobene Quellen zeichnen
     this.#renderHighlightOutlines()
   }
 
   /**
    * Zeichnet die Konturen der hervorgehobenen Flächen.
    *
-   * KI hat mir beim Ausschließen von Nullwerten.
-   * Ohne defined() verband die Linie getrennte Bereiche
-   * über Monate ohne Erzeugung.
+   * MIT KI: Die separate Outline-Ebene mit eigenem join() und das
+   * Unterbrechen der Linie über d3.line .defined() (damit Monate
+   * ohne Erzeugung nicht künstlich verbunden werden) kamen aus
+   * KI-Antworten.
    */
   #renderHighlightOutlines(): void {
     if (!this.#chartGroup || !this.#outlineGroup || !this.#xScale) {
@@ -726,38 +713,26 @@ export class StackedAreaChart extends BaseChart {
       highlightedSources !== null &&
       highlightedSources.length > 0
 
+    // Kein Highlight oder keine Daten → alle Konturen weg.
     if (!hasActiveHighlight || this.#data.length === 0) {
       this.#outlineGroup.selectAll('path.highlight-outline').remove()
       return
     }
 
-    // y-Skala aus vorhandenen Daten neu berechnen
+    // y-Skala noch einmal berechnen, weil sich Modus/Daten geändert haben können.
     const stackedSeries = this.#createStackedSeries()
     const yScale = this.#createYScale(stackedSeries)
 
-    // Konturlinie pro Serie
+    // Eine Konturlinie pro Serie – auch für nicht hervorgehobene Serien
+    // wird ein Pfad angelegt, aber gleich per display: none ausgeblendet.
+    // So kann ich beim Wechsel des Highlights nur die Sichtbarkeit toggeln.
     const outlines = this.#outlineGroup
       .selectAll<SVGPathElement, StackedSeries>('path.highlight-outline')
       .data(stackedSeries, function (series) { return series.key })
-
-    outlines.join(
-      function (enterSelection) {
-        return enterSelection
-          .append('path')
-          .attr('class', 'highlight-outline')
-          .attr('fill', 'none')
-          .attr('pointer-events', 'none')
-      },
-      function (updateSelection) {
-        return updateSelection
-      },
-      function (exitSelection) {
-        return exitSelection.remove()
-      },
-    )
-
-    // Pfade nur für hervorgehobene Serien zeichnen
-    outlines
+      .join('path')
+      .attr('class', 'highlight-outline')
+      .attr('fill', 'none')
+      .attr('pointer-events', 'none')
       .attr('display', function (series) {
         const seriesKey = series.key as MixSourceKey
 
@@ -770,19 +745,20 @@ export class StackedAreaChart extends BaseChart {
       .attr('stroke', function (series) {
         const seriesKey = series.key as MixSourceKey
 
-        return MIX_COLORS[seriesKey]
+        return self.#colors[seriesKey]
       })
       .attr('stroke-width', 1.25)
       .attr('d', function (series) {
         const seriesKey = series.key as MixSourceKey
 
+        // d3.line pro Serie, weil defined() den Rohwert der jeweiligen
+        // Quelle braucht – nicht den Stapelwert.
         const outlineLine = d3
           .line<d3.SeriesPoint<MixMonthRow>>()
           .defined(function (stackedPoint) {
-            // Nur zeichnen, wenn der tatsächliche Wert > 0 ist
-            const sourceValue =
-              stackedPoint.data.values[seriesKey]
+            const sourceValue = stackedPoint.data.values[seriesKey]
 
+            // Nur zeichnen, wenn die Quelle in dem Monat auch produziert hat.
             return sourceValue > 0
           })
           .x(function (stackedPoint) {
@@ -796,14 +772,18 @@ export class StackedAreaChart extends BaseChart {
       })
   }
 
-  // Hover-Infrastruktur
+
+  // Hover
 
   /**
    * Erstellt Führungslinie, Ereignislinie und Hover-Fläche.
    *
-   * KI hat mir bei der unsichtbaren Hover-Fläche.
-   * Pointer-Ereignisse direkt auf den gestapelten Pfaden
-   * waren unzuverlässig, weil die Flächen übereinanderliegen.
+   * OHNE KI: SVG-Elemente (line, rect, text) zu erzeugen und mit
+   * Attributen zu versehen, ist grundlegende D3-Technik.
+   *
+   * MIT KI: Dass ein transparentes Overlay (hover-overlay) nötig ist,
+   * weil pointer-events auf gestapelten Pfaden unzuverlässig sind,
+   * hat mich KI hingewiesen.
    */
   #createHoverElements(): void {
     if (!this.#chartGroup) {
@@ -812,7 +792,7 @@ export class StackedAreaChart extends BaseChart {
 
     const self = this
 
-    // Vertikale Führungslinie
+    // Vertikale Führungslinie beim Hover.
     this.#chartGroup
       .append('line')
       .attr('class', 'hover-guide')
@@ -825,19 +805,7 @@ export class StackedAreaChart extends BaseChart {
       .style('display', 'none')
       .style('pointer-events', 'none')
 
-    // Monatslabel oberhalb der Führungslinie
-    this.#chartGroup
-      .append('text')
-      .attr('class', 'hover-month-label')
-      .attr('text-anchor', 'middle')
-      .attr('y', -6)
-      .attr('font-size', '12px')
-      .attr('font-weight', '600')
-      .attr('fill', '#4a4a45')
-      .style('display', 'none')
-      .style('pointer-events', 'none')
-
-    // Transparentes Overlay für Pointer-Events
+    // Transparentes Overlay als Klick- und Pointer-Fläche.
     this.#chartGroup
       .append('rect')
       .attr('class', 'hover-overlay')
@@ -857,7 +825,7 @@ export class StackedAreaChart extends BaseChart {
         self.#backgroundClickHandler?.()
       })
 
-    // Feste vertikale Linie für ausgewählte Annotation
+    // Feste vertikale Linie für die ausgewählte Annotation.
     this.#chartGroup
       .append('line')
       .attr('class', 'fixed-annotation-guide')
@@ -870,7 +838,7 @@ export class StackedAreaChart extends BaseChart {
       .style('display', 'none')
       .style('pointer-events', 'none')
 
-    // Monatslabel für die feste Ereignislinie
+    // Datumslabel über der festen Ereignislinie.
     this.#chartGroup
       .append('text')
       .attr('class', 'fixed-annotation-label')
@@ -886,20 +854,18 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Zeigt die Führungslinie am nächstgelegenen Monat.
    *
-   * KI hat mir beim Entfernen des doppelten Monatslabels. Der Monat
-   * stand zuerst gleichzeitig über dem Diagramm und im Tooltip.
-   * Deshalb bleibt an dieser Stelle nur die Linie sichtbar.
+   * MIT KI: Dass das Monatslabel redundant war (weil der Monat auch
+   * im Tooltip steht), hat mich KI hingewiesen.
+   * OHNE KI: Das Setzen von x1/x2 und das Einblenden eines SVG-Elements
+   * sind grundlegende D3-Techniken.
    *
-   * @param monthRow Monatsdaten an der Position
    * @param monthX Horizontale Position des Monats
    */
-  #showHoverGuide(monthRow: MixMonthRow, monthX: number): void {
+  #showHoverGuide(monthX: number): void {
     if (!this.#chartGroup) {
       return
     }
 
-    // Nur die Linie anzeigen, kein Monatslabel mehr
-    // (der Monat steht bereits im Tooltip)
     this.#chartGroup
       .selectAll('.hover-guide')
       .attr('x1', monthX)
@@ -910,9 +876,12 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Bestimmt den nächsten Monat an der Mausposition.
    *
-   * KI hat mir bei der Umrechnung zwischen Pixeln und Datum.
-   * Die Mausposition wurde zuerst direkt verwendet und zeigte
-   * dadurch den falschen Monat.
+   * OHNE KI: Math.max/min zum Begrenzen eines Werts ist grundlegende
+   * Programmierlogik.
+   *
+   * MIT KI: Der gesamte Ablauf (d3.pointer → xScale.invert →
+   * findNearestMonthRow → Hover-Update) wurde mit KI-Unterstützung
+   * erarbeitet.
    *
    * @param event Pointer-Ereignis der Hover-Fläche
    */
@@ -921,7 +890,7 @@ export class StackedAreaChart extends BaseChart {
       return
     }
 
-    // currentTarget ist hier das unsichtbare Rechteck über dem Diagramm.
+    // currentTarget ist das unsichtbare Overlay-Rechteck.
     const overlay = event.currentTarget as SVGRectElement
 
     // d3.pointer liefert die Mausposition innerhalb dieses Rechtecks.
@@ -929,6 +898,8 @@ export class StackedAreaChart extends BaseChart {
 
     const pointerX = pointerPosition[0]
 
+    // Werte außerhalb des Diagramms auf die Ränder klemmen, damit
+    // die Linie nicht „verloren geht".
     const clampedX = Math.max(
       0,
       Math.min(this.innerWidth, pointerX),
@@ -936,10 +907,7 @@ export class StackedAreaChart extends BaseChart {
 
     // invert wandelt die Pixelposition zurück in ein Datum.
     const hoveredDate = this.#xScale.invert(clampedX)
-    const nearestMonth = findNearestMonthRow(
-      this.#data,
-      hoveredDate,
-    )
+    const nearestMonth = findNearestMonthRow(this.#data, hoveredDate)
 
     if (!nearestMonth) {
       return
@@ -947,7 +915,7 @@ export class StackedAreaChart extends BaseChart {
 
     const monthX = this.#xScale(nearestMonth.date)
 
-    this.#showHoverGuide(nearestMonth, monthX)
+    this.#showHoverGuide(monthX)
 
     this.#hoverHandler?.({
       monthRow: nearestMonth,
@@ -959,10 +927,10 @@ export class StackedAreaChart extends BaseChart {
   /**
    * Blendet die Führungslinie aus und beendet den Hover-Zustand.
    *
-   * KI hat mir beim Zurücksetzen der Vue-Anzeige. Die Linie
-   * verschwand zuerst, der Tooltip blieb aber mit dem letzten Monat
-   * sichtbar. Der Callback entfernt auch die Hover-Daten außerhalb
-   * der D3-Klasse.
+   * OHNE KI: Ein SVG-Element auszublenden ist Standard-D3.
+   *
+   * MIT KI: Dass zusätzlich der Callback nach außen aufgerufen werden
+   * muss (sonst hängt der Vue-Tooltip fest), war ein KI-Hinweis.
    */
   #handlePointerLeave(): void {
     if (!this.#chartGroup) {
@@ -974,15 +942,18 @@ export class StackedAreaChart extends BaseChart {
     this.#hoverEndHandler?.()
   }
 
+
   // Annotationen
 
   /**
    * Zeigt die feste Linie für das ausgewählte Ereignis.
    *
-   * KI hat mir bei der Suche nach der Annotation.
-   * Die erste Version arbeitete mit dem Array-Index.
-   * Nach einer anderen Reihenfolge zeigte die Linie dadurch
-   * auf das falsche Ereignis.
+   * OHNE KI: Die Suche mit .find() und die Formatierung mit
+   * Intl.DateTimeFormat sind allgemeine Programmiergrundlagen.
+   *
+   * MIT KI: Dass die Suche über die stabile ID erfolgen muss (nicht
+   * über den Array-Index), weil sich die Reihenfolge ändern kann,
+   * wurde mit KI-Hilfe entwickelt.
    */
   #updateFixedAnnotationLine(): void {
     if (!this.#chartGroup || !this.#xScale) {
@@ -990,10 +961,12 @@ export class StackedAreaChart extends BaseChart {
     }
 
     const self = this
+
     // Linie und Datumslabel wurden schon beim render() angelegt.
     const line = this.#chartGroup.select('.fixed-annotation-guide')
     const label = this.#chartGroup.select('.fixed-annotation-label')
 
+    // Kein Ereignis ausgewählt oder gar keine Ereignisse vorhanden → verstecken.
     if (
       this.#selectedAnnotationId === null ||
       this.#annotations.length === 0
@@ -1013,11 +986,11 @@ export class StackedAreaChart extends BaseChart {
       return
     }
 
-    // Das Ereignisdatum wird in eine Position auf der Zeitachse umgerechnet.
+    // Ereignisdatum in Position auf der Zeitachse umrechnen.
     const date = parseAnnotationDate(matchingAnnotation.date)
     const x = this.#xScale(date)
 
-    // Deutsches Monats- und Jahresformat
+    // Monat + Jahr auf Deutsch für das Label.
     const monthFormatter = new Intl.DateTimeFormat('de-DE', {
       month: 'long',
       year: 'numeric',

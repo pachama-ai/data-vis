@@ -10,13 +10,15 @@
  * und Auswahl) baut auf dem BaseChart-Muster aus dem Vorlesungsskript
  * auf.
  *
- * Über das Skript hinaus ging es an mehreren Stellen, an denen ich mit
- * KI gearbeitet habe: das responsive Verhalten des SVGs (viewBox statt
- * fester Pixelgrößen), die join()-Variante mit Enter/Update/Exit-Callbacks,
- * der Data-Join mit Key-Funktion für stabile Übergänge,
- * das divergierende Balkenlayout um die Nulllinie
- * und das Zusammenspiel von Hover und fester Auswahl. Die konkreten
- * Stellen sind unten direkt an der jeweiligen Methode kommentiert.
+ * OHNE KI: Der grundlegende Chart-Aufbau mit BaseChart, D3-Skalen,
+ * Achsen und SVG-Elementen stammt aus dem Vorlesungsskript.
+ *
+ * MIT KI: Über das Skript hinaus ging es an mehreren Stellen: die
+ * join()-Variante mit Enter/Update/Exit-Callbacks, der Data-Join
+ * mit Key-Funktion für stabile Übergänge, das divergierende Balkenlayout
+ * um die Nulllinie und das Zusammenspiel von Hover und fester Auswahl.
+ * Die konkreten Stellen sind unten direkt an der jeweiligen Methode
+ * kommentiert.
  *
  * @author Selina Schneider
  */
@@ -56,13 +58,11 @@ export interface DeviationHoverPayload {
 /*
  * Callback-Typen für die Chart-Interaktionen.
  *
- * Die Form „aufrufbares Interface" (also ein Interface, das nur eine
- * Aufrufsignatur enthält) habe ich mit KI-Hilfe gewählt. Ich hatte
- * zuerst normale Funktions-Aliase geschrieben, war mir aber unsicher,
- * was im D3-Kontext lesbarer ist. Nach der Empfehlung habe ich die
- * Version übernommen, weil jeder Handler damit einen sprechenden Namen
- * bekommt und man an der Signatur direkt sieht, was reinkommt und was
- * rauskommt. Umgestellt und im Chart geprüft habe ich das selbst.
+ * MIT KI: Die Form „aufrufbares Interface" (ein Interface, das nur eine
+ * Aufrufsignatur enthält) wurde mit KI-Hilfe gewählt. Ich hatte zuerst
+ * normale Funktions-Aliase geschrieben, war mir aber unsicher, was im
+ * D3-Kontext lesbarer ist. Umgestellt und im Chart geprüft habe ich
+ * das selbst.
  */
 
 /** Funktion für das Überfahren eines Balkens. */
@@ -80,25 +80,19 @@ interface SelectionHandler {
   (sourceKey: MixSourceKey | null): void
 }
 
-/** Funktion für einen Klick auf die freie Diagrammfläche. */
-interface BackgroundClickHandler {
-  (): void
-}
-
 /** Verfügbare Sortierungen des Diagramms. */
 type SortMode = 'category' | 'impact'
 
-// Dauer der Übergänge in ms. Gleicher Wert für Balken und Labels, damit alles synchron läuft.
-const TRANSITION_DURATION_MS = 600
+// (keine Übergänge – alle Werte erscheinen sofort)
 
 // Opacity-Stufen für Hervorhebung, siehe #updateHighlight.
 const OPACITY_ACTIVE = 1
 const OPACITY_SELECTED_WHILE_HOVER = 0.7
 const OPACITY_INACTIVE = 0.55
 
-// Ersatzfarbe und Höhe für Energieträger ohne Erzeugung.
+// Ersatzfarbe und Größe für Energieträger ohne Erzeugung.
 const NO_GENERATION_COLOR = '#c0c0c0'
-const NO_GENERATION_BAR_HEIGHT = 1
+const NO_GENERATION_SIZE = 1
 const NO_GENERATION_OPACITY = 0.4
 
 
@@ -141,14 +135,14 @@ export class DeviationChart extends BaseChart {
   /** Durch Klick ausgewählter Energieträger */
   #selectedSource: MixSourceKey | null = null
 
-  /** Funktion für einen Klick auf die freie Diagrammfläche */
-  #backgroundClickHandler: BackgroundClickHandler | null = null
-
   /** Farben der Energieträger */
   #colors: Record<MixSourceKey, string> = MIX_COLORS
 
   /** Aktuelle Reihenfolge der Balken */
   #sortMode: SortMode = 'category'
+
+  /** Flag: beim ersten Rendern keine Transition */
+  #firstRender = true
 
 
   /**
@@ -170,6 +164,7 @@ export class DeviationChart extends BaseChart {
     this.#data = this.#orderRows(rows)
     this.#highlightedSource = null
     this.update()
+    this.#firstRender = false
   }
 
   /**
@@ -200,7 +195,6 @@ export class DeviationChart extends BaseChart {
   setSelectedSource(sourceKey: MixSourceKey | null): void {
     this.#selectedSource = sourceKey
     this.#updateHighlight()
-    this.#selectionHandler?.(sourceKey)
   }
 
   /**
@@ -228,15 +222,6 @@ export class DeviationChart extends BaseChart {
    */
   setSelectionHandler(handler: SelectionHandler | null): void {
     this.#selectionHandler = handler
-  }
-
-  /**
-   * Speichert die Funktion für einen Klick auf den Hintergrund.
-   *
-   * @param handler Klickfunktion oder null
-   */
-  setBackgroundClickHandler(handler: BackgroundClickHandler | null): void {
-    this.#backgroundClickHandler = handler
   }
 
   /**
@@ -271,15 +256,11 @@ export class DeviationChart extends BaseChart {
   override render(container: HTMLElement): void {
     // Zuerst eine ggf. vorhandene Zeichnung wegräumen, bevor ich neu aufbaue.
     this.destroy()
-    // Responsives Verhalten: viewBox + preserveAspectRatio kommen aus dem
-    // KI-Vorschlag zum Thema „mach das Diagramm auf allen Bildschirmgrößen
-    // nutzbar". Im Vorlesungsskript werden Diagramme mit festen width/height
-    // gebaut – das war mein Ausgangspunkt, danach habe ich es auf viewBox
-    // umgestellt, damit die CSS-Regeln (width: 100%, height: auto) greifen.
+    // SVG mit den festen Abmessungen aus der Basisklasse erstellen.
     const svg = d3
       .create('svg')
-      .attr('viewBox', `0 0 ${this.width} ${this.height}`)
-      .attr('preserveAspectRatio', 'xMidYMid meet')
+      .attr('width', this.width)
+      .attr('height', this.height)
       .attr('role', 'img')
       .attr(
         'aria-label',
@@ -367,12 +348,6 @@ export class DeviationChart extends BaseChart {
       this.#barsGroup = null
       this.#labelsGroup = null
     }
-
-    this.#data = []
-    this.#xDomain = [-1, 1]
-    this.#highlightedSource = null
-    this.#hoverHandler = null
-    this.#hoverEndHandler = null
   }
 
 
@@ -381,6 +356,9 @@ export class DeviationChart extends BaseChart {
   /**
    * Sortiert die Daten nach Kategorie oder Abweichung.
    * Das übergebene Array bleibt unverändert.
+   *
+   * OHNE KI: Standardsortierung eines Arrays – grundlegende
+   * JavaScript- und TypeScript-Technik.
    *
    * @param rows Datenzeilen des Diagramms
    * @returns Neues Array in der gewählten Reihenfolge
@@ -410,6 +388,9 @@ export class DeviationChart extends BaseChart {
   /**
    * Erstellt die lineare Skala für die Prozentpunkte.
    *
+   * OHNE KI: d3.scaleLinear mit domain und range ist eine
+   * Standard-D3-Technik aus dem Vorlesungsskript.
+   *
    * @returns Skala der x-Achse
    */
   #createXScale(): d3.ScaleLinear<number, number> {
@@ -418,6 +399,9 @@ export class DeviationChart extends BaseChart {
 
   /**
    * Erstellt die Band-Skala für die Energieträger.
+   *
+   * OHNE KI: d3.scaleBand mit domain, range und padding ist eine
+   * Standard-D3-Technik aus dem Vorlesungsskript.
    *
    * @returns Skala der y-Achse
    */
@@ -442,6 +426,9 @@ export class DeviationChart extends BaseChart {
   /**
    * Zeichnet die senkrechte Nulllinie einmalig.
    * Die eigentliche x-Position kommt später über #updateZeroLine.
+   *
+   * OHNE KI: Ein SVG-Element zu zeichnen und mit Attributen zu
+   * versehen ist eine grundlegende D3-Technik.
    */
   #renderZeroLine(): void {
     if (!this.#chartGroup) {
@@ -462,9 +449,11 @@ export class DeviationChart extends BaseChart {
    * Setzt die Nulllinie an die Position des Werts 0.
    * Wichtig, weil sich xScale(0) bei geänderter Domain verschieben kann.
    *
-   * Beim Zusammenspiel Balken – Nulllinie – Labels hat mir KI geholfen,
-   * die Aufteilung „einmal zeichnen, dann nur x1/x2 nachziehen" sauber
-   * hinzubekommen. 
+   * MIT KI: Das Zusammenspiel von Balken, Nulllinie und Labels
+   * (einmal zeichnen, dann nur x1/x2 nachziehen) wurde mit
+   * KI-Unterstützung entwickelt.
+   * OHNE KI: xScale(0) und das Setzen von SVG-Attributen sind
+   * Grundlagen aus dem Vorlesungsskript.
    *
    * @param xScale Aktuelle Skala der x-Achse
    */
@@ -483,6 +472,9 @@ export class DeviationChart extends BaseChart {
    * Zeichnet die Trennlinien zwischen erneuerbaren, nuklearen und fossilen
    * Energieträgern einmalig. Positionen werden über #updateGroupSeparators
    * nachgezogen, wenn sich die Sortierung ändert.
+   *
+   * OHNE KI: Berechnung von y-Positionen über yScale und Zeichnen von
+   * SVG-Linien – grundlegende D3-Technik.
    */
   #renderGroupSeparators(): void {
     if (!this.#chartGroup) {
@@ -526,6 +518,15 @@ export class DeviationChart extends BaseChart {
       return
     }
 
+    // Bei Sortierung nach Klimawirkung sind die Energieträger nicht mehr
+    // nach Gruppen geordnet – die Trenner wären irreführend.
+    if (this.#sortMode === 'impact') {
+      this.#chartGroup.selectAll('line.group-separator').style('display', 'none')
+      return
+    }
+
+    this.#chartGroup.selectAll('line.group-separator').style('display', null)
+
     const nuclearBandHeight = yScale.bandwidth()
     const nuclearTop = yScale('nuclear') ?? 0
     const fossilTop = yScale('other_fossil') ?? 0
@@ -557,6 +558,10 @@ export class DeviationChart extends BaseChart {
   /**
    * Zeichnet die x-Achse mit Werten in Prozentpunkten.
    *
+   * OHNE KI: d3.axisBottom ist eine Standard-D3-Technik.
+   * MIT KI: Die Formatierung der Tick-Werte verwendet formatPercentagePoints,
+   * das mit KI-Unterstützung entwickelt wurde.
+   *
    * @param xScale Skala der x-Achse
    */
   #renderXAxis(xScale: d3.ScaleLinear<number, number>): void {
@@ -582,6 +587,9 @@ export class DeviationChart extends BaseChart {
 
   /**
    * Zeichnet die Namen der Energieträger an der y-Achse.
+   *
+   * OHNE KI: d3.axisLeft mit Tick-Formatierung ist eine
+   * Standard-D3-Technik aus dem Vorlesungsskript.
    *
    * @param yScale Skala der y-Achse
    */
@@ -609,8 +617,11 @@ export class DeviationChart extends BaseChart {
   // Balken und Labels
 
   /**
-   * Kleine Hilfsprüfung: Gibt es für diesen Energieträger Erzeugung?
+   * prüfung: Gibt es für diesen Energieträger Erzeugung?
    * Energieträger ohne Erzeugung werden als schmaler grauer Strich dargestellt.
+   *
+   * OHNE KI: Einfacher Vergleich einer Zahl mit 0 – grundlegende
+   * Programmierlogik.
    *
    * @param row Datenzeile
    * @returns true, wenn Erzeugung > 0 TWh
@@ -622,10 +633,14 @@ export class DeviationChart extends BaseChart {
   /**
    * Berechnet die Attribute, die Balken bei Enter und Update gleich brauchen.
    * Ich habe das ausgelagert, damit ich nicht zweimal denselben Attribut-Block
-   * pflegen muss (Farbe, Höhe, Opacity, Position, Breite).
-   * 
-   * Die Auslagerung dieser Methode kam aus einem KI-Refactoring-Vorschlag,
-   * damit die Attribute nicht in Enter und Update doppelt stehen.
+   * pflegen muss.
+   *
+   * OHNE KI: Die grundlegende Zuweisung von SVG-Attributen wie y,
+   * height, fill und opacity ist Standard-D3 aus dem Vorlesungsskript.
+   *
+   * MIT KI: Die Auslagerung dieser Methode sowie die Verwendung von
+   * getDeviationBarX und getDeviationBarWidth für das divergierende
+   * Balkenlayout kamen aus KI-Refactoring-Vorschlägen.
    *
    * @param selection D3-Selektion der Balken (mit oder ohne Transition)
    * @param xScale Aktuelle x-Skala
@@ -643,7 +658,7 @@ export class DeviationChart extends BaseChart {
     selection
       .attr('y', function (row) { return yScale(row.sourceKey) ?? 0 })
       .attr('height', function (row) {
-        return self.#hasGeneration(row) ? yScale.bandwidth() : NO_GENERATION_BAR_HEIGHT
+        return self.#hasGeneration(row) ? yScale.bandwidth() : NO_GENERATION_SIZE
       })
       .attr('fill', function (row) {
         if (!self.#hasGeneration(row)) return NO_GENERATION_COLOR
@@ -662,22 +677,19 @@ export class DeviationChart extends BaseChart {
       .attr('width', function (row) {
         return self.#hasGeneration(row)
           ? getDeviationBarWidth(row.deviationPp, xScale)
-          : NO_GENERATION_BAR_HEIGHT
+          : NO_GENERATION_SIZE
       })
   }
 
   /**
    * Zeichnet neue Balken und aktualisiert vorhandene Balken.
    *
-   * Das Skript zeigt join() nur in der Kurzform (Kap. 11.2.2). Die
-   * ausführliche Variante mit drei Callback-Funktionen (enter/update/exit)
-   * und dem zusätzlichen Key-Argument im .data(...)-Aufruf für stabile
-   * Übergänge beim Sortierwechsel habe ich mit KI-Hilfe erarbeitet.
-   * Vorher hatte ich Typfehler und doppelte Balken beim Jahreswechsel.
-   * Nach dem Vorschlag habe ich Sortierung und Übergänge selbst
-   * durchgetestet und die gemeinsamen Attribute in #applyBarAttributes
-   * zusammengezogen – auch dieses Zusammenlegen war ein KI-Vorschlag,
-   * den ich übernommen habe, weil es doppelten Code spart.
+   * OHNE KI: D3.join('rect') in der Kurzform ist eine
+   * Standardtechnik aus dem Vorlesungsskript.
+   *
+   * MIT KI: Die Key-Funktion (row.sourceKey) im .data()-Aufruf für
+   * stabile Zuordnung beim Sortierwechsel und das Zusammenlegen
+   * der Attribute in #applyBarAttributes wurden mit KI entwickelt.
    *
    * @param xScale Skala für Position und Breite der Balken
    * @param yScale Skala für die Reihenfolge der Energieträger
@@ -695,70 +707,42 @@ export class DeviationChart extends BaseChart {
     const bars = this.#barsGroup
       .selectAll<SVGRectElement, EmissionRow>('rect.deviation-bar')
       .data(this.#data, function (row) { return row.sourceKey })
+      .join('rect')
+      .attr('class', 'deviation-bar')
+      .attr('data-source-key', function (row) { return row.sourceKey })
+      .style('cursor', 'pointer')
+      .on('click', function (_event: PointerEvent, row: EmissionRow) {
+        self.#handleBarClick(row)
+      })
+      .on('mouseenter', function (_event: PointerEvent, row: EmissionRow) {
+        self.#highlightedSource = row.sourceKey
+        self.#updateHighlight()
+        self.#hoverHandler?.({ row, chartX: 0, chartY: 0 })
+      })
+      .on('mouseleave', function () {
+        self.#highlightedSource = null
+        self.#updateHighlight()
+        self.#hoverEndHandler?.()
+      })
 
-    bars.join(
-      function (enter) {
-        // Neue Balken: erst „leer" an der Nulllinie anlegen, damit sie
-        // gleich aus der Mitte heraus animieren können.
-        const enterBars = enter
-          .append('rect')
-          .attr('class', 'deviation-bar')
-          .attr('data-source-key', function (row) { return row.sourceKey })
-          .attr('y', function (row) { return yScale(row.sourceKey) ?? 0 })
-          .attr('height', function (row) {
-            return self.#hasGeneration(row) ? yScale.bandwidth() : NO_GENERATION_BAR_HEIGHT
-          })
-          .attr('fill', function (row) {
-            if (!self.#hasGeneration(row)) return NO_GENERATION_COLOR
-            return self.#colors[row.sourceKey]
-          })
-          .attr('x', xScale(0))
-          .attr('width', 0)
-          .attr('opacity', function (row) {
-            return self.#hasGeneration(row) ? OPACITY_ACTIVE : NO_GENERATION_OPACITY
-          })
-          .style('cursor', 'pointer')
-          .on('click', function (_event: PointerEvent, row: EmissionRow) {
-            self.#handleBarClick(row)
-          })
-          .on('mouseenter', function (_event: PointerEvent, row: EmissionRow) {
-            self.#highlightedSource = row.sourceKey
-            self.#updateHighlight()
-            self.#hoverHandler?.({ row, chartX: 0, chartY: 0 })
-          })
-          .on('mouseleave', function () {
-            self.#highlightedSource = null
-            self.#updateHighlight()
-            self.#hoverEndHandler?.()
-          })
-
-        // Auf die Zielposition/-breite animieren.
-        self.#applyBarAttributes(
-          enterBars.transition().duration(TRANSITION_DURATION_MS),
-          xScale,
-          yScale,
-        )
-
-        return enterBars
-      },
-      function (update) {
-        // Bestehende Balken: gleiche Ziel-Attribute wie enter, nur ohne
-        // Startzustand an der Nulllinie.
-        self.#applyBarAttributes(
-          update.transition().duration(TRANSITION_DURATION_MS),
-          xScale,
-          yScale,
-        )
-        return update
-      },
-      function (exit) {
-        return exit.remove()
-      },
-    )
+    if (this.#firstRender) {
+      this.#applyBarAttributes(bars, xScale, yScale)
+    } else {
+      this.#applyBarAttributes(
+        bars.transition().duration(400),
+        xScale,
+        yScale,
+      )
+    }
   }
 
   /**
    * Berechnet die Attribute, die Wertelabels bei Enter und Update gleich brauchen.
+   *
+   * MIT KI: labelX und labelAnchor für die Positionierung außerhalb
+   * der Balken wurden mit KI-Unterstützung entwickelt.
+   * OHNE KI: Das Setzen von SVG-Text-Attributen (x, y, text-anchor)
+   * ist Standard-D3 aus dem Vorlesungsskript.
    *
    * @param selection D3-Selektion der Labels (mit oder ohne Transition)
    * @param xScale Aktuelle x-Skala
@@ -788,10 +772,13 @@ export class DeviationChart extends BaseChart {
   /**
    * Zeichnet neue Wertelabels und aktualisiert vorhandene Labels.
    *
-   * Die Positionierung neben dem Balkenende (negative Werte links, positive
-   * rechts) war zusammen mit dem Wechsel des text-anchor ein Punkt, an dem
-   * KI mir den Ansatz gezeigt hat. Ich habe die Logik danach in
-   * labelX / labelAnchor ausgelagert und mit verschiedenen Domains geprüft.
+   * OHNE KI: D3.join('text') und SVG-Text-Elemente sind
+   * Standardtechniken aus dem Vorlesungsskript.
+   *
+   * MIT KI: Die Positionierung neben dem Balkenende (negative Werte
+   * links, positive rechts) zusammen mit dem Wechsel des text-anchor
+   * wurden mit KI-Unterstützung entwickelt. Die Logik wurde danach
+   * in labelX/labelAnchor ausgelagert.
    *
    * @param xScale Skala für die horizontale Position
    * @param yScale Skala für die vertikale Position
@@ -809,35 +796,23 @@ export class DeviationChart extends BaseChart {
     const labels = this.#labelsGroup
       .selectAll<SVGTextElement, EmissionRow>('text.deviation-label')
       .data(this.#data, function (row) { return row.sourceKey })
+      .join('text')
+      .attr('class', 'deviation-label')
+      .attr('dy', '0.35em')
+      .attr('font-size', '12px')
+      .attr('font-family', 'var(--font-sans, sans-serif)')
+      .attr('fill', 'currentColor')
+      .attr('pointer-events', 'none')
 
-    labels.join(
-      function (enter) {
-        const enterLabels = enter
-          .append('text')
-          .attr('class', 'deviation-label')
-          .attr('dy', '0.35em')
-          .attr('font-size', '12px')
-          .attr('font-family', 'var(--font-sans, sans-serif)')
-          .attr('fill', 'currentColor')
-          .attr('pointer-events', 'none')
-
-        // Beim ersten Zeichnen direkt (ohne Transition) an die Zielposition.
-        self.#applyLabelAttributes(enterLabels, xScale, yScale)
-        return enterLabels
-      },
-      function (update) {
-        // Bestehende Labels animiert nachziehen.
-        self.#applyLabelAttributes(
-          update.transition().duration(TRANSITION_DURATION_MS),
-          xScale,
-          yScale,
-        )
-        return update
-      },
-      function (exit) {
-        return exit.remove()
-      },
-    )
+    if (this.#firstRender) {
+      this.#applyLabelAttributes(labels, xScale, yScale)
+    } else {
+      this.#applyLabelAttributes(
+        labels.transition().duration(400),
+        xScale,
+        yScale,
+      )
+    }
   }
 
 
@@ -845,6 +820,9 @@ export class DeviationChart extends BaseChart {
 
   /**
    * Zeichnet die Hinweise links, mittig und rechts unter der x-Achse.
+   *
+   * OHNE KI: Drei SVG-Text-Elemente mit fester Position – einfache
+   * D3-Grundlage aus dem Vorlesungsskript.
    */
   #renderDirectionLabels(): void {
     if (!this.#chartGroup) {
@@ -896,12 +874,11 @@ export class DeviationChart extends BaseChart {
    * Berechnet die Opacity für ein einzelnes Element (Balken, Label,
    * Achsen-Tick) je nach aktuellem Hover- und Auswahlzustand.
    *
-   * Regel:
-   * - Nichts hervorgehoben → alles voll sichtbar.
-   * - Aktives Element (Hover oder ohne Hover die Auswahl) → voll sichtbar.
-   * - Sonderfall: Wenn gerade gehovert wird UND parallel etwas ausgewählt
-   *   ist, bleibt die Auswahl schwach sichtbar, damit sie nicht verloren geht.
-   * - Alles andere → gedämpft.
+   * OHNE KI: Einfache if/else-Bedingungen und Rückgabe von Zahlen.
+   *
+   * MIT KI: Die Logik, welcher Zustand Vorrang hat (Hover schlägt
+   * Auswahl) und der Sonderfall „Hover + Auswahl gleichzeitig aktiv"
+   * wurden mit KI-Unterstützung entwickelt.
    *
    * @param sourceKey Energieträger des Elements
    * @returns Opacity zwischen 0 und 1
@@ -926,11 +903,13 @@ export class DeviationChart extends BaseChart {
   /**
    * Passt die Sichtbarkeit von Balken, Labels und Achsentexten an.
    *
-   * Das Zusammenspiel von Hover-Zustand und fester Auswahl ist eine der
-   * Stellen, an denen mir KI beim Modell geholfen hat (welcher Zustand
-   * hat Vorrang, was passiert, wenn beide gleichzeitig aktiv sind).
-   * Umgesetzt habe ich das über #opacityFor, damit die Regel nur einmal
-   * geschrieben ist und alle drei Selections konsistent bleiben.
+   * OHNE KI: Das Setzen von Opacity-Werten auf D3-Selection ist
+   * eine grundlegende Technik.
+   *
+   * MIT KI: Das Zusammenspiel von Hover-Zustand und fester Auswahl
+   * (welcher Zustand hat Vorrang, was passiert, wenn beide gleichzeitig
+   * aktiv sind) wurde mit KI-Unterstützung modelliert. Umgesetzt habe
+   * ich es über #opacityFor, damit die Regel nur einmal geschrieben ist.
    */
   #updateHighlight(): void {
     if (!this.#barsGroup || !this.#labelsGroup || !this.#chartGroup) {
@@ -959,6 +938,9 @@ export class DeviationChart extends BaseChart {
    * Wählt einen Balken aus oder hebt die Auswahl auf, wenn derselbe
    * Balken erneut angeklickt wird.
    *
+   * OHNE KI: Einfache Umschaltlogik (toggle) mit if/else – grundlegende
+   * Programmierlogik.
+   *
    * @param row Angeklickte Datenzeile
    */
   #handleBarClick(row: EmissionRow): void {
@@ -972,11 +954,13 @@ export class DeviationChart extends BaseChart {
 
   /**
    * Hebt die Auswahl nach einem Klick auf die freie Fläche auf.
+   *
+   * OHNE KI: Zurücksetzen eines Zustands und Benachrichtigen des
+   * Callbacks – einfache Programmierlogik.
    */
   #handleBackgroundClick(): void {
     this.#selectedSource = null
     this.#updateHighlight()
     this.#selectionHandler?.(null)
-    this.#backgroundClickHandler?.()
   }
 }

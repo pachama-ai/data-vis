@@ -16,8 +16,6 @@ import { ref } from 'vue'
  * Angaben, die an den Diagrammrahmen übergeben werden können.
  */
 interface ChartTemplateProps {
-  title?: string
-  subtitle?: string
   wrapperClass?: string
 }
 
@@ -40,23 +38,6 @@ defineExpose({
 <template>
   <section :class="['chart-wrapper', wrapperClass]">
     <header class="chart-header">
-      <div class="chart-heading">
-        <h2
-          v-if="title"
-          class="chart-title"
-        >
-          {{ title }}
-        </h2>
-
-        <p
-          v-if="subtitle"
-          class="chart-subtitle"
-        >
-          {{ subtitle }}
-        </p>
-      </div>
-
-      <!-- Platz für Filter und andere Bedienelemente. -->
       <div
         v-if="$slots.controls"
         class="chart-controls"

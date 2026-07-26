@@ -1,11 +1,3 @@
-<script setup lang="ts">
-/**
- * components/intro/IntroMethodology.vue
- * ======================================
- * Aufklappbarer Methodik-Bereich (<details>).
- */
-</script>
-
 <template>
   <details class="intro-methodology">
     <summary class="method-summary">
@@ -20,7 +12,6 @@
       <p><strong>Prozentpunkte (pp)</strong> – Absolute Differenz zwischen den Anteilen von 2015 und 2024. Beispiel: Steigt ein Anteil von 20 % auf 25 %, ist das ein Zuwachs von 5 Prozentpunkten (nicht 25 %).</p>
       <p><strong>Sonstige konventionelle Energieträger</strong> – Nicht-erneuerbare Energieträger außerhalb von Kohle, Erdgas und Kernenergie. Umfasst insbesondere Mineralöl, Grubengas und nicht erneuerbare Abfälle. Zusammen tragen sie in Deutschland typischerweise unter 5 % zur öffentlichen Nettostromerzeugung bei.</p>
       <p><strong>Öffentliche Nettostromerzeugung</strong> – In das öffentliche Stromnetz eingespeister Strom. Der industrielle Eigenverbrauch (zum Beispiel werkseigene Kraftwerke, Photovoltaik-Eigenverbrauch privater Haushalte) ist nicht enthalten.</p>
-
     </div>
   </details>
 </template>
@@ -88,13 +79,5 @@ details[open] .method-chevron {
 .method-content strong {
   color: var(--text-color);
   font-weight: 600;
-}
-
-.method-content code {
-  font-family: 'SFMono-Regular', Consolas, monospace;
-  font-size: 13px;
-  background: #e8e8e8;
-  padding: 1px 4px;
-  border-radius: 3px;
 }
 </style>

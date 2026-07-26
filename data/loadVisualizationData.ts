@@ -16,7 +16,7 @@ let cachedData: VisualizationData | null = null
 let pendingRequest: Promise<VisualizationData> | null = null
 
 /**
- * Minimale Strukturprüfung: prüft, dass das geladene JSON die vier
+ * Minimale Strukturprüfung: prüft, dass das geladene JSON die drei
  * erwarteten Hauptarrays enthält. Die vollständige fachliche Validierung
  * erfolgt in scripts/check-data.ts – dieser Guard verhindert nur, dass
  * offensichtlich ungültige Daten in den Cache gelangen.
@@ -26,7 +26,6 @@ function isVisualizationData(value: unknown): value is VisualizationData {
   const obj = value as Record<string, unknown>
   return (
     Array.isArray(obj.monthlyMix) &&
-    Array.isArray(obj.heatmapCo2) &&
     Array.isArray(obj.scatterDaily) &&
     Array.isArray(obj.yearlyMix)
   )

@@ -31,7 +31,7 @@ type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 const chartTemplate = ref<ChartTemplateInstance | null>(null)
 
 const { monthRows, yearRows, pending, error, loadData } = useMixData()
-const { mode, colorMode, highlighted, selectedAnnotation, selectedYear, setMode, setColorMode, toggleColorMode, setHighlighted, setSelectedAnnotation, setSelectedYear, toggleHighlighted, toggleAnnotation } = useMixSelection()
+const { mode, colorMode, highlighted, selectedAnnotation, selectedYear, setMode, setColorMode, setHighlighted, setSelectedAnnotation, setSelectedYear, toggleHighlighted, toggleAnnotation } = useMixSelection()
 
 const hoverPayload = ref<MixHoverPayload | null>(null)
 

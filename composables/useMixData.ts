@@ -190,12 +190,12 @@ export function useMixData() {
 
       rawData.value = data
     } catch (caughtError: unknown) {
-      const message =
-        caughtError instanceof Error
-          ? caughtError.message
-          : 'Die Visualisierungsdaten konnten nicht geladen werden.'
-
-      error.value = message
+      if (caughtError instanceof Error) {
+        error.value = caughtError.message
+      } else {
+        error.value =
+          'Die Visualisierungsdaten konnten nicht geladen werden.'
+      }
     } finally {
       pending.value = false
     }

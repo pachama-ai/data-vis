@@ -2,22 +2,20 @@
  * Erstellt die Datei visualization-data.json aus den SMARD-Daten.
  *
  * Das Skript lädt die stündlichen Erzeugungsdaten und die
- * Emissionsfaktoren. Daraus entstehen die Datensätze für
- * Monatswerte, Heatmap, Streudiagramm und Jahresvergleich.
+ * Emissionsfaktoren und aggregiert sie zu Monats-, Tages- und
+ * Jahreswerten.
  *
  * Alle Zeitangaben werden in Berliner Lokalzeit ausgewertet.
  *
- * Bei dieser Datei wurde KI unterstützend eingesetzt. Hilfe war
- * vor allem bei der Verarbeitung der Berliner Zeitzone, bei der
- * TypeScript-Typisierung dynamischer Feldnamen und bei der Prüfung
- * verschachtelter Daten nötig. Außerdem wurde die zuerst sehr lange
- * Hauptfunktion mit Unterstützung in kleinere Schritte aufgeteilt.
- * Die fachliche Logik, die Berechnungen und die Auswahl der Daten
- * wurden selbst festgelegt und anschließend geprüft.
+ * MIT KI: Unterstützung bei der Verarbeitung der Berliner Zeitzone,
+ * bei der TypeScript-Typisierung dynamischer Feldnamen, bei der
+ * Umstellung der ursprünglich sehr langen Hauptfunktion auf kleinere
+ * Hilfsfunktionen und beim Aufbau der Fehlerbehandlung.
+ *
+ * OHNE KI: Fachliche Zuordnung der Energieträger, Aggregation der
+ * Daten und Berechnung der Ausgabegrößen wurden selbst erstellt.
  *
  * @author Selina Schneider
- * @created 11.06.2026
- * @lastModified 23.07.2026
  */
 
 // Bun stellt diese Funktionen zur Laufzeit bereit.
@@ -31,7 +29,6 @@ declare var Bun: {
 }
 
 import type {
-  HeatmapCo2Cell,
   MonthlyMixPoint,
   ScatterDailyPoint,
   YearlyMixPoint,
@@ -40,6 +37,9 @@ import type {
 /**
  * Enthält die Erzeugungswerte aller verwendeten Energieträger.
  * Die Werte werden in MWh gespeichert.
+ *
+ * OHNE KI: Die Interfaces bilden die benötigten Datenstrukturen
+ * des Projekts ab und wurden selbst erstellt.
  */
 interface EnergySourceAccum {
   biomass: number
@@ -75,9 +75,7 @@ interface EmissionFactors {
   pumpspeicher: number
 }
 
-/**
- * Enthält die Teile eines Zeitpunkts in Berliner Lokalzeit.
- */
+/** Enthält die Teile eines Zeitpunkts in Berliner Lokalzeit. */
 interface BerlinDateParts {
   year: number
   month: number
@@ -87,9 +85,7 @@ interface BerlinDateParts {
   monthKey: string
 }
 
-/**
- * Sammelt die Werte für einen Monat.
- */
+/** Sammelt die Werte für einen Monat. */
 interface MonthBucket {
   sources: EnergySourceAccum
   totalGen: number
@@ -97,18 +93,7 @@ interface MonthBucket {
   count: number
 }
 
-/**
- * Sammelt die Werte für eine Zelle der Heatmap.
- */
-interface HeatmapBucket {
-  co2Weighted: number
-  totalGen: number
-  count: number
-}
-
-/**
- * Sammelt die Werte für einen Tag.
- */
+/** Sammelt die Werte für einen Tag. */
 interface DayBucket {
   renewableGen: number
   totalGen: number
@@ -116,9 +101,7 @@ interface DayBucket {
   count: number
 }
 
-/**
- * Sammelt die Werte für ein Jahr.
- */
+/** Sammelt die Werte für ein Jahr. */
 interface YearBucket {
   sources: EnergySourceAccum
   totalGen: number
@@ -128,8 +111,11 @@ interface YearBucket {
 }
 
 /**
- * Verbindet die deutschen Feldnamen aus SMARD
- * mit den englischen Schlüsseln im Projekt.
+ * Verbindet die deutschen Feldnamen aus SMARD mit den
+ * englischen Schlüsseln im Projekt.
+ *
+ * OHNE KI: Die Zuordnung der Energieträger wurde passend zu den
+ * verwendeten SMARD-Daten selbst festgelegt.
  */
 const GERMAN_TO_ENGLISH: Record<string, keyof EnergySourceAccum> = {
   braunkohle: 'lignite',
@@ -148,9 +134,9 @@ const GERMAN_TO_ENGLISH: Record<string, keyof EnergySourceAccum> = {
 
 const GENERATION_FIELDS = Object.keys(GERMAN_TO_ENGLISH)
 
-/**
- * Feldnamen der erneuerbaren Energieträger.
- */
+/** Feldnamen der erneuerbaren Energieträger. */
+// OHNE KI: Die Einteilung in erneuerbare und fossile Energieträger
+// wurde selbst festgelegt.
 const RENEWABLE_FIELDS = new Set([
   'biomasse',
   'wasserkraft',
@@ -162,15 +148,21 @@ const RENEWABLE_FIELDS = new Set([
 
 /**
  * Ab diesem Datum wird ein fehlender Kernenergiewert als 0 behandelt.
- * Die letzten deutschen Kernkraftwerke wurden am 15. April 2023 abgeschaltet.
+ * Die letzten deutschen Kernkraftwerke wurden am 15. April 2023
+ * abgeschaltet.
+ *
+ * OHNE KI: Der Grenzwert für die Kernenergie und der Zeitpunkt des
+ * Atomausstiegs sind selbst ermittelte fachliche Werte.
  */
 const NUCLEAR_PHASEOUT_DATE = '2023-04-15'
 
-/**
- * Höchster erlaubter Anteil verworfener Stunden.
- */
+/** Höchster erlaubter Anteil verworfener Stunden. */
+// OHNE KI: Den Grenzwert von 10 Prozent habe ich selbst festgelegt.
 const MAX_SKIP_FRACTION = 0.10
 
+// MIT KI: Die Verarbeitung der Berliner Lokalzeit mit
+// Intl.DateTimeFormat, timeZone: 'Europe/Berlin' und formatToParts()
+// wurde mit KI-Unterstützung entwickelt.
 const berlinDateFormat = new Intl.DateTimeFormat('de-DE', {
   timeZone: 'Europe/Berlin',
   year: 'numeric',
@@ -184,8 +176,11 @@ const berlinHourFormat = new Intl.DateTimeFormat('de-DE', {
   hourCycle: 'h23',
 })
 
+
 /**
  * Erstellt ein leeres Objekt für die Erzeugungswerte.
+ *
+ * OHNE KI: Einfache Hilfsfunktion – selbst erstellt.
  *
  * @returns Alle Energieträger mit dem Startwert 0
  */
@@ -209,6 +204,8 @@ function createEmptySources(): EnergySourceAccum {
 /**
  * Rundet eine Zahl auf zwei Nachkommastellen.
  *
+ * OHNE KI: Einfache Rundungsfunktion – selbst erstellt.
+ *
  * @param value Zahl, die gerundet werden soll
  * @returns Gerundete Zahl
  */
@@ -217,13 +214,16 @@ function roundToTwoDecimals(value: number): number {
 }
 
 /**
- * Liest Jahr, Monat, Tag und Stunde eines Zeitpunkts
- * in Berliner Lokalzeit aus.
+ * Liest Jahr, Monat, Tag und Stunde eines Zeitpunkts in
+ * Berliner Lokalzeit aus.
  *
- * Bei dieser Funktion wurde KI genutzt, weil mir zunächst nicht klar
- * war, wie Sommer- und Winterzeit zuverlässig berücksichtigt werden
- * können. Die Lösung mit Intl.DateTimeFormat und formatToParts()
- * wurde danach an die benötigten Datumsfelder angepasst.
+ * MIT KI: Die Verwendung von Intl.DateTimeFormat mit
+ * timeZone: 'Europe/Berlin' und formatToParts() für die zuverlässige
+ * Behandlung von Sommer- und Winterzeit wurde mit KI-Unterstützung
+ * entwickelt.
+ *
+ * OHNE KI: Die Zuordnung der Parts zu year/month/day/hour sowie die
+ * Bildung von dateKey und monthKey habe ich selbst geschrieben.
  *
  * @param timestamp Unix-Zeitstempel in Millisekunden
  * @returns Datumsteile und passende Schlüssel für Tag und Monat
@@ -236,26 +236,16 @@ function getBerlinDateParts(timestamp: number): BerlinDateParts {
   let day = 0
 
   for (const part of dateParts) {
-    if (part.type === 'year') {
-      year = Number(part.value)
-    }
-
-    if (part.type === 'month') {
-      month = Number(part.value)
-    }
-
-    if (part.type === 'day') {
-      day = Number(part.value)
-    }
+    if (part.type === 'year') year = Number(part.value)
+    if (part.type === 'month') month = Number(part.value)
+    if (part.type === 'day') day = Number(part.value)
   }
 
   let hour = 0
   const hourParts = berlinHourFormat.formatToParts(timestamp)
 
   for (const part of hourParts) {
-    if (part.type === 'hour') {
-      hour = Number(part.value)
-    }
+    if (part.type === 'hour') hour = Number(part.value)
   }
 
   const monthText = String(month).padStart(2, '0')
@@ -274,31 +264,26 @@ function getBerlinDateParts(timestamp: number): BerlinDateParts {
 /**
  * Liest die Erzeugungswerte aus einer SMARD-Zeile.
  *
- * Fehlt nach dem Kernenergieausstieg nur der Wert für
- * Kernenergie, wird dafür 0 eingesetzt. Fehlen andere
- * Werte oder enthalten sie keine gültige Zahl, wird
- * die Zeile als unvollständig zurückgegeben.
+ * Fehlt nach dem Kernenergieausstieg nur der Wert für Kernenergie,
+ * setze ich 0 ein. Fehlen andere Werte oder sind keine gültigen
+ * Zahlen, gebe ich null zurück – die Zeile wird dann übersprungen.
  *
- * KI-Unterstützung war hier vor allem bei der TypeScript-
- * Typisierung nötig. Die Zuordnung zwischen deutschen
- * SMARD-Feldnamen und den englischen Schlüsseln führte
- * zunächst zu Fehlern bei dynamischen Objektzugriffen.
- * Die Lösung mit Record und keyof wurde danach nachvollzogen
- * und an die vorhandenen Datentypen angepasst.
+ * MIT KI: Bei der TypeScript-Typisierung der dynamischen Feldnamen
+ * (Record<string, keyof …>, Casts an der Zugriffsstelle) wurde KI
+ * genutzt.
+ *
+ * OHNE KI: Die fachliche Zuordnung der Energieträger und die
+ * Behandlung des Kernenergieausstiegs habe ich selbst festgelegt.
  *
  * @param row Eine Zeile aus den geladenen SMARD-Daten
  * @param berlinDate Datum der Zeile in Berliner Lokalzeit
- * @returns Erzeugungswerte und Information über einen ergänzten Kernenergiewert
+ * @returns Erzeugungswerte oder null bei unvollständiger Zeile
  */
 function extractSources(
   row: Record<string, unknown>,
   berlinDate: string,
-): {
-  sources: EnergySourceAccum | null
-  nuclearFilled: boolean
-} {
+): EnergySourceAccum | null {
   const sources = createEmptySources()
-  let nuclearFilled = false
 
   for (const germanField of GENERATION_FIELDS) {
     const rawValue = row[germanField]
@@ -308,47 +293,39 @@ function extractSources(
       germanField === 'kernenergie'
       && (rawValue === undefined || rawValue === null)
 
+    // Nach dem Atomausstieg fehlt Kernenergie legitim – dann 0 einsetzen.
     if (nuclearIsMissing) {
       if (berlinDate > NUCLEAR_PHASEOUT_DATE) {
         sources[sourceKey] = 0
-        nuclearFilled = true
         continue
       }
 
-      return {
-        sources: null,
-        nuclearFilled: false,
-      }
+      return null
     }
 
     if (rawValue === null || rawValue === undefined) {
-      return {
-        sources: null,
-        nuclearFilled: false,
-      }
+      return null
     }
 
-    if (typeof rawValue !== 'number' || Number.isNaN(rawValue)) {
-      return {
-        sources: null,
-        nuclearFilled: false,
-      }
+    if (typeof rawValue !== 'number' || !Number.isFinite(rawValue)) {
+      return null
     }
 
     sources[sourceKey] = rawValue
   }
 
-  return {
-    sources,
-    nuclearFilled,
-  }
+  return sources
 }
 
 /**
  * Berechnet die gewichtete CO₂-Summe einer Stunde.
+ * Jeder Erzeugungswert wird mit dem passenden Emissionsfaktor
+ * multipliziert.
  *
- * Jeder Erzeugungswert wird mit dem passenden
- * Emissionsfaktor multipliziert.
+ * MIT KI: Die dynamischen Schlüsselzugriffe (GERMAN_TO_ENGLISH,
+ * Casts zu keyof) wurden mit KI-Unterstützung typisiert.
+ * OHNE KI: Die Multiplikation von Erzeugungswert und Emissionsfaktor
+ * sowie die Summenbildung sind selbst umgesetzt.
  *
  * @param sources Erzeugungswerte der Energieträger
  * @param factors Emissionsfaktoren der Energieträger
@@ -376,12 +353,15 @@ function calculateCo2Weighted(
 /**
  * Addiert die Erzeugung aller erneuerbaren Energieträger.
  *
+ * MIT KI: Die dynamischen Schlüsselzugriffe wurden mit
+ * KI-Unterstützung typisiert.
+ * OHNE KI: Die Summenberechnung und das Filtern nach erneuerbaren
+ * Energieträgern sind selbst umgesetzt.
+ *
  * @param sources Erzeugungswerte der Energieträger
  * @returns Erneuerbare Erzeugung in MWh
  */
-function calculateRenewableGeneration(
-  sources: EnergySourceAccum,
-): number {
+function calculateRenewableGeneration(sources: EnergySourceAccum): number {
   let sum = 0
 
   for (const germanField of GENERATION_FIELDS) {
@@ -399,16 +379,16 @@ function calculateRenewableGeneration(
 /**
  * Addiert die Erzeugung aller Energieträger.
  *
+ * OHNE KI: Einfache Summenberechnung mit einer Schleife – selbst
+ * umgesetzt.
+ *
  * @param sources Erzeugungswerte der Energieträger
  * @returns Gesamte Erzeugung in MWh
  */
-function calculateTotalGeneration(
-  sources: EnergySourceAccum,
-): number {
+function calculateTotalGeneration(sources: EnergySourceAccum): number {
   let sum = 0
-  const values = Object.values(sources)
 
-  for (const value of values) {
+  for (const value of Object.values(sources)) {
     sum += value
   }
 
@@ -418,18 +398,16 @@ function calculateTotalGeneration(
 /**
  * Erstellt die fertigen Monatswerte aus den gesammelten Daten.
  *
+ * OHNE KI: Sortierung mit localeCompare, Berechnung der Ausgabewerte
+ * und Rundung – selbst umgesetzt.
+ *
  * @param buckets Gesammelte Werte nach Monat
  * @returns Sortierte Monatsdaten für die Visualisierung
  */
-function finalizeMonthlyMix(
-  buckets: Map<string, MonthBucket>,
-): MonthlyMixPoint[] {
+function finalizeMonthlyMix(buckets: Map<string, MonthBucket>): MonthlyMixPoint[] {
   const entries = Array.from(buckets.entries())
 
-  entries.sort(function (
-    firstEntry,
-    secondEntry,
-  ) {
+  entries.sort(function (firstEntry, secondEntry) {
     return firstEntry[0].localeCompare(secondEntry[0])
   })
 
@@ -447,55 +425,18 @@ function finalizeMonthlyMix(
 }
 
 /**
- * Erstellt die fertigen Heatmap-Werte aus den gesammelten Daten.
- *
- * @param buckets Gesammelte Werte nach Jahr, Monat und Stunde
- * @returns Sortierte Zellen für die Heatmap
- */
-function finalizeHeatmapCo2(
-  buckets: Map<string, HeatmapBucket>,
-): HeatmapCo2Cell[] {
-  const entries = Array.from(buckets.entries())
-
-  entries.sort(function (
-    firstEntry,
-    secondEntry,
-  ) {
-    return firstEntry[0].localeCompare(secondEntry[0])
-  })
-
-  return entries.map(function (entry) {
-    const key = entry[0]
-    const bucket = entry[1]
-    const keyParts = key.split('-')
-
-    return {
-      year: Number(keyParts[0]),
-      month: Number(keyParts[1]),
-      hour: Number(keyParts[2]),
-      co2GramsPerKwh: roundToTwoDecimals(
-        bucket.co2Weighted / bucket.totalGen,
-      ),
-      observationCount: bucket.count,
-    }
-  })
-}
-
-/**
  * Erstellt die fertigen Tageswerte aus den gesammelten Daten.
+ *
+ * OHNE KI: Sortierung, Prozent- und CO₂-Berechnung sowie Rundung –
+ * selbst umgesetzt.
  *
  * @param buckets Gesammelte Werte nach Tag
  * @returns Sortierte Tagesdaten für das Streudiagramm
  */
-function finalizeScatterDaily(
-  buckets: Map<string, DayBucket>,
-): ScatterDailyPoint[] {
+function finalizeScatterDaily(buckets: Map<string, DayBucket>): ScatterDailyPoint[] {
   const entries = Array.from(buckets.entries())
 
-  entries.sort(function (
-    firstEntry,
-    secondEntry,
-  ) {
+  entries.sort(function (firstEntry, secondEntry) {
     return firstEntry[0].localeCompare(secondEntry[0])
   })
 
@@ -508,9 +449,7 @@ function finalizeScatterDaily(
       renewableSharePercent: roundToTwoDecimals(
         (bucket.renewableGen / bucket.totalGen) * 100,
       ),
-      co2GramsPerKwh: roundToTwoDecimals(
-        bucket.co2Weighted / bucket.totalGen,
-      ),
+      co2GramsPerKwh: roundToTwoDecimals(bucket.co2Weighted / bucket.totalGen),
       availableHourCount: bucket.count,
     }
   })
@@ -519,18 +458,16 @@ function finalizeScatterDaily(
 /**
  * Erstellt die fertigen Jahreswerte aus den gesammelten Daten.
  *
+ * OHNE KI: Sortierung, Berechnung der Jahreswerte (Prozent, CO₂)
+ * und Rundung – selbst umgesetzt.
+ *
  * @param buckets Gesammelte Werte nach Jahr
  * @returns Sortierte Jahresdaten für die Visualisierung
  */
-function finalizeYearlyMix(
-  buckets: Map<string, YearBucket>,
-): YearlyMixPoint[] {
+function finalizeYearlyMix(buckets: Map<string, YearBucket>): YearlyMixPoint[] {
   const entries = Array.from(buckets.entries())
 
-  entries.sort(function (
-    firstEntry,
-    secondEntry,
-  ) {
+  entries.sort(function (firstEntry, secondEntry) {
     return firstEntry[0].localeCompare(secondEntry[0])
   })
 
@@ -545,9 +482,7 @@ function finalizeYearlyMix(
       renewableSharePercent: roundToTwoDecimals(
         (bucket.renewableGen / bucket.totalGen) * 100,
       ),
-      co2GramsPerKwh: roundToTwoDecimals(
-        bucket.co2Weighted / bucket.totalGen,
-      ),
+      co2GramsPerKwh: roundToTwoDecimals(bucket.co2Weighted / bucket.totalGen),
       availableHourCount: bucket.count,
     }
   })
@@ -555,6 +490,9 @@ function finalizeYearlyMix(
 
 /**
  * Lädt die SMARD-Daten aus der JSON-Datei.
+ *
+ * OHNE KI: Laden und Prüfen einer JSON-Datei mit Bun –
+ * selbst umgesetzt.
  *
  * @returns Geladene SMARD-Zeilen
  * @throws Fehler, wenn die Datei fehlt oder keine Daten enthält
@@ -572,9 +510,7 @@ async function loadSmardData(): Promise<Record<string, unknown>[]> {
   const data: unknown = await file.json()
 
   if (!Array.isArray(data) || data.length === 0) {
-    throw new Error(
-      'public/data/smard.json enthält keine gültigen Daten.',
-    )
+    throw new Error('public/data/smard.json enthält keine gültigen Daten.')
   }
 
   return data as Record<string, unknown>[]
@@ -583,6 +519,15 @@ async function loadSmardData(): Promise<Record<string, unknown>[]> {
 /**
  * Lädt und prüft die Emissionsfaktoren.
  *
+ * OHNE KI: Die Prüfung mit einer Schleife, typeof und Number.isFinite
+ * habe ich selbst umgesetzt.
+ *
+ * MIT KI: Der abschließende Doppel-Cast
+ * `as unknown as EmissionFactors` nach der vorherigen Prüfung wurde
+ * mit KI-Hilfe gewählt – TypeScript lässt den direkten Cast von
+ * `Record<string, number>` auf ein Interface mit festen Feldern sonst
+ * nicht ohne Warnung durch.
+ *
  * @returns Vollständige Emissionsfaktoren
  * @throws Fehler, wenn ein Faktor fehlt oder ungültig ist
  */
@@ -590,13 +535,8 @@ async function loadEmissionFactors(): Promise<EmissionFactors> {
   const file = Bun.file('emission_factors.json')
   const rawData: unknown = await file.json()
 
-  if (
-    rawData === null
-    || typeof rawData !== 'object'
-  ) {
-    throw new Error(
-      'emission_factors.json enthält kein gültiges Objekt.',
-    )
+  if (rawData === null || typeof rawData !== 'object') {
+    throw new Error('emission_factors.json enthält kein gültiges Objekt.')
   }
 
   const factorData = rawData as Record<string, unknown>
@@ -605,10 +545,7 @@ async function loadEmissionFactors(): Promise<EmissionFactors> {
   for (const germanField of GENERATION_FIELDS) {
     const value = factorData[germanField]
 
-    if (
-      typeof value !== 'number'
-      || !Number.isFinite(value)
-    ) {
+    if (typeof value !== 'number' || !Number.isFinite(value)) {
       throw new Error(
         `emission_factors.json: '${germanField}' fehlt oder ist keine gültige Zahl (${value}).`,
       )
@@ -621,67 +558,9 @@ async function loadEmissionFactors(): Promise<EmissionFactors> {
 }
 
 /**
- * Prüft ein Objekt rekursiv auf ungültige Zahlen
- * sowie fehlende Werte.
- *
- * Für diese Funktion wurde KI genutzt, weil ich zunächst
- * nur einzelne Arrays prüfen konnte. Mir fehlte eine Lösung,
- * die auch verschachtelte Objekte durchsucht und bei einem
- * Fehler den genauen Pfad ausgibt. Die rekursive Prüfung
- * wurde anschließend Schritt für Schritt nachvollzogen.
- *
- * @param value Wert oder Objekt, das geprüft werden soll
- * @param path Aktuelle Stelle innerhalb des Objekts
- * @throws Fehler, wenn ein ungültiger Wert gefunden wird
- */
-function checkFiniteValues(
-  value: unknown,
-  path: string,
-): void {
-  if (value === null || value === undefined) {
-    throw new Error(`Null oder undefined gefunden in ${path}`)
-  }
-
-  if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      throw new Error(
-        `Nicht-endlicher Wert (${value}) in ${path}`,
-      )
-    }
-
-    return
-  }
-
-  if (Array.isArray(value)) {
-    for (let index = 0; index < value.length; index++) {
-      checkFiniteValues(
-        value[index],
-        `${path}[${index}]`,
-      )
-    }
-
-    return
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(
-      value as Record<string, unknown>,
-    )
-
-    for (const entry of entries) {
-      const key = entry[0]
-      const nestedValue = entry[1]
-
-      checkFiniteValues(
-        nestedValue,
-        `${path}.${key}`,
-      )
-    }
-  }
-}
-
-/**
  * Addiert die Werte einer Stunde zu einem Monats-Bucket.
+ *
+ * OHNE KI: Aggregation mit Map und Schleife – selbst umgesetzt.
  *
  * @param buckets Monats-Buckets
  * @param dateParts Datumsteile der Stunde
@@ -709,9 +588,7 @@ function addToMonthBucket(
     buckets.set(dateParts.monthKey, bucket)
   }
 
-  const sourceKeys = Object.keys(
-    sources,
-  ) as (keyof EnergySourceAccum)[]
+  const sourceKeys = Object.keys(sources) as (keyof EnergySourceAccum)[]
 
   for (const key of sourceKeys) {
     bucket.sources[key] += sources[key]
@@ -723,42 +600,9 @@ function addToMonthBucket(
 }
 
 /**
- * Addiert die Werte einer Stunde zu einem Heatmap-Bucket.
- *
- * @param buckets Heatmap-Buckets
- * @param dateParts Datumsteile der Stunde
- * @param totalGeneration Gesamterzeugung der Stunde
- * @param co2Weighted Gewichtete CO₂-Summe der Stunde
- */
-function addToHeatmapBucket(
-  buckets: Map<string, HeatmapBucket>,
-  dateParts: BerlinDateParts,
-  totalGeneration: number,
-  co2Weighted: number,
-): void {
-  const month = String(dateParts.month).padStart(2, '0')
-  const hour = String(dateParts.hour).padStart(2, '0')
-  const key = `${dateParts.year}-${month}-${hour}`
-
-  let bucket = buckets.get(key)
-
-  if (bucket === undefined) {
-    bucket = {
-      co2Weighted: 0,
-      totalGen: 0,
-      count: 0,
-    }
-
-    buckets.set(key, bucket)
-  }
-
-  bucket.co2Weighted += co2Weighted
-  bucket.totalGen += totalGeneration
-  bucket.count++
-}
-
-/**
  * Addiert die Werte einer Stunde zu einem Tages-Bucket.
+ *
+ * OHNE KI: Aggregation mit Map und Schleife – selbst umgesetzt.
  *
  * @param buckets Tages-Buckets
  * @param dateParts Datumsteile der Stunde
@@ -776,13 +620,7 @@ function addToDayBucket(
   let bucket = buckets.get(dateParts.dateKey)
 
   if (bucket === undefined) {
-    bucket = {
-      renewableGen: 0,
-      totalGen: 0,
-      co2Weighted: 0,
-      count: 0,
-    }
-
+    bucket = { renewableGen: 0, totalGen: 0, co2Weighted: 0, count: 0 }
     buckets.set(dateParts.dateKey, bucket)
   }
 
@@ -794,6 +632,8 @@ function addToDayBucket(
 
 /**
  * Addiert die Werte einer Stunde zu einem Jahres-Bucket.
+ *
+ * OHNE KI: Aggregation mit Map und Schleife – selbst umgesetzt.
  *
  * @param buckets Jahres-Buckets
  * @param dateParts Datumsteile der Stunde
@@ -825,9 +665,7 @@ function addToYearBucket(
     buckets.set(key, bucket)
   }
 
-  const sourceKeys = Object.keys(
-    sources,
-  ) as (keyof EnergySourceAccum)[]
+  const sourceKeys = Object.keys(sources) as (keyof EnergySourceAccum)[]
 
   for (const sourceKey of sourceKeys) {
     bucket.sources[sourceKey] += sources[sourceKey]
@@ -841,140 +679,67 @@ function addToYearBucket(
 
 /**
  * Prüft, ob ein Energieträger einen negativen Wert enthält.
+ * Sehr kleine negative Abweichungen bis -0,001 toleriere ich –
+ * das sind Rundungsdrifts in den Rohdaten.
  *
- * Kleine Abweichungen bis -0,001 werden toleriert.
+ * OHNE KI: Einfache Schleife mit Schwellenwert – selbst umgesetzt.
  *
  * @param sources Erzeugungswerte der Stunde
- * @param dateParts Datumsteile der Stunde
- * @param examples Liste mit Beispielen für die Ausgabe
  * @returns true, wenn ein negativer Wert gefunden wurde
  */
-function hasNegativeGeneration(
-  sources: EnergySourceAccum,
-  dateParts: BerlinDateParts,
-  examples: string[],
-): boolean {
-  const sourceKeys = Object.keys(
-    sources,
-  ) as (keyof EnergySourceAccum)[]
-
-  let hasNegative = false
-
-  for (const key of sourceKeys) {
-    if (sources[key] < -0.001) {
-      hasNegative = true
-
-      if (examples.length < 5) {
-        const hour = String(dateParts.hour).padStart(2, '0')
-
-        examples.push(
-          `  ${dateParts.dateKey} ${hour}:00 – ${key} = ${sources[key]} MWh`,
-        )
-      }
+function hasNegativeGeneration(sources: EnergySourceAccum): boolean {
+  for (const value of Object.values(sources)) {
+    if (value < -0.001) {
+      return true
     }
   }
 
-  return hasNegative
-}
-
-/**
- * Gibt die Statistik zu den verarbeiteten Stunden aus.
- *
- * @param validCount Anzahl gültiger Stunden
- * @param skippedOutside Stunden außerhalb des Zeitraums
- * @param skippedNonNumeric Unvollständige Stunden
- * @param skippedNegative Stunden mit negativen Werten
- * @param skippedZeroTotal Stunden ohne Gesamterzeugung
- * @param nuclearFilledCount Ergänzte Kernenergiewerte
- */
-function printProcessingSummary(
-  validCount: number,
-  skippedOutside: number,
-  skippedNonNumeric: number,
-  skippedNegative: number,
-  skippedZeroTotal: number,
-  nuclearFilledCount: number,
-): void {
-  console.log('\nAuswertung:')
-  console.log(
-    `  Gültige Stunden (Berlin 2015–2024):       ${validCount}`,
-  )
-  console.log(
-    `  Außerhalb Berliner Jahre 2015–2024:      ${skippedOutside}`,
-  )
-  console.log(
-    `  Unvollständige Datensätze:               ${skippedNonNumeric}`,
-  )
-  console.log(
-    `  Negative Erzeugungswerte:                ${skippedNegative}`,
-  )
-  console.log(
-    `  Gesamterzeugung <= 0:                    ${skippedZeroTotal}`,
-  )
-  console.log(
-    `  Ergänzte Kernenergie-Nullwerte:          ${nuclearFilledCount}`,
-  )
+  return false
 }
 
 /**
  * Prüft, ob zu viele Stunden verworfen wurden.
  *
+ * MIT KI: Der Aufbau dieses Sicherheitschecks (Berechnung von
+ * totalProcessed und skipFraction, Abbruch bei Überschreitung)
+ * wurde mit KI-Unterstützung erstellt.
+ *
+ * OHNE KI: Den Grenzwert von 10 Prozent (MAX_SKIP_FRACTION) habe
+ * ich selbst festgelegt.
+ *
  * @param validCount Anzahl gültiger Stunden
- * @param skippedNonNumeric Unvollständige Stunden
- * @param skippedNegative Stunden mit negativen Werten
- * @param skippedZeroTotal Stunden ohne Gesamterzeugung
+ * @param totalSkipped Summe aller wegen Datenqualität verworfenen Stunden
  * @throws Fehler, wenn der erlaubte Anteil überschritten wird
  */
-function checkSkippedHours(
-  validCount: number,
-  skippedNonNumeric: number,
-  skippedNegative: number,
-  skippedZeroTotal: number,
-): void {
-  const totalSkipped =
-    skippedNonNumeric
-    + skippedNegative
-    + skippedZeroTotal
+function checkSkippedHours(validCount: number, totalSkipped: number): void {
+  if (totalSkipped === 0) return
 
   const totalProcessed = validCount + totalSkipped
-
-  let skipFraction = 0
-
-  if (totalProcessed > 0) {
-    skipFraction = totalSkipped / totalProcessed
-  }
-
-  if (totalSkipped === 0) {
-    return
-  }
-
+  const skipFraction = totalSkipped / totalProcessed
   const percent = (skipFraction * 100).toFixed(2)
 
-  console.log(
-    `\nWirklich übersprungene Stunden: ${totalSkipped} (${percent} %)`,
-  )
+  console.log(`\nWirklich übersprungene Stunden: ${totalSkipped} (${percent} %)`)
 
   if (skipFraction > MAX_SKIP_FRACTION) {
     const limit = MAX_SKIP_FRACTION * 100
-    const actual = (skipFraction * 100).toFixed(1)
 
     throw new Error(
-      `Mehr als ${limit}% der Stunden übersprungen (${actual}%). `
+      `Mehr als ${limit}% der Stunden übersprungen (${percent}%). `
       + 'Abbruch, um keine irreführende Datei zu erzeugen.',
     )
   }
 }
 
 /**
- * Führt die komplette Datenaufbereitung aus
- * und schreibt die fertige JSON-Datei.
+ * Führt die Datenaufbereitung aus und schreibt die fertige JSON-Datei.
  *
- * Die Funktion enthielt zuerst fast den gesamten Ablauf
- * in einem einzigen langen Block. Mit KI-Unterstützung
- * wurden wiederkehrende Schritte in kleinere Funktionen
- * ausgelagert. Dadurch lassen sich Laden, Prüfen,
- * Berechnen und Zusammenfassen getrennt nachvollziehen.
- * Die Reihenfolge und die fachliche Berechnung blieben gleich.
+ * MIT KI: Die Aufteilung der ursprünglich sehr langen Hauptfunktion
+ * in kleinere Hilfsfunktionen (Laden, Bucket-Addieren, Finalisieren)
+ * entstand mit KI-Unterstützung.
+ *
+ * OHNE KI: Die Aggregation mit Schleifen, Maps und Buckets, die
+ * Sortierung und Finalisierung der Daten sowie das Laden und
+ * Schreiben der Dateien mit Bun wurden selbst umgesetzt.
  *
  * @returns Promise ohne Rückgabewert
  */
@@ -985,23 +750,15 @@ async function main(): Promise<void> {
 
   console.log('Lade Emissionsfaktoren...')
   const emissionFactors = await loadEmissionFactors()
-  console.log(
-    'Emissionsfaktoren geladen:',
-    GENERATION_FIELDS.length,
-    'Träger',
-  )
+  console.log('Emissionsfaktoren geladen:', GENERATION_FIELDS.length, 'Träger')
 
   let validCount = 0
   let skippedOutside = 0
   let skippedNonNumeric = 0
   let skippedZeroTotal = 0
   let skippedNegative = 0
-  let nuclearFilledCount = 0
-
-  const negativeExamples: string[] = []
 
   const monthBuckets = new Map<string, MonthBucket>()
-  const heatmapBuckets = new Map<string, HeatmapBucket>()
   const dayBuckets = new Map<string, DayBucket>()
   const yearBuckets = new Map<string, YearBucket>()
 
@@ -1015,43 +772,24 @@ async function main(): Promise<void> {
 
     const dateParts = getBerlinDateParts(timestamp)
 
-    if (
-      dateParts.year < 2015
-      || dateParts.year > 2024
-    ) {
+    if (dateParts.year < 2015 || dateParts.year > 2024) {
       skippedOutside++
       continue
     }
 
-    const sourceResult = extractSources(
-      row,
-      dateParts.dateKey,
-    )
+    const sources = extractSources(row, dateParts.dateKey)
 
-    if (sourceResult.sources === null) {
+    if (sources === null) {
       skippedNonNumeric++
       continue
     }
 
-    if (sourceResult.nuclearFilled) {
-      nuclearFilledCount++
-    }
-
-    const sources = sourceResult.sources
-
-    if (
-      hasNegativeGeneration(
-        sources,
-        dateParts,
-        negativeExamples,
-      )
-    ) {
+    if (hasNegativeGeneration(sources)) {
       skippedNegative++
       continue
     }
 
-    const totalGeneration =
-      calculateTotalGeneration(sources)
+    const totalGeneration = calculateTotalGeneration(sources)
 
     if (totalGeneration <= 0) {
       skippedZeroTotal++
@@ -1060,121 +798,51 @@ async function main(): Promise<void> {
 
     validCount++
 
-    const co2Weighted = calculateCo2Weighted(
-      sources,
-      emissionFactors,
-    )
+    const co2Weighted = calculateCo2Weighted(sources, emissionFactors)
+    const renewableGeneration = calculateRenewableGeneration(sources)
 
-    const renewableGeneration =
-      calculateRenewableGeneration(sources)
-
-    addToMonthBucket(
-      monthBuckets,
-      dateParts,
-      sources,
-      totalGeneration,
-      co2Weighted,
-    )
-
-    addToHeatmapBucket(
-      heatmapBuckets,
-      dateParts,
-      totalGeneration,
-      co2Weighted,
-    )
-
-    addToDayBucket(
-      dayBuckets,
-      dateParts,
-      renewableGeneration,
-      totalGeneration,
-      co2Weighted,
-    )
-
-    addToYearBucket(
-      yearBuckets,
-      dateParts,
-      sources,
-      renewableGeneration,
-      totalGeneration,
-      co2Weighted,
-    )
+    addToMonthBucket(monthBuckets, dateParts, sources, totalGeneration, co2Weighted)
+    addToDayBucket(dayBuckets, dateParts, renewableGeneration, totalGeneration, co2Weighted)
+    addToYearBucket(yearBuckets, dateParts, sources, renewableGeneration, totalGeneration, co2Weighted)
   }
 
-  printProcessingSummary(
-    validCount,
-    skippedOutside,
-    skippedNonNumeric,
-    skippedNegative,
-    skippedZeroTotal,
-    nuclearFilledCount,
-  )
+  // Zusammenfassung direkt in main(), das war vorher eine eigene Funktion –
+  // fand ich als extra Funktion mit 6 Parametern eher unübersichtlich.
+  console.log('\nAuswertung:')
+  console.log(`  Gültige Stunden (Berlin 2015–2024):  ${validCount}`)
+  console.log(`  Außerhalb Berliner Jahre:            ${skippedOutside}`)
+  console.log(`  Unvollständige Datensätze:           ${skippedNonNumeric}`)
+  console.log(`  Negative Erzeugungswerte:            ${skippedNegative}`)
+  console.log(`  Gesamterzeugung <= 0:                ${skippedZeroTotal}`)
 
-  if (negativeExamples.length > 0) {
-    console.log('\nBeispiele negativer Werte:')
-
-    for (const example of negativeExamples) {
-      console.log(example)
-    }
-  }
-
-  checkSkippedHours(
-    validCount,
-    skippedNonNumeric,
-    skippedNegative,
-    skippedZeroTotal,
-  )
+  const totalSkipped = skippedNonNumeric + skippedNegative + skippedZeroTotal
+  checkSkippedHours(validCount, totalSkipped)
 
   const monthlyMix = finalizeMonthlyMix(monthBuckets)
-  const heatmapCo2 = finalizeHeatmapCo2(heatmapBuckets)
   const scatterDaily = finalizeScatterDaily(dayBuckets)
   const yearlyMix = finalizeYearlyMix(yearBuckets)
 
-  const output = {
-    monthlyMix,
-    heatmapCo2,
-    scatterDaily,
-    yearlyMix,
-  }
-
-  console.log(
-    '\nPrüfe finale Daten auf ungültige Werte...',
-  )
-
-  checkFiniteValues(output, 'output')
+  const output = { monthlyMix, scatterDaily, yearlyMix }
 
   const json = JSON.stringify(output, null, 2)
 
-  await Bun.write(
-    'public/data/visualization-data.json',
-    json,
-  )
+  await Bun.write('public/data/visualization-data.json', json)
 
-  const fileSizeBytes =
-    new TextEncoder().encode(json).length
+  const fileSizeBytes = new TextEncoder().encode(json).length
+  const fileSizeMb = (fileSizeBytes / 1024 / 1024).toFixed(2)
 
-  const fileSizeMb =
-    (fileSizeBytes / 1024 / 1024).toFixed(2)
-
-  console.log(
-    `\nGespeichert: visualization-data.json (${fileSizeMb} MB)`,
-  )
-  console.log(
-    `  monthlyMix:   ${monthlyMix.length} Monate`,
-  )
-  console.log(
-    `  heatmapCo2:   ${heatmapCo2.length} Zellen`,
-  )
-  console.log(
-    `  scatterDaily: ${scatterDaily.length} Tage`,
-  )
-  console.log(
-    `  yearlyMix:    ${yearlyMix.length} Jahre`,
-  )
+  console.log(`\nGespeichert: visualization-data.json (${fileSizeMb} MB)`)
+  console.log(`  monthlyMix:   ${monthlyMix.length} Monate`)
+  console.log(`  scatterDaily: ${scatterDaily.length} Tage`)
+  console.log(`  yearlyMix:    ${yearlyMix.length} Jahre`)
 }
 
 /**
  * Behandelt Fehler, die beim Start des Skripts auftreten.
+ *
+ * MIT KI: Die sichere Behandlung eines Fehlers vom Typ unknown mit
+ * instanceof Error, um `error.message` sicher aufrufen zu können,
+ * wurde mit KI-Hilfe umgesetzt.
  *
  * @param error Aufgetretener Fehler
  */

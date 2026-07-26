@@ -21,11 +21,6 @@ export function useHighContrast() {
     apply()
   }
 
-  function setActive(value: boolean): void {
-    isActive.value = value
-    apply()
-  }
-
   function apply(): void {
     // CSS-Kontrast-Token umschalten
     if (import.meta.client) {
@@ -40,6 +35,11 @@ export function useHighContrast() {
   // Initial anwenden
   if (import.meta.client) {
     document.documentElement.dataset.contrast = isActive.value ? 'on' : 'off'
+  }
+
+  function setActive(value: boolean): void {
+    isActive.value = value
+    apply()
   }
 
   return {
