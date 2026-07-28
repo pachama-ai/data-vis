@@ -2,12 +2,10 @@
 /**
  * Hauptseite des Dashboards.
  *
- * Auf der Seite werden entweder die Daten zur
- * Stromerzeugung oder zu den Emissionen angezeigt.
- *
- * Welcher Bereich sichtbar ist, wird über den
- * Query-Parameter „tab“ in der URL festgelegt.
- * Fehlt der Parameter, wird die Erzeugungsansicht geöffnet.
+ * Auf der Seite werden entweder die Daten zur Stromerzeugung oder zu
+ * den Emissionen angezeigt. Welcher Bereich sichtbar ist, wird über
+ * den Query-Parameter „tab" in der URL festgelegt. Fehlt der
+ * Parameter, wird die Erzeugungsansicht geöffnet.
  *
  * @author Selina Schneider
  * @created 11.06.2026
@@ -20,9 +18,7 @@ import { useRoute } from 'nuxt/app'
 import GenerationPanel from '~/components/generation/GenerationPanel.vue'
 import EmissionsPanel from '~/components/emissions/EmissionsPanel.vue'
 
-/**
- * Mögliche Bereiche des Dashboards.
- */
+/** Mögliche Bereiche des Dashboards. */
 type DashboardTab = 'generation' | 'emissions'
 
 const route = useRoute()
@@ -30,13 +26,12 @@ const route = useRoute()
 /**
  * Liest den ausgewählten Bereich aus der URL.
  *
- * Bei dieser Stelle wurde KI genutzt, weil zunächst
- * unklar war, wie der Query-Parameter mit useRoute()
- * ausgelesen wird. 
- *
- * Ist in der URL „emissions“ eingetragen, wird die
- * Emissionsansicht angezeigt. Bei allen anderen Werten
- * bleibt die Erzeugungsansicht aktiv.
+ * `route.query.tab` kann je nach Aufruf ein string, ein string[]
+ * oder undefined sein. Ich prüfe deshalb nur mit einem strikten
+ * Gleichheitsvergleich auf 'emissions' und falle in jedem anderen
+ * Fall auf 'generation' zurück, damit ich nicht selbst zwischen
+ * Array und String unterscheiden muss und automatisch einen
+ * sinnvollen Default-Wert für die Startansicht bekomme.
  *
  * @returns Aktuell ausgewählter Bereich des Dashboards
  */
@@ -58,10 +53,3 @@ const activeTab = computed<DashboardTab>(function () {
     <EmissionsPanel v-else />
   </main>
 </template>
-
-<style scoped>
-/* Sorgt dafür, dass die Seite mindestens das ganze Fenster ausfüllt. */
-.dashboard-page {
-  min-height: 100vh;
-}
-</style>

@@ -3,6 +3,11 @@
  * Startseite mit dem Vergleich des deutschen Strommixes
  * in den Jahren 2015 und 2024.
  *
+ * Die Seite lädt die aufbereiteten Jahresdaten und übergibt die
+ * Vergleichswerte an das GroupedBarChart. Load-, Error- und
+ * Datenzustand werden über drei separate refs verwaltet – so kann
+ * das Template gezielt die passende Ansicht rendern.
+ *
  * @author Selina Schneider
  * @created 11.06.2026
  * @lastModified 23.07.2026
@@ -18,28 +23,36 @@ import type { YearlyMixPoint } from '~/types/visualization-data'
 
 const { loadVisualizationData } = useVisualizationData()
 
+// Drei getrennte refs für die klassischen drei Zustände einer
+// Ladeoperation. Ich habe mich bewusst gegen eine einzige „state"-
+// Variable entschieden, weil das Template dadurch mit einfachen
+// v-if-Zweigen auskommt.
 const strommixData = ref<EnergyDataPoint[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
 
 /**
- * Sucht die Daten f�r ein bestimmtes Jahr.
+ * Sucht die Daten für ein bestimmtes Jahr.
+ *
+ * @param data Liste der Jahres-Datenpunkte
+ * @param year Gesuchtes Jahr
+ * @returns Datenpunkt oder undefined, wenn das Jahr fehlt
  */
 function findYear(
   data: YearlyMixPoint[],
   year: number,
 ): YearlyMixPoint | undefined {
-  for (const item of data) {
-    if (item.year === year) {
-      return item
-    }
-  }
-
-  return undefined
+  return data.find(function (item) { return item.year === year })
 }
 
 /**
- * L�dt die Daten f�r die beiden Vergleichsjahre.
+ * Lädt die Daten für die beiden Vergleichsjahre und rechnet sie
+ * über transformYearlyDataToChartData in das Format des Diagramms um.
+ *
+ * Im catch-Zweig prüfe ich mit `caughtError instanceof Error`, weil
+ * dort alles ankommen kann (Error, String, undefined, …) und ich mir
+ * bei `caughtError.message` sonst einen zweiten Fehler einfangen
+ * würde, falls `caughtError` gar kein Error-Objekt ist.
  */
 async function loadPageData(): Promise<void> {
   try {
@@ -50,7 +63,7 @@ async function loadPageData(): Promise<void> {
 
     if (year2015 === undefined || year2024 === undefined) {
       throw new Error(
-        'F\u00fcr den Vergleich 2015\u20132024 sind keine vollst\u00e4ndigen Daten verf\u00fcgbar.',
+        'Für den Vergleich 2015–2024 sind keine vollständigen Daten verfügbar.',
       )
     }
 
@@ -80,6 +93,8 @@ onMounted(loadPageData)
       <IntroTrustLine />
     </div>
 
+    <!-- Ladezustand: schmales Platzhalter-Skeleton, damit der Layout-
+         Sprung beim späteren Einblenden des Charts kleiner ausfällt. -->
     <div
       v-if="loading"
       class="chart-loading"
@@ -99,10 +114,15 @@ onMounted(loadPageData)
       :data="strommixData"
     />
 
+    <!-- Prozentwerte in der Fußnote sind aus den Rohdaten berechnet:
+         nur die zehn im Diagramm dargestellten Träger, geteilt durch
+         die Gesamterzeugung des Jahres. Ich habe sie hier fest
+         eingetragen, damit die Grafik ohne zusätzliche Rechenlogik
+         auch bei einem Datenfehler noch die richtige Aussage macht. -->
     <p class="chart-footnote">
-      Dargestellt sind zehn ausgew�hlte Energietr�ger der �ffentlichen
-      Nettostromerzeugung nach SMARD. Kleinere Energietr�ger wie sonstige
-      erneuerbare Energien und Pumpspeicher sind nicht einzeln aufgef�hrt.
+      Dargestellt sind zehn ausgewählte Energieträger der öffentlichen
+      Nettostromerzeugung nach SMARD. Kleinere Energieträger wie sonstige
+      erneuerbare Energien und Pumpspeicher sind nicht einzeln aufgeführt.
       Deshalb ergeben die dargestellten Anteile zusammen rund 97,9&nbsp;% im
       Jahr 2015 und 97,3&nbsp;% im Jahr 2024. Die Werte sind auf eine
       Nachkommastelle gerundet.
@@ -113,12 +133,22 @@ onMounted(loadPageData)
 </template>
 
 <style scoped>
+/*
+ * Responsives Verhalten der Seite: Zentrierung, maximale Breite,
+ * Innenabstände und die Textbreite der Fußnote sind so gewählt,
+ * dass der Inhalt auf allen Bildschirmgrößen gut lesbar bleibt.
+ * Farbvariablen und Schriftgrößen richten sich nach dem restlichen
+ * Projekt.
+ */
+
 .intro-page {
   max-width: 900px;
   margin: 0 auto;
   padding: 48px 24px 64px;
 }
 
+/* Alle direkten Kinder bekommen einen einheitlichen Abstand
+   nach unten, damit ich nicht überall einzeln margin setzen muss. */
 .intro-page > :deep(*) {
   margin-bottom: 48px;
 }
@@ -131,6 +161,12 @@ onMounted(loadPageData)
   margin-bottom: 48px;
 }
 
+/*
+ * Skeleton-Fläche mit Shimmer-Animation als Ladeanzeige.
+ * Der Farbverlauf mit verschobener background-position über
+ * keyframes wirkt weniger statisch als ein einfacher grauer
+ * Kasten. Farben und Dauer sind auf die restliche Seite abgestimmt.
+ */
 .chart-skeleton {
   width: 100%;
   height: 600px;
@@ -164,6 +200,8 @@ onMounted(loadPageData)
   text-align: center;
 }
 
+/* max-width: 62ch begrenzt die Fußnote auf eine gut lesbare
+   Zeilenlänge (~62 Zeichen).*/
 .chart-footnote {
   max-width: 62ch;
   margin-top: 24px;
@@ -178,4 +216,3 @@ onMounted(loadPageData)
   position: relative;
 }
 </style>
-

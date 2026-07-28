@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * MixTooltip.vue – Kontextabhängiger Tooltip für das Stacked-Area-Chart.
+ * Tooltip für das gestapelte Flächendiagramm
  *
- * Ohne Auswahl: Monat, Gesamtsumme, drei Gruppen (Erneuerbare, Kernenergie, Fossil).
- * Mit Auswahl: Monat mit Quellennamen, Wert und Monatsanteil des gewählten Trägers.
- * Keine D3-Logik.
+ * Zeigt die Werte eines Monats
+ * Bei einer Auswahl wird nur der gewählte Energieträger angezeigt
+ *
+ * @author Selina Schneider
  */
 
 import { computed } from 'vue'
@@ -17,11 +18,7 @@ import {
   STACK_ORDER,
 } from '~/components/generation/mixConfig'
 
-import type { MixGroup, MixMonthRow, MixSourceKey } from '~/types/mix'
-
-// =========================================================================
-// Props
-// =========================================================================
+import type { MixGroup, MixMonthRow, MixSourceKey } from '~/types/energy-mix'
 
 interface MixTooltipProps {
   monthRow: MixMonthRow
@@ -32,46 +29,29 @@ interface MixTooltipProps {
 
 const props = defineProps<MixTooltipProps>()
 
-// =========================================================================
-// Formatierungsfunktionen
-// =========================================================================
-
-const twhFormatter = new Intl.NumberFormat('de-DE', {
+const numberFormatter = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
 
-const percentFormatter = new Intl.NumberFormat('de-DE', {
-  minimumFractionDigits: 1,
-  maximumFractionDigits: 1,
-})
-
-const germanMonthFormatter = new Intl.DateTimeFormat('de-DE', {
+const monthFormatter = new Intl.DateTimeFormat('de-DE', {
   month: 'long',
   year: 'numeric',
 })
 
 function formatTwh(value: number): string {
-  return `${twhFormatter.format(value)} TWh`
+  return `${numberFormatter.format(value)} TWh`
 }
 
 function formatPercent(share: number): string {
-  return `${percentFormatter.format(share * 100)} %`
+  return `${numberFormatter.format(share * 100)} %`
 }
-
-// =========================================================================
-// Hilfstypen
-// =========================================================================
 
 interface TooltipGroupValue {
   group: MixGroup
   valueTwh: number
   share: number
 }
-
-// =========================================================================
-// Hilfsfunktionen
-// =========================================================================
 
 function calculateShare(value: number, total: number): number {
   if (total === 0) {
@@ -81,20 +61,8 @@ function calculateShare(value: number, total: number): number {
   return value / total
 }
 
-function createEmptyGroupValues(): Record<MixGroup, number> {
-  return {
-    renewable: 0,
-    nuclear: 0,
-    fossil: 0,
-  }
-}
-
-// =========================================================================
-// Computed
-// =========================================================================
-
 const formattedMonth = computed(function () {
-  return germanMonthFormatter.format(props.monthRow.date)
+  return monthFormatter.format(props.monthRow.date)
 })
 
 const totalValue = computed(function () {
@@ -108,21 +76,26 @@ const totalValue = computed(function () {
 })
 
 const groupValues = computed<TooltipGroupValue[]>(function () {
-  const valuesByGroup = createEmptyGroupValues()
+  const valuesByGroup: { renewable: number; nuclear: number; fossil: number } = {
+    renewable: 0,
+    nuclear: 0,
+    fossil: 0,
+  }
 
   for (const sourceKey of STACK_ORDER) {
     const group = GROUP_OF[sourceKey]
-
     valuesByGroup[group] += props.monthRow.values[sourceKey]
   }
 
   const result: TooltipGroupValue[] = []
 
   for (const group of MIX_GROUP_ORDER) {
-    const valueTwh = valuesByGroup[group]
-    const share = calculateShare(valueTwh, totalValue.value)
-
-    result.push({ group, valueTwh, share })
+    const value = valuesByGroup[group]
+    result.push({
+      group,
+      valueTwh: value,
+      share: calculateShare(value, totalValue.value),
+    })
   }
 
   return result
@@ -136,9 +109,12 @@ const selectedSourceValue = computed(function () {
   }
 
   const valueTwh = props.monthRow.values[sourceKey]
-  const share = calculateShare(valueTwh, totalValue.value)
 
-  return { sourceKey, valueTwh, share }
+  return {
+    sourceKey,
+    valueTwh,
+    share: calculateShare(valueTwh, totalValue.value),
+  }
 })
 
 const tooltipStyle = computed(function () {

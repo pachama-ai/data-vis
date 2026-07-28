@@ -16,6 +16,7 @@ import { useMixSelection } from '~/composables/useMixSelection'
 const isActive = ref(false)
 
 export function useHighContrast() {
+  /** Schaltet den Kontrastmodus um. */
   function toggle(): void {
     isActive.value = !isActive.value
     apply()
@@ -32,11 +33,10 @@ export function useHighContrast() {
     setColorMode(isActive.value ? 'accessible' : 'default')
   }
 
-  // Initial anwenden
-  if (import.meta.client) {
-    document.documentElement.dataset.contrast = isActive.value ? 'on' : 'off'
-  }
+  // Initial anwenden (verwendet dieselbe apply-Funktion)
+  apply()
 
+  /** Setzt den Kontrastmodus direkt auf einen bestimmten Wert. */
   function setActive(value: boolean): void {
     isActive.value = value
     apply()

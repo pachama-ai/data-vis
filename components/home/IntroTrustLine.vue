@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * components/intro/IntroTrustLine.vue
- * ====================================
+ * components/home/IntroTrustLine.vue
+ *
  * Schmale Trust-Zeile: Datenquellen · Zeitraum · Auflösung.
  * Oben/unten durch Hairline getrennt, drei Spalten.
+ *
+ * @author Selina Schneider
  */
 </script>
 
@@ -55,12 +57,5 @@
   font-size: 13px;
   color: var(--text-color);
   line-height: 1.45;
-}
-
-@media (max-width: 768px) {
-  .trust-line {
-    grid-template-columns: 1fr;
-    gap: 16px;
-  }
 }
 </style>

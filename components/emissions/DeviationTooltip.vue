@@ -5,17 +5,17 @@
  * Zeigt aufgeschlüsselt: Erzeugungsanteil, Emissionsanteil und
  * Abweichung in Prozentpunkten für den anvisierten Energieträger.
  * Keine D3-Logik.
+ *
+ * @author Selina Schneider
  */
 
 import { computed } from 'vue'
 
 import { MIX_COLORS, MIX_LABELS } from '~/components/generation/mixConfig'
 
-import type { EmissionRow } from '~/types/mix'
+import type { EmissionRow } from '~/types/emissions'
 
-// =========================================================================
 // Props
-// =========================================================================
 
 interface DeviationTooltipProps {
   row: EmissionRow
@@ -25,9 +25,7 @@ interface DeviationTooltipProps {
 
 const props = defineProps<DeviationTooltipProps>()
 
-// =========================================================================
 // Formatierungsfunktionen
-// =========================================================================
 
 const percentFormatter = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
@@ -55,9 +53,7 @@ function formatPercentagePoints(value: number): string {
   return `${formattedValue} pp`
 }
 
-// =========================================================================
 // Position
-// =========================================================================
 
 const tooltipStyle = computed(function () {
   return {

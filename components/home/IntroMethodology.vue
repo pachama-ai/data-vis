@@ -1,3 +1,7 @@
+<!--
+  IntroMethodology.vue – Aufklappbare Begriffserklärungen auf der Startseite.
+  @author Selina Schneider
+-->
 <template>
   <details class="intro-methodology">
     <summary class="method-summary">

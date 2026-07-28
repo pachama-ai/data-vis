@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * StrommixPanel.vue – Rahmen für die Strommix-Visualisierung.
+ * GenerationPanel.vue – Rahmen für die Strommix-Visualisierung.
  *
  * Enthält keine eigene Daten- oder Chartlogik.
  * Verwendet ausschließlich die fertige StackedArea-Komponente.
+ *
+ * @author Selina Schneider
  */
 
 import StackedAreaChart from '~/components/generation/StackedAreaChart.vue'

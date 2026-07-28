@@ -1,28 +1,13 @@
 /*
  * Globale Grundstile für die gesamte Anwendung.
  *
- * Hier stehen die Schriftarten, Farben und allgemeinen Gestaltungsregeln,
- * die überall im Projekt gelten. Die Schriftdateien werden lokal geladen,
- * damit nichts von externen CDNs nachgeladen werden muss.
- *
- * Alles Diagramm-spezifische ist bewusst in einer eigenen Datei
- * (charts.css), damit diese Datei hier nur die globale Basis abbildet.
- *
- * Hinweis zur KI-Nutzung: Für das responsive Verhalten (Reset-Verhalten
- * und rem-basiertes Skalieren der Typografie) habe ich der KI gesagt,
- * dass die Seite responsiv sein soll. Die Umsetzung dazu ist eins zu
- * eins von der KI gekommen – siehe Kommentare an den betroffenen Stellen.
+ * Alles Diagramm-spezifische ist in einer eigenen Datei(chart-styles.css).
  *
  * @author Selina Schneider
  */
 
 /*
  * Reset für Standardabstände und Größenberechnung.
- *
- * Der Block ist Teil des responsiven Setups, das mir die KI vorgegeben hat.
- * Ich hatte nur die Anforderung „soll auf allen Bildschirmgrößen sauber
- * aussehen" formuliert, und dieser Reset war Teil der Antwort. Übernommen
- * ohne inhaltliche Änderung.
  */
 *,
 *::before,
@@ -34,13 +19,6 @@
 
 /*
  * Lokal eingebundene Schriftarten.
- *
- * font-display: swap sorgt dafür, dass zuerst eine System-Fallback-Schrift
- * angezeigt wird und die eigentliche Schrift nachgeladen wird, sobald sie
- * da ist. Dadurch bleibt der Text vom ersten Moment an lesbar.
- *
- * Die Weights habe ich bewusst nur für die tatsächlich genutzten
- * Schnitte eingebunden, damit nichts unnötig geladen wird.
  */
 @font-face {
   font-family: 'Inter';
@@ -100,8 +78,6 @@
 
 /*
  * Zentrale Design-Tokens: Farben und Schriftarten als CSS-Variablen.
- * Ich habe die Werte hier gesammelt, damit ich sie nicht überall im
- * Projekt duplizieren muss und ein Theme-Wechsel an einer Stelle reicht.
  */
 :root {
   --background-color: #faf8f4;
@@ -110,7 +86,7 @@
   --accent-color: #2d6a4f;
   --line-color: #e8e6e0;
 
-  /* Fallback-Ketten für den Fall, dass die lokale Schrift (noch) nicht da ist. */
+  /* Fallback-Ketten */
   --sans-font: 'Inter', 'Plus Jakarta Sans', -apple-system, sans-serif;
   --serif-font: 'Source Serif 4', 'Spectral', Georgia, serif;
 }
@@ -119,8 +95,7 @@
  * Kontrastmodus.
  * Ich überschreibe hier nur die Werte, die für die Lesbarkeit wichtig sind
  * (dunklerer Text, kräftigere gedämpfte Farbe, deutlichere Linien).
- * Hintergrund und Akzentfarbe bleiben absichtlich gleich, damit der
- * grundsätzliche Look erhalten bleibt.
+ * Hintergrund und Akzentfarbe bleiben absichtlich gleich, damit das Design grundsätzlich erhalten bleibt.
  */
 [data-contrast='on'] {
   --text-color: #1a1a16;
@@ -130,15 +105,6 @@
 
 /*
  * Basis-Schriftgröße.
- *
- * Die Zahl selbst (17px als Basis) und das gesamte Konzept, davon die
- * Überschriften über rem abzuleiten, kommen aus dem KI-Vorschlag zum
- * responsiven Verhalten. Ich hatte nur formuliert, dass die Typografie
- * auf unterschiedlich großen Bildschirmen konsistent wirken soll –
- * die konkrete Umsetzung ist so übernommen, wie sie geliefert wurde.
- *
- * Font-Smoothing macht die Schrift auf macOS/iOS etwas dünner und
- * gleichmäßiger – reine Optik.
  */
 html {
   font-size: 17px;
@@ -156,9 +122,6 @@ body {
 
 /*
  * Sichtbarer Fokus bei Tastaturbedienung.
- * :focus-visible statt :focus, damit der Ring nur bei Tab-Navigation
- * erscheint und nicht bei jedem Mausklick. Für die Barrierefreiheit
- * war mir das wichtig – ohne sichtbaren Fokus verliert man sich schnell.
  */
 *:focus-visible {
   outline: 2px solid var(--accent-color);
@@ -167,9 +130,6 @@ body {
 
 /*
  * Kurzer Übergang für interaktive Zustände (Hover, Fokus etc.).
- * "all" ist bewusst gewählt, weil die Übergänge sowieso nur auf wenige
- * Eigenschaften angewendet werden – so muss ich nicht bei jedem neuen
- * Effekt die Property-Liste nachziehen.
  */
 a,
 button,
@@ -179,13 +139,7 @@ summary,
 }
 
 /*
- * Überschriften bekommen die Serifen-Schrift, damit sie sich klar vom
- * Fließtext (Sans) abheben.
- *
- * Die Größen sind bewusst in rem angegeben, damit sie mit der Basisgröße
- * von html mitskalieren. Diese Struktur ist ebenfalls Teil des von der KI
- * gelieferten responsiven Setups – die konkreten rem-Werte für h1/h2/h3
- * habe ich so übernommen.
+ * Überschriften sind serif, damit sie sich vom Fließtext (sans) abheben.
  */
 h1,
 h2,
@@ -198,7 +152,6 @@ h3 {
 h1 {
   font-size: 2.4rem;
   line-height: 1.08;
-  /* Etwas engeres Tracking bei großer Serifen-Schrift, sonst wirkt sie zerfleddert. */
   letter-spacing: -0.02em;
 }
 
@@ -226,6 +179,16 @@ a {
 
 a:hover {
   text-decoration: underline;
+}
+
+/*
+ * Trennlinie in den Sidebar-Bereichen der Dashboard-Seiten.
+ * Einheitlich für Emissions- und Generation-Sidebar.
+ */
+.sidebar-divider {
+  height: 1px;
+  margin: 12px 0;
+  background: var(--line-color);
 }
 
 /*

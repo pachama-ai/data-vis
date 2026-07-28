@@ -1,9 +1,8 @@
 /**
- * Bereitet die Jahresdaten für das Balkendiagramm
- * auf der Startseite vor.
+ * Bereitet die Jahresdaten für das Balkendiagramm auf der Startseite auf.
  *
- * Die Berechnung liegt in einer eigenen Datei,
- * damit sie auch ohne die Vue-Komponente getestet werden kann.
+ * Das Diagramm vergleicht die Anteile jedes Energieträgers zwischen
+ * 2015 und 2024.
  *
  * @author Selina Schneider
  */
@@ -13,34 +12,18 @@ import type {
   EnergyDataPoint,
   EnergyCategory,
 } from '~/components/home/groupedBarUtils'
+import type { MixSourceKey } from '~/types/energy-mix'
 
 import { roundToOneDecimal } from '~/components/home/groupedBarUtils'
 
-/**
- * Energieträger, die im Balkendiagramm vorkommen.
- *
- * Die Bezeichnungen entsprechen den Schlüsseln
- * aus den geladenen Jahresdaten.
- */
-export type SourceKey =
-  | 'wind_onshore'
-  | 'pv'
-  | 'biomass'
-  | 'wind_offshore'
-  | 'hydro'
-  | 'lignite'
-  | 'hardcoal'
-  | 'gas'
-  | 'other_fossil'
-  | 'nuclear'
 
 /**
- * Enthält die Angaben, die für einen Energieträger
- * im Diagramm benötigt werden.
+ * Enthält die Angaben, die für einen Energieträger im Diagramm
+ * benötigt werden.
  */
-export interface ItemConfigEntry {
+interface ItemConfigEntry {
   /** Schlüssel in den geladenen Jahresdaten */
-  key: SourceKey
+  key: MixSourceKey
 
   /** Eindeutige ID für das Diagramm */
   id: string
@@ -53,11 +36,9 @@ export interface ItemConfigEntry {
 }
 
 /**
- * Legt die Reihenfolge und Beschriftung
- * der Energieträger im Diagramm fest.
- *
- * Die Einträge sind nach erneuerbaren Energien,
- * fossilen Energieträgern und Kernenergie sortiert.
+ * Legt die Reihenfolge und Beschriftung der Energieträger im Diagramm
+ * fest. Die Sortierung (Erneuerbare → Fossile → Kernenergie) taucht so
+ * auch im Diagramm wieder auf, deshalb ist sie fest verdrahtet.
  */
 export const ITEM_CONFIG: ItemConfigEntry[] = [
   // Erneuerbare Energien
@@ -127,13 +108,11 @@ export const ITEM_CONFIG: ItemConfigEntry[] = [
   },
 ]
 
+
 /**
- * Berechnet den prozentualen Anteil eines Energieträgers
- * an der gesamten Stromerzeugung.
- *
- * Bei dieser Funktion habe ich KI genutzt, um zu prüfen,
- * was bei einer Gesamterzeugung von 0 passiert. Ohne die Abfrage
- * würde durch 0 geteilt und das Ergebnis wäre ungültig.
+ * Berechnet den prozentualen Anteil eines Energieträgers an der
+ * gesamten Stromerzeugung. Bei einer Gesamterzeugung von 0 gebe ich 0
+ * zurück, damit das Diagramm nicht mit NaN weiterrechnet.
  *
  * @param sourceValueMwh Erzeugung des Energieträgers in MWh
  * @param totalMwh Gesamte Stromerzeugung in MWh
@@ -151,21 +130,15 @@ export function calculateSharePercent(
 }
 
 /**
- * Wandelt die Jahresdaten von 2015 und 2024
- * in die Daten für das Balkendiagramm um.
- *
- * Für jeden Energieträger wird der Anteil an der
+ * Wandelt die Jahresdaten von 2015 und 2024 in die Daten für das
+ * Balkendiagramm um. Für jeden Energieträger wird der Anteil an der
  * gesamten Stromerzeugung berechnet.
  *
- * Hier habe ich KI an zwei Stellen gebraucht. Zuerst hatte ich
- * Probleme mit dem Zugriff über configItem.key, weil TypeScript
- * den Schlüssel nicht sicher zuordnen konnte. Die Lösung war der
- * Typ SourceKey, damit nur vorhandene Energieträger verwendet werden.
- *
- * Außerdem war ich unsicher, ob die Differenz aus den genauen oder
- * aus den gerundeten Werten berechnet werden soll. Ich habe mich für
- * die gerundeten Werte entschieden, damit die sichtbare Differenz
- * auch wirklich zu den angezeigten Zahlen passt.
+ * Bei `displayedDelta` benutz ich die gerundeten Werte
+ * statt der exakten Differenz, weil sich die sichtbare Differenz
+ * sonst nicht mit dem deckt, was im Diagramm zu lesen ist. Die
+ * ungerundeten Werte bleiben trotzdem in `value2015`/`value2024`
+ * erhalten, damit die Balken korrekt bleiben.
  *
  * @param year2015 Strommix des Jahres 2015
  * @param year2024 Strommix des Jahres 2024
@@ -190,6 +163,8 @@ export function transformYearlyDataToChartData(
       totalGeneration2024,
     )
 
+    // Für das Delta die gerundeten Werte verwenden, damit die
+    // Differenz den angezeigten Zahlen zusammenpasst.
     const displayed2015 = roundToOneDecimal(exact2015)
     const displayed2024 = roundToOneDecimal(exact2024)
 

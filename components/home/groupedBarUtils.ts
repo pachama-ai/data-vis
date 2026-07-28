@@ -4,9 +4,7 @@
  * In einer eigenen Datei, damit sie unabhängig von Vue getestet werden können.
  */
 
-// =========================================================================
 // Typdefinitionen (exportiert für Tests und Komponente)
-// =========================================================================
 
 export type EnergyCategory = 'erneuerbar' | 'fossil' | 'kernkraft'
 
@@ -32,18 +30,14 @@ export interface FlatBarItem {
   value: number
 }
 
-// =========================================================================
 // Konstanten
-// =========================================================================
 
 /** Deckkraft für 2015-Balken (Vergangenheit, gedämpft). */
 const OPACITY_YEAR_2015 = 0.45
 /** Deckkraft für 2024-Balken (Gegenwart, voll). */
 const OPACITY_YEAR_2024 = 1.0
 
-// =========================================================================
 // Rundungsfunktion
-// =========================================================================
 
 /**
  * Rundet auf eine Nachkommastelle.
@@ -52,9 +46,7 @@ export function roundToOneDecimal(value: number): number {
   return Math.round(value * 10) / 10
 }
 
-// =========================================================================
 // Formatierungsfunktionen
-// =========================================================================
 
 /**
  * Formatiert die Veränderung mit Vorzeichen und Einheit.
@@ -82,9 +74,7 @@ export function formatPercent(value: number): string {
   return formattedNumber + ' %'
 }
 
-// =========================================================================
 // Deckkraft
-// =========================================================================
 
 /**
  * Bestimmt die Deckkraft eines Balkens abhängig vom Jahr.
@@ -98,9 +88,7 @@ export function getBarOpacity(bar: FlatBarItem): number {
   return OPACITY_YEAR_2024
 }
 
-// =========================================================================
 // Label-Filter
-// =========================================================================
 
 /**
  * Erzeugt aus dem geflachten Balken-Array die Untermenge, für die
@@ -118,9 +106,7 @@ export function getLabelData(flatBars: FlatBarItem[]): FlatBarItem[] {
   return result
 }
 
-// =========================================================================
 // Kategoriefilter
-// =========================================================================
 
 /**
  * Schaltet den Kategoriefilter um.

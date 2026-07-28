@@ -1,10 +1,11 @@
 <script setup lang="ts">
 /**
- * StackedArea.vue � Vue-Adapter f�r die StackedAreaChart-Klasse.
+ * Komponente für das gestapelte Flächendiagramm
  *
- * L�dt Daten �ber useMixData, initialisiert die Chart-Klasse in
- * onMounted und r�umt in onBeforeUnmount auf.
- * Keine Chart-Berechnungen � alles in StackedAreaChart.ts.
+ * Lädt die Daten, erstellt das Diagramm und
+ * gibt Änderungen an die Chart-Klasse weiter
+ *
+ * @author Selina Schneider
  */
 
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -12,7 +13,6 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ChartTemplate from '~/components/shared/ChartTemplate.vue'
 import StackedAreaLegend from '~/components/generation/StackedAreaLegend.vue'
 import MixTooltip from '~/components/generation/MixTooltip.vue'
-import AnnotationMarkers from '~/components/generation/AnnotationMarkers.vue'
 import MixSidebar from '~/components/generation/MixSidebar.vue'
 import { useMixData } from '~/composables/useMixData'
 import { useMixSelection } from '~/composables/useMixSelection'
@@ -23,15 +23,32 @@ import {
   getSourceMetrics,
 } from '~/composables/useMixMetrics'
 
-import type { MixMode, MixSourceKey, MixAnnotation } from '~/types/mix'
+import type { MixAnnotation, MixSourceKey } from '~/types/energy-mix'
 import type { MixHoverPayload } from '~/utils/charts/stackedAreaHelpers'
 
 type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 
 const chartTemplate = ref<ChartTemplateInstance | null>(null)
 
-const { monthRows, yearRows, pending, error, loadData } = useMixData()
-const { mode, colorMode, highlighted, selectedAnnotation, selectedYear, setMode, setColorMode, setHighlighted, setSelectedAnnotation, setSelectedYear, toggleHighlighted, toggleAnnotation } = useMixSelection()
+const {
+  monthRows,
+  yearRows,
+  pending,
+  error,
+  loadData,
+} = useMixData()
+const {
+  mode,
+  colorMode,
+  highlighted,
+  selectedAnnotation,
+  setMode,
+  setHighlighted,
+  setSelectedAnnotation,
+  setSelectedYear,
+  toggleHighlighted,
+  toggleAnnotation,
+} = useMixSelection()
 
 const hoverPayload = ref<MixHoverPayload | null>(null)
 
@@ -39,20 +56,16 @@ const annotations = ref<MixAnnotation[]>([])
 
 let chart: StackedAreaChart | null = null
 
-// =========================================================================
-// Metrik-Computed-Werte
-// =========================================================================
+// Werte für die Sidebar
 
 const activeAnnotation = computed(function () {
   if (selectedAnnotation.value === null) {
     return null
   }
 
-  const foundAnnotation = annotations.value.find(function (annotationItem) {
-    return annotationItem.id === selectedAnnotation.value
-  })
-
-  return foundAnnotation ?? null
+  return annotations.value.find(function (annotation) {
+    return annotation.id === selectedAnnotation.value
+  }) ?? null
 })
 
 const overviewMetrics = computed(function () {
@@ -82,15 +95,11 @@ const annotationContext = computed(function () {
   )
 })
 
-// =========================================================================
-// Hervorzuhebende Quellen: Annotation hat Vorrang vor Legende
-// =========================================================================
+// Auswahl im Diagramm
 
 const highlightedSources = computed<MixSourceKey[] | null>(function () {
-  const activeAnnotationValue = activeAnnotation.value
-
-  if (activeAnnotationValue) {
-    return activeAnnotationValue.highlight
+  if (activeAnnotation.value) {
+    return activeAnnotation.value.highlight
   }
 
   if (highlighted.value) {
@@ -100,9 +109,7 @@ const highlightedSources = computed<MixSourceKey[] | null>(function () {
   return null
 })
 
-// =========================================================================
-// Chart initialisieren
-// =========================================================================
+// Diagramm erstellen
 
 function initializeChart(): void {
   const container = chartTemplate.value?.chartContainer
@@ -137,33 +144,24 @@ function handleChartBackgroundClick(): void {
   setSelectedYear(null)
 }
 
-function handleModeChange(nextMode: MixMode): void {
-  setMode(nextMode)
-}
-
-function handleSourceSelect(
-  sourceKey: MixSourceKey | null,
-): void {
+function handleSourceSelect(sourceKey: MixSourceKey | null): void {
   if (sourceKey === null) {
     setHighlighted(null)
-    return
+  } else {
+    toggleHighlighted(sourceKey)
   }
-
-  toggleHighlighted(sourceKey)
 }
 
 function handleAnnotationSelect(annotation: MixAnnotation): void {
   const parts = annotation.date.split('-')
   const year = Number.parseInt(parts[0] ?? '0', 10)
 
-  // Ereignisauswahl setzt vorherige Quellenwahl zur�ck
+  // Vorherige Auswahl löschen
   setHighlighted(null)
   toggleAnnotation(annotation.id, year)
 }
 
-// =========================================================================
-// Daten laden und Chart starten
-// =========================================================================
+// Daten laden
 
 onMounted(async function () {
   await loadData()
@@ -172,7 +170,10 @@ onMounted(async function () {
     const response = await fetch('/data/annotations.json')
     const data: MixAnnotation[] = await response.json()
     annotations.value = data
-  } catch {
+  } catch (caughtError: unknown) {
+    if (caughtError instanceof Error) {
+      console.warn('Annotationen konnten nicht geladen werden:', caughtError.message)
+    }
     annotations.value = []
   }
 
@@ -180,9 +181,7 @@ onMounted(async function () {
   initializeChart()
 })
 
-// =========================================================================
-// Auf Daten-, Modus- oder Highlight-�nderungen reagieren
-// =========================================================================
+// Änderungen an das Diagramm weitergeben
 
 watch(monthRows, function (updatedMonthRows) {
   chart?.setData(updatedMonthRows)
@@ -209,9 +208,7 @@ watch(colorMode, function (updatedMode) {
   chart?.setColors(updatedMode)
 })
 
-// =========================================================================
-// Aufr�umen
-// =========================================================================
+// Diagramm entfernen
 
 onBeforeUnmount(function () {
   chart?.destroy()
@@ -236,7 +233,7 @@ onBeforeUnmount(function () {
               class="mode-button"
               :class="{ 'mode-button--active': mode === 'absolute' }"
               :aria-pressed="mode === 'absolute'"
-              @click="handleModeChange('absolute')"
+              @click="setMode('absolute')"
             >
               TWh
             </button>
@@ -245,7 +242,7 @@ onBeforeUnmount(function () {
               class="mode-button"
               :class="{ 'mode-button--active': mode === 'share' }"
               :aria-pressed="mode === 'share'"
-              @click="handleModeChange('share')"
+              @click="setMode('share')"
             >
               Prozent
             </button>
@@ -270,7 +267,7 @@ onBeforeUnmount(function () {
           @select="handleSourceSelect"
         />
 
-        <p v-if="pending" class="chart-note">Daten werden geladen �</p>
+        <p v-if="pending" class="chart-note">Daten werden geladen …</p>
         <p v-else-if="error" class="chart-note chart-note-error">
           Daten konnten nicht geladen werden: {{ error }}
         </p>
@@ -281,7 +278,6 @@ onBeforeUnmount(function () {
       :overview-metrics="overviewMetrics"
       :source-metrics="sourceMetrics"
       :annotation-context="annotationContext"
-      :highlighted="highlighted"
       :annotations="annotations"
       :selected-annotation="selectedAnnotation"
       @select-annotation="handleAnnotationSelect"
@@ -325,7 +321,7 @@ onBeforeUnmount(function () {
   background: transparent;
   color: var(--muted-text-color);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s;
   white-space: nowrap;
   min-width: 60px;
 }
@@ -353,9 +349,5 @@ onBeforeUnmount(function () {
   outline-offset: -2px;
 }
 
-@media (max-width: 900px) {
-  .stacked-area-content {
-    grid-template-columns: 1fr;
-  }
-}
+
 </style>

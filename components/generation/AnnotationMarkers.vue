@@ -9,7 +9,7 @@
  * @author Selina Schneider
  */
 
-import type { MixAnnotation } from '~/types/mix'
+import type { MixAnnotation } from '~/types/energy-mix'
 
 /**
  * Daten für die Ereignisnavigation.
@@ -40,26 +40,14 @@ function handleSelect(
 }
 
 /**
- * Baut den Hinweistext unter den Ereignisbuttons zusammen.
+ * Erstellt den Hinweis unter den Ereignisbuttons.
  *
- * Am Anfang stand dieser Text direkt im HTML-Teil der
- * Komponente. Das sah ungefähr so aus:
- *
- *   {{ selectedAnnotation === null
- *     ? 'Ereignis im Zeitverlauf anzeigen'
- *     : 'Erneut anklicken, um die Auswahl aufzuheben' }}
- *
- * Das war nicht schlimm, aber wenn ich den Text ändern
- * wollte, musste ich in der Vorlage suchen. Außerdem
- * wurde die Zeile mit jedem weiteren Text länger.
- *
- * KI hat mir vorgeschlagen, die Logik in eine eigene
- * Funktion zu legen. Der Vorteil ist: Ich sehe auf einen
- * Blick, was passiert. Und wenn ich den Text umformuliere,
- * muss ich nur hier ändern, nicht im HTML-Teil.
+ * Ich habe die Bedingung in eine eigene Funktion ausgelagert, weil
+ * sie im Template schwerer zu lesen war und beim Ändern des Textes
+ * unübersichtlich wurde.
  *
  * @param selectedId ID des ausgewählten Ereignisses
- * @returns Hinweistext für die aktuelle Auswahl
+ * @returns Hinweis zur aktuellen Auswahl
  */
 function getHelpText(
   selectedId: number | null,

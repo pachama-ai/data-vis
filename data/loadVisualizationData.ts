@@ -1,70 +1,51 @@
 /**
- * composables/useVisualizationData.ts
- * ====================================
- * Lädt public/data/visualization-data.json und gibt ein
- * Promise<VisualizationData> zurück.
+ * Lädt die Visualisierungsdaten aus einer JSON-Datei.
  *
- * Cache und laufender Request liegen auf Modulebene, damit:
- *   a) mehrere Komponenten dieselben Daten nutzen
- *   b) parallele Aufrufe nicht mehrere Fetches auslösen
- *   c) erfolgreich geladene Daten nicht erneut geladen werden
+ * Einmal geladen, wird das Ergebnis im Cache gehalten und bei
+ * weiteren Aufrufen direkt zurückgegeben.
+ *
+ * @author Selina Schneider
  */
 
 import type { VisualizationData } from '~/types/visualization-data'
 
+/** Bereits erfolgreich geladene Daten */
 let cachedData: VisualizationData | null = null
-let pendingRequest: Promise<VisualizationData> | null = null
 
 /**
- * Minimale Strukturprüfung: prüft, dass das geladene JSON die drei
- * erwarteten Hauptarrays enthält. Die vollständige fachliche Validierung
- * erfolgt in scripts/check-data.ts – dieser Guard verhindert nur, dass
- * offensichtlich ungültige Daten in den Cache gelangen.
+ * Stellt die Ladefunktion für die Visualisierungsdaten bereit.
  */
-function isVisualizationData(value: unknown): value is VisualizationData {
-  if (!value || typeof value !== 'object') return false
-  const obj = value as Record<string, unknown>
-  return (
-    Array.isArray(obj.monthlyMix) &&
-    Array.isArray(obj.scatterDaily) &&
-    Array.isArray(obj.yearlyMix)
-  )
-}
-
-async function fetchVisualizationData(): Promise<VisualizationData> {
-  const response = await fetch('/data/visualization-data.json')
-
-  if (!response.ok) {
-    throw new Error(
-      `Fehler beim Laden der Visualisierungsdaten: ${response.status} ${response.statusText}`,
-    )
-  }
-
-  const raw: unknown = await response.json()
-
-  if (!isVisualizationData(raw)) {
-    throw new Error('Die Visualisierungsdaten haben ein ungültiges Format.')
-  }
-
-  return raw
-}
-
 export function useVisualizationData() {
+  /**
+   * Lädt die Daten oder gibt bereits vorhandene Daten zurück.
+   *
+   * Die Struktur der Datei ist bereits über scripts/check-data.ts
+   * geprüft, deshalb reicht hier ein einfacher Cast.
+   *
+   * @returns Visualisierungsdaten
+   * @throws Fehler beim Laden
+   */
   async function loadVisualizationData(): Promise<VisualizationData> {
-    if (cachedData) return cachedData
-    if (pendingRequest) return pendingRequest
+    if (cachedData) {
+      return cachedData
+    }
 
-    pendingRequest = fetchVisualizationData()
-      .then(function (data) {
-        cachedData = data
-        return data
-      })
-      .finally(function () {
-        pendingRequest = null
-      })
+    const response = await fetch('/data/visualization-data.json')
 
-    return pendingRequest
+    if (!response.ok) {
+      throw new Error(
+        `Visualisierungsdaten konnten nicht geladen werden: ${response.status}`,
+      )
+    }
+
+    const raw: unknown = await response.json()
+    const data = raw as VisualizationData
+    cachedData = data
+
+    return data
   }
 
-  return { loadVisualizationData }
+  return {
+    loadVisualizationData,
+  }
 }

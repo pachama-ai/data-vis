@@ -22,7 +22,7 @@ import type {
   DeviationYear,
   EmissionRow,
   MixSourceKey,
-} from '~/types/mix'
+} from '~/types/emissions'
 
 /**
  * Werte, die die Seitenleiste für ihre Anzeige erhält.
@@ -95,10 +95,6 @@ function formatPercent(value: number): string {
 /**
  * Zeigt die Abweichung mit dem passenden Vorzeichen an.
  *
- * Für die drei Fälle positiv, negativ und null habe ich
- * KI-Unterstützung genutzt. Dadurch bekommt ein Wert von null
- * nicht fälschlich ein Pluszeichen.
- *
  * @param value Abweichung in Prozentpunkten
  * @returns Wert mit Vorzeichen und Einheit
  */
@@ -155,97 +151,69 @@ function formatChange(
 }
 
 /**
- * Begrenzt die Breite der kleinen Vergleichsleiste.
- *
- * Normalerweise liegt der Anteil zwischen 0 und 1. Die zusätzliche
- * Begrenzung verhindert aber, dass die Leiste bei unerwarteten
- * Werten über ihren Hintergrund hinausragt.
- *
- * Bei dieser Absicherung habe ich KI-Unterstützung genutzt und
- * die Begrenzung danach an die Werte der Komponente angepasst.
+ * Begrenzt die Balkenbreite auf 0 bis 100 Prozent
  *
  * @param share Anteil zwischen 0 und 1
  * @returns Breite für das CSS
  */
 function getBarWidth(share: number): string {
-  const width = share * 100
-  const limitedWidth = Math.max(
-    0,
-    Math.min(100, width),
-  )
+  let width = share * 100
 
-  return `${limitedWidth}%`
+  if (width < 0) {
+    width = 0
+  }
+
+  if (width > 100) {
+    width = 100
+  }
+
+  return `${width}%`
 }
 
-/** Gibt an, ob Jahresdaten vorhanden sind. */
-function checkHasData(): boolean {
+const hasData = computed(function () {
   return props.activeYear !== null
-}
-
-const hasData = computed(checkHasData)
+})
 
 /**
- * Wählt den Energieträger aus, dessen Werte gerade gezeigt werden.
- *
- * Solange die Maus über einem Balken liegt, hat dieser Vorrang.
- * Danach wird wieder die angeklickte Auswahl angezeigt.
- *
- * @returns Aktuelle Zeile oder null
+ * Aktuelle Zeile: Hover hat Vorrang, sonst die Auswahl
  */
-function findActiveRow(): EmissionRow | null {
+const activeRow = computed(function () {
   if (props.hoveredRow !== null) {
     return props.hoveredRow
   }
 
   return props.selectedRow
-}
+})
 
-const activeRow = computed(findActiveRow)
+const hasSelection = computed(function () {
+  if (props.selectedRow === null) {
+    return false
+  }
 
-/** Zeigt, ob ein Energieträger fest ausgewählt wurde. */
-function checkHasSelection(): boolean {
-  return (
-    props.selectedRow !== null
-    && props.hoveredRow === null
-  )
-}
+  return props.hoveredRow === null
+})
 
-const hasSelection = computed(checkHasSelection)
-
-/** Prüft, ob gerade die Detailansicht gebraucht wird. */
-function checkShowsSource(): boolean {
+const showsSource = computed(function () {
   return activeRow.value !== null
-}
+})
 
-const showsSource = computed(checkShowsSource)
-
-/**
- * Erkennt den Sonderfall ohne Stromerzeugung.
- *
- * @returns true bei 0 TWh Erzeugung
- */
-function checkHasZeroGeneration(): boolean {
+const hasZeroGeneration = computed(function () {
   const row = activeRow.value
 
-  return (
-    row !== null
-    && row.generationTwh === 0
-  )
-}
+  if (row === null) {
+    return false
+  }
 
-const hasZeroGeneration = computed(
-  checkHasZeroGeneration,
-)
+  return row.generationTwh === 0
+})
 
-/** Prüft, ob statt der Details der Jahresüberblick sichtbar ist. */
-function checkShowsDefault(): boolean {
-  return (
-    hasData.value
-    && activeRow.value === null
-  )
-}
+const showsDefault = computed(function () {
+  if (!hasData.value) {
+    return false
+  }
 
-const showsDefault = computed(checkShowsDefault)
+  return activeRow.value === null
+})
 
 /**
  * Liefert die passende Farbe aus der aktuell gewählten Palette.
@@ -261,31 +229,18 @@ function getColor(sourceKey: MixSourceKey): string {
   return MIX_COLORS[sourceKey]
 }
 
-/**
- * Liest die Gruppe des aktuell gezeigten Energieträgers aus.
- *
- * @returns Gruppenname oder leerer Text
- */
-function findGroupLabel(): string {
+const groupLabel = computed(function () {
   const row = activeRow.value
 
   if (row === null) {
     return ''
   }
 
-  const group = GROUP_OF[row.sourceKey]
-
-  return MIX_GROUP_LABELS[group]
-}
-
-const groupLabel = computed(findGroupLabel)
+  return MIX_GROUP_LABELS[GROUP_OF[row.sourceKey]]
+})
 
 /**
- * Ordnet die Abweichung in einem kurzen Satz ein.
- *
- * Bei den drei Textvarianten habe ich KI-Unterstützung genutzt.
- * Die Formulierungen habe ich danach vereinfacht und auf die
- * Grenze von einem Prozentpunkt abgestimmt.
+ * Ordnet die Abweichung in einem kurzen Satz ein
  *
  * @param row Daten des Energieträgers
  * @returns Kurze Einordnung der Abweichung
@@ -308,8 +263,16 @@ function createMeaning(row: EmissionRow): string {
   return `${name} verursacht anteilig etwa so viele CO₂-Emissionen, wie sie Strom erzeugt.`
 }
 
+const showsDevelopment = computed(function () {
+  if (props.selectedRowBaseShare === null) {
+    return false
+  }
+
+  return hasSelection.value
+})
+
 /**
- * Vergleicht den aktuellen Stromanteil mit dem Wert von 2015.
+ * Vergleicht den aktuellen Stromanteil mit dem Wert von 2015
  *
  * @param currentShare Aktueller Erzeugungsanteil
  * @returns Passendes Wort für den Entwicklungssatz
@@ -319,14 +282,19 @@ function getDevelopmentWord(
 ): string {
   const baseShare = props.selectedRowBaseShare
 
-  if (
-    baseShare !== null
-    && baseShare > currentShare
-  ) {
+  if (baseShare === null) {
+    return ''
+  }
+
+  if (currentShare > baseShare) {
+    return 'stieg'
+  }
+
+  if (currentShare < baseShare) {
     return 'sank'
   }
 
-  return 'stieg'
+  return 'blieb gleich'
 }
 </script>
 
@@ -339,7 +307,6 @@ function getDevelopmentWord(
       Kennzahlen sind nicht verfügbar.
     </p>
 
-    <!-- Details zum Energieträger, der gerade aktiv ist. -->
     <template v-if="showsSource && activeRow">
       <p class="sidebar-year">
         {{ activeYear?.year }}
@@ -361,7 +328,6 @@ function getDevelopmentWord(
       </template>
 
       <template v-else>
-        <!-- Name, Farbe und Gruppe gehören direkt zusammen. -->
         <section class="sidebar-section">
           <div class="sidebar-name-block">
             <span
@@ -385,7 +351,6 @@ function getDevelopmentWord(
 
         <div class="sidebar-divider"></div>
 
-        <!-- Die beiden Anteile werden direkt gegenübergestellt. -->
         <section class="sidebar-section">
           <p class="title-label">
             Stromerzeugung und CO₂-Emissionen
@@ -448,7 +413,6 @@ function getDevelopmentWord(
 
         <div class="sidebar-divider"></div>
 
-        <!-- Ergebnis aus Emissionsanteil minus Stromanteil. -->
         <section class="sidebar-section">
           <p class="title-label">
             Differenz
@@ -488,7 +452,6 @@ function getDevelopmentWord(
 
         <div class="sidebar-divider"></div>
 
-        <!-- Kurze Erklärung, damit der Zahlenwert leichter einzuordnen ist. -->
         <section class="sidebar-section">
           <p class="title-label">
             Bedeutung
@@ -499,13 +462,7 @@ function getDevelopmentWord(
           </p>
         </section>
 
-        <!-- Der Zeitvergleich erscheint nur nach einer festen Auswahl. -->
-        <template
-          v-if="
-            selectedRowBaseShare !== null
-            && hasSelection
-          "
-        >
+        <template v-if="showsDevelopment">
           <div class="sidebar-divider"></div>
 
           <section class="sidebar-section">
@@ -523,7 +480,7 @@ function getDevelopmentWord(
               von
               {{
                 formatPercent(
-                  selectedRowBaseShare * 100,
+                  selectedRowBaseShare! * 100,
                 )
               }}
               auf
@@ -538,7 +495,6 @@ function getDevelopmentWord(
       </template>
     </template>
 
-    <!-- Ohne Auswahl bleiben die wichtigsten Jahreswerte sichtbar. -->
     <template v-if="showsDefault && activeYear">
       <p class="sidebar-year">
         {{ activeYear.year }}
@@ -641,12 +597,7 @@ function getDevelopmentWord(
   line-height: 1.1;
 }
 
-/* Hält die einzelnen Inhalte optisch auseinander. */
-.sidebar-divider {
-  height: 1px;
-  margin: 12px 0;
-  background: var(--line-color);
-}
+/* Hält die einzelnen Inhalte optisch auseinander – Regel in main.css */
 
 .sidebar-section {
   margin-bottom: 4px;

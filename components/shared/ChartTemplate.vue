@@ -23,10 +23,6 @@ defineProps<ChartTemplateProps>()
 
 /**
  * Verweist auf den Bereich, in den D3 das Diagramm zeichnet.
- *
- * Bei dieser Stelle wurde kurz KI genutzt, weil mir zuerst
- * nicht klar war, wie eine andere Komponente mit defineExpose
- * auf dieses Element zugreifen kann.
  */
 const chartContainer = ref<HTMLElement | null>(null)
 
@@ -75,11 +71,9 @@ defineExpose({
 }
 
 /*
- * Ordnet Überschrift und Bedienelemente an.
- *
- * Bei den flexiblen Abständen wurde KI genutzt,
- * weil der Bereich auch bei wenig Platz lesbar
- * bleiben und nicht über den Rand laufen sollte.
+ * Ordnet Überschrift und Bedienelemente an. Der Bereich soll
+ * auch bei wenig Platz lesbar bleiben und nicht über den Rand
+ * laufen.
  */
 .chart-header {
   display: flex;

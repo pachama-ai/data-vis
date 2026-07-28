@@ -1,6 +1,4 @@
 /**
- * composables/useMixData.ts
- *
  * Normalisiert die Rohdaten aus useVisualizationData für das
  * Stacked-Area-Chart: reduziert auf 10 Quellen, MWh → TWh,
  * Datumsparsing, Jahressummen.
@@ -11,24 +9,26 @@
 import { ref, computed } from 'vue'
 import { useVisualizationData } from '~/data/loadVisualizationData'
 import { STACK_ORDER } from '~/components/generation/mixConfig'
-import type { MixSourceKey, MixMonthRow, RawMixMonthPoint } from '~/types/mix'
+import type { MixMonthRow, RawMixMonthPoint } from '~/types/energy-mix'
 import type { VisualizationData } from '~/types/visualization-data'
 
-// =========================================================================
-// Typ für eine berechnete Jahreszeile (nur hier definiert, da Phase 2
-// keine neuen globalen Typdateien anlegt).
-// =========================================================================
+// Typ für eine berechnete Jahreszeile (nur hier definiert, weil es
+// keine eigene globale Typdatei dafür braucht).
+
+type SourceValues = {
+  hydro: number; biomass: number; wind_offshore: number; wind_onshore: number
+  pv: number; nuclear: number; gas: number; other_fossil: number
+  hardcoal: number; lignite: number
+}
 
 export interface MixYearRow {
   year: number
-  values: Record<MixSourceKey, number>
+  values: SourceValues
   /** Gesamterzeugung in TWh (alle SMARD-Kategorien inkl. Pumpspeicher) */
   totalTwh: number
 }
 
-// =========================================================================
 // Hilfsfunktionen
-// =========================================================================
 
 /**
  * Wandelt einen Monatsstring "2015-01" in ein Date für den 1. des Monats um.
@@ -70,8 +70,8 @@ function convertMwhToTwh(valueInMwh: number): number {
  * Erzeugt einen leeren Values-Record, bei dem alle zehn Quellen auf 0 gesetzt sind.
  * Wird für die Jahressummen-Vorbereitung verwendet.
  */
-function createEmptySourceValues(): Record<MixSourceKey, number> {
-  const emptyValues = {} as Record<MixSourceKey, number>
+function createEmptySourceValues(): SourceValues {
+  const emptyValues = {} as SourceValues
 
   for (const sourceKey of STACK_ORDER) {
     emptyValues[sourceKey] = 0
@@ -80,9 +80,7 @@ function createEmptySourceValues(): Record<MixSourceKey, number> {
   return emptyValues
 }
 
-// =========================================================================
 // Normalisierung eines Rohdatenpunktes
-// =========================================================================
 
 /**
  * Normalisiert einen einzelnen MonthlyMixPoint in eine MixMonthRow.
@@ -97,7 +95,7 @@ export function normalizeMonth(
 ): MixMonthRow {
   const parsedDate = parseMonth(monthPoint.month)
 
-  const values = {} as Record<MixSourceKey, number>
+  const values = {} as SourceValues
 
   for (const sourceKey of STACK_ORDER) {
     const valueInMwh = monthPoint.sources[sourceKey]
@@ -114,9 +112,7 @@ export function normalizeMonth(
   }
 }
 
-// =========================================================================
 // Jahressummen aus Monatsdaten
-// =========================================================================
 
 /**
  * Berechnet aus normalisierten Monatszeilen die Jahressummen.
@@ -128,7 +124,7 @@ export function calculateYearRows(
   monthlyRows: MixMonthRow[],
 ): MixYearRow[] {
   // 1. Monate nach Jahr gruppieren und Quellenwerte aufsummieren
-  const yearTotals = new Map<number, Record<MixSourceKey, number>>()
+  const yearTotals = new Map<number, SourceValues>()
   const yearFullTotals = new Map<number, number>()
 
   for (const monthRow of monthlyRows) {
@@ -164,9 +160,7 @@ export function calculateYearRows(
   return result
 }
 
-// =========================================================================
 // Composable
-// =========================================================================
 
 /**
  * Stellt normalisierte Monats- und Jahresdaten für das Stacked-Area-Chart bereit.

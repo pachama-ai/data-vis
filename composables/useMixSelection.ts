@@ -7,11 +7,9 @@
 
 import { ref } from 'vue'
 
-import type { ColorMode, MixMode, MixSourceKey } from '~/types/mix'
+import type { ColorMode, MixMode, MixSourceKey } from '~/types/energy-mix'
 
-// =========================================================================
 // Modulweite Refs (geteilter Zustand)
-// =========================================================================
 
 const mode = ref<MixMode>('absolute')
 const colorMode = ref<ColorMode>('default')
@@ -19,9 +17,7 @@ const highlighted = ref<MixSourceKey | null>(null)
 const selectedYear = ref<number | null>(null)
 const selectedAnnotation = ref<number | null>(null)
 
-// =========================================================================
 // Composable
-// =========================================================================
 
 export function useMixSelection() {
   function setMode(nextMode: MixMode): void {

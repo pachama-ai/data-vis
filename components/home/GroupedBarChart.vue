@@ -1,4 +1,15 @@
 <script setup lang="ts">
+/**
+ * Gruppiertes Balkendiagramm für die Startseite.
+ *
+ * Vergleicht für jeden Energieträger den Anteil an der
+ * Stromerzeugung 2015 und 2024 in zwei nebeneinanderliegenden
+ * Balken. Das Zeichnen übernimmt D3 direkt auf einem SVG-Element,
+ * Vue verwaltet nur den Filterzustand und den Tooltip.
+ *
+ * @author Selina Schneider
+ */
+
 import { ref, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import * as d3 from 'd3'
 import {
@@ -73,13 +84,17 @@ const OUTER_BAND_PADDING = 0.45
 const INNER_BAND_PADDING = 0.08
 const X_AXIS_TICK_VALUES = [0, 5, 10, 15, 20, 25, 30]
 
-const CATEGORY_COLORS: Record<EnergyCategory, string> = {
+const CATEGORY_COLORS: { erneuerbar: string; fossil: string; kernkraft: string } = {
   erneuerbar: '#7a9e6e',
   fossil: '#a67c52',
   kernkraft: '#b56b8a',
 }
 
-const CATEGORY_COLORS_CONTRAST: Record<EnergyCategory, { year2015: string; year2024: string }> = {
+const CATEGORY_COLORS_CONTRAST: {
+  erneuerbar: { year2015: string; year2024: string }
+  fossil: { year2015: string; year2024: string }
+  kernkraft: { year2015: string; year2024: string }
+} = {
   erneuerbar: { year2015: '#9CBE7E', year2024: '#33612A' },
   fossil:      { year2015: '#D2A25C', year2024: '#6F3F12' },
   kernkraft:   { year2015: '#D18BAF', year2024: '#84265A' },
@@ -93,7 +108,7 @@ function getCategoryColor(category: EnergyCategory, year: '2015' | '2024'): stri
   return CATEGORY_COLORS[category]
 }
 
-const CATEGORY_LABELS: Record<EnergyCategory, string> = {
+const CATEGORY_LABELS: { erneuerbar: string; fossil: string; kernkraft: string } = {
   erneuerbar: 'Erneuerbare Energien',
   fossil: 'Fossile Energieträger',
   kernkraft: 'Kernenergie',

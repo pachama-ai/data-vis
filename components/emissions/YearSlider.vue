@@ -1,19 +1,12 @@
 <script setup lang="ts">
 /**
- * Ermöglicht die Auswahl eines Jahres.
- *
- * Der Slider zeigt alle verfügbaren Jahre zwischen dem
- * ersten und dem letzten Eintrag. Bei einer Änderung wird
- * das ausgewählte Jahr an die übergeordnete Komponente gesendet.
+ * YearSlider.vue – Slider zur Auswahl des dargestellten Jahres.
  *
  * @author Selina Schneider
  */
 
 import { computed } from 'vue'
 
-/**
- * Werte, die der Jahresregler braucht.
- */
 interface YearSliderProps {
   /** Verfügbare Jahre */
   years: number[]
@@ -28,86 +21,45 @@ const emit = defineEmits<{
   change: [year: number]
 }>()
 
-/**
- * Bestimmt das erste verfügbare Jahr.
- *
- * Ohne Einträge wird das ausgewählte Jahr verwendet.
- *
- * @returns Kleinstes Jahr des Sliders
- */
-function findMinimumYear(): number {
-  const firstYear = props.years[0]
+/** Erstes verfügbares Jahr */
+const firstYear = computed(function (): number {
+  return props.years[0] ?? props.selectedYear
+})
 
-  return firstYear ?? props.selectedYear
-}
-
-const minimumYear = computed(findMinimumYear)
-
-/**
- * Bestimmt das letzte verfügbare Jahr.
- *
- * Ohne Einträge wird das ausgewählte Jahr verwendet.
- *
- * @returns Größtes Jahr des Sliders
- */
-function findMaximumYear(): number {
+/** Letztes verfügbares Jahr */
+const lastYear = computed(function (): number {
   const lastIndex = props.years.length - 1
-  const lastYear = props.years[lastIndex]
+  return props.years[lastIndex] ?? props.selectedYear
+})
 
-  return lastYear ?? props.selectedYear
-}
+/** Gefüllter Anteil des Sliders */
+const fillPercent = computed(function (): number {
+  const distance = lastYear.value - firstYear.value
 
-const maximumYear = computed(findMaximumYear)
-
-/**
- * Berechnet die gefüllte Breite der Slider-Leiste.
- *
- * Hier wurde KI bei der Berechnung genutzt. Die erste Version
- * teilte durch 0, wenn nur ein Jahr vorhanden war. Dadurch
- * entstand für die Breite der Wert NaN. Der Sonderfall setzt
- * die Füllung deshalb auf 100 Prozent.
- *
- * @returns Fortschritt zwischen 0 und 100 Prozent
- */
-function calculateFillPercent(): number {
-  const minimum = minimumYear.value
-  const maximum = maximumYear.value
-
-  if (maximum <= minimum) {
+  if (distance <= 0) {
     return 100
   }
 
-  const selectedDistance =
-    props.selectedYear - minimum
-
-  const completeDistance =
-    maximum - minimum
-
-  return selectedDistance / completeDistance * 100
-}
-
-const fillPercent = computed(calculateFillPercent)
+  return (
+    (props.selectedYear - firstYear.value)
+    / distance
+    * 100
+  )
+})
 
 /**
- * Liest das Jahr aus dem Range-Input und sendet es weiter.
- *
- * Hier wurde KI bei der Typisierung des Events genutzt.
- * event.target hat zuerst keinen sicheren value-Zugriff.
- * Die Umwandlung zu HTMLInputElement behebt den Typfehler.
+ * Sendet das ausgewählte Jahr weiter
  *
  * @param event Eingabeereignis des Sliders
  */
 function handleInput(event: Event): void {
-  const input = event.target as HTMLInputElement
-  const year = Number(input.value)
-
-  emit('change', year)
+  const input = event.currentTarget as HTMLInputElement
+  emit('change', Number(input.value))
 }
 </script>
 
 <template>
   <div class="year-slider">
-    <!-- Beschriftung und ausgewähltes Jahr -->
     <div class="year-slider-header">
       <span class="title-label">
         Jahr der Darstellung
@@ -119,50 +71,45 @@ function handleInput(event: Event): void {
     </div>
 
     <!-- Slider mit eigener Hintergrundlinie -->
+    <!-- Eigene Linie unter dem transparenten Range-Input -->
     <div class="year-slider-track">
       <div class="year-slider-background"></div>
 
       <div
         class="year-slider-fill"
         :style="{
-          width: `${fillPercent}%`,
+          width: fillPercent + '%',
         }"
       ></div>
 
       <input
         type="range"
         class="year-slider-input"
-        :min="minimumYear"
-        :max="maximumYear"
+        :min="firstYear"
+        :max="lastYear"
         step="1"
         :value="selectedYear"
         aria-label="Jahr der Darstellung"
-        :aria-valuenow="selectedYear"
-        :aria-valuemin="minimumYear"
-        :aria-valuemax="maximumYear"
-        :aria-valuetext="String(selectedYear)"
         @input="handleInput"
       >
     </div>
 
-    <!-- Erstes und letztes verfügbares Jahr -->
     <div
       class="year-slider-range"
       aria-hidden="true"
     >
-      <span>{{ minimumYear }}</span>
-      <span>{{ maximumYear }}</span>
+      <span>{{ firstYear }}</span>
+      <span>{{ lastYear }}</span>
     </div>
   </div>
 </template>
 
 <style scoped>
-/* Gesamter Bereich des Jahresreglers. */
 .year-slider {
   padding-bottom: 20px;
 }
 
-/* Beschriftung und aktuelles Jahr. */
+
 .year-slider-header {
   display: flex;
   align-items: baseline;
@@ -178,14 +125,7 @@ function handleInput(event: Event): void {
   line-height: 1;
 }
 
-/*
- * Legt Hintergrund, Füllung und Eingabefeld übereinander.
- *
- * Hier wurde KI beim Aufbau mit position: absolute genutzt.
- * Die erste Version zeigte neben der eigenen Linie zusätzlich
- * den normalen Browser-Track. Alle sichtbaren Linien liegen
- * deshalb unter dem transparenten Range-Input.
- */
+/* Legt Linie, Füllung und Range-Input übereinander */
 .year-slider-track {
   position: relative;
   display: flex;
@@ -199,7 +139,6 @@ function handleInput(event: Event): void {
   position: absolute;
   top: 50%;
   height: 2px;
-  border-radius: 1px;
   pointer-events: none;
   transform: translateY(-50%);
 }
@@ -225,7 +164,6 @@ function handleInput(event: Event): void {
   height: 24px;
   margin: 0;
   background: none;
-  cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
 }
@@ -237,19 +175,8 @@ function handleInput(event: Event): void {
   margin-top: -5px;
   border-radius: 50%;
   background: var(--accent-color);
-  cursor: pointer;
   appearance: none;
   -webkit-appearance: none;
-  transition:
-    width 150ms ease-out,
-    height 150ms ease-out,
-    margin-top 150ms ease-out;
-}
-
-.year-slider-input::-webkit-slider-thumb:hover {
-  width: 14px;
-  height: 14px;
-  margin-top: -6px;
 }
 
 .year-slider-input:focus-visible::-webkit-slider-thumb {
@@ -264,15 +191,6 @@ function handleInput(event: Event): void {
   border: none;
   border-radius: 50%;
   background: var(--accent-color);
-  cursor: pointer;
-  transition:
-    width 150ms ease-out,
-    height 150ms ease-out;
-}
-
-.year-slider-input::-moz-range-thumb:hover {
-  width: 14px;
-  height: 14px;
 }
 
 .year-slider-input:focus-visible::-moz-range-thumb {

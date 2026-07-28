@@ -1,8 +1,5 @@
 /**
- * composables/useMixMetrics.ts – Reine Berechnungsfunktionen für Kennzahlen.
- *
- * Enthält keine Vue-Refs, kein Fetch, keinen State.
- * Alle Funktionen sind rein und geben bei fehlenden Daten null zurück.
+ * Berechnungsfunktionen für Kennzahlen.
  */
 
 import {
@@ -16,14 +13,12 @@ import type {
   MixGroup,
   MixMonthRow,
   MixSourceKey,
-} from '~/types/mix'
+} from '~/types/energy-mix'
 import type { MixYearRow } from '~/composables/useMixData'
 
-// =========================================================================
 // Ergebnis-Typen
-// =========================================================================
 
-export interface GroupComparisonMetric {
+interface GroupComparisonMetric {
   group: MixGroup
   value2015: number
   value2024: number
@@ -32,7 +27,7 @@ export interface GroupComparisonMetric {
   percentagePointChange: number
 }
 
-export interface SourceChangeMetric {
+interface SourceChangeMetric {
   sourceKey: MixSourceKey
   changeTwh: number
 }
@@ -43,7 +38,7 @@ export interface OverviewMetrics {
   largestDecrease: SourceChangeMetric
 }
 
-export interface SourceMonthMetric {
+interface SourceMonthMetric {
   monthRow: MixMonthRow
   valueTwh: number
 }
@@ -60,7 +55,7 @@ export interface SourceMetrics {
   minimumMonth: SourceMonthMetric
 }
 
-export interface AnnotationGroupShare {
+interface AnnotationGroupShare {
   group: MixGroup
   valueTwh: number
   share: number
@@ -72,14 +67,18 @@ export interface AnnotationContext {
   groupShares: AnnotationGroupShare[]
 }
 
-// =========================================================================
 // Hilfsfunktionen
-// =========================================================================
 
 /**
  * Erzeugt einen leeren Group-Values-Record mit allen drei Gruppen auf 0.
  */
-function createEmptyGroupValues(): Record<MixGroup, number> {
+type GroupValues = {
+  renewable: number
+  nuclear: number
+  fossil: number
+}
+
+function createEmptyGroupValues(): GroupValues {
   return {
     renewable: 0,
     nuclear: 0,
@@ -102,7 +101,7 @@ function calculateYearTotal(yearRow: MixYearRow): number {
  */
 function calculateYearGroupValues(
   yearRow: MixYearRow,
-): Record<MixGroup, number> {
+): GroupValues {
   const groupValues = createEmptyGroupValues()
 
   for (const sourceKey of STACK_ORDER) {
@@ -133,7 +132,7 @@ function calculateMonthTotal(monthRow: MixMonthRow): number {
  */
 function calculateMonthGroupValues(
   monthRow: MixMonthRow,
-): Record<MixGroup, number> {
+): GroupValues {
   const groupValues = createEmptyGroupValues()
 
   for (const sourceKey of STACK_ORDER) {
@@ -164,9 +163,7 @@ function calculateShare(value: number, total: number): number {
   return value / total
 }
 
-// =========================================================================
 // Hauptfunktionen
-// =========================================================================
 
 /**
  * Berechnet die Übersichts-Kennzahlen für den Strommix 2015 → 2024.
@@ -176,7 +173,7 @@ function calculateShare(value: number, total: number): number {
 export function getOverviewMetrics(
   yearRows: MixYearRow[],
 ): OverviewMetrics | null {
-  // 1. Jahre suchen
+  // Jahre suchen
   let year2015: MixYearRow | null = null
   let year2024: MixYearRow | null = null
 
@@ -194,15 +191,15 @@ export function getOverviewMetrics(
     return null
   }
 
-  // 2. Gesamtsummen
+  // Gesamtsummen
   const total2015 = calculateYearTotal(year2015)
   const total2024 = calculateYearTotal(year2024)
 
-  // 3. Gruppensummen
+  // Gruppensummen
   const groupValues2015 = calculateYearGroupValues(year2015)
   const groupValues2024 = calculateYearGroupValues(year2024)
 
-  // 4. Gruppenvergleich in Reihenfolge MIX_GROUP_ORDER
+  // Gruppenvergleich in Reihenfolge MIX_GROUP_ORDER
   const groups: GroupComparisonMetric[] = []
 
   for (const group of MIX_GROUP_ORDER) {
@@ -228,7 +225,7 @@ export function getOverviewMetrics(
     })
   }
 
-  // 5. Größten Zuwachs und größten Rückgang bestimmen
+  // Größten Zuwachs und größten Rückgang bestimmen
   let largestIncrease: SourceChangeMetric | null = null
   let largestDecrease: SourceChangeMetric | null = null
 
@@ -267,8 +264,6 @@ export function getOverviewMetrics(
     largestDecrease,
   }
 }
-
-// =========================================================================
 
 /**
  * Findet den Monat mit dem höchsten und niedrigsten Wert für eine Quelle.
@@ -331,7 +326,7 @@ export function getSourceMetrics(
   monthRows: MixMonthRow[],
   sourceKey: MixSourceKey,
 ): SourceMetrics | null {
-  // 1. Jahre suchen
+  // Jahre suchen
   let year2015: MixYearRow | null = null
   let year2024: MixYearRow | null = null
 
@@ -349,23 +344,23 @@ export function getSourceMetrics(
     return null
   }
 
-  // 2. Jahreswerte
+  // Jahreswerte
   const value2015 = year2015.values[sourceKey]
   const value2024 = year2024.values[sourceKey]
 
-  // 3. Jahressummen
+  // Jahressummen
   const total2015 = calculateYearTotal(year2015)
   const total2024 = calculateYearTotal(year2024)
 
-  // 4. Jahresanteile
+  // Jahresanteile
   const share2015 = calculateShare(value2015, total2015)
   const share2024 = calculateShare(value2024, total2024)
 
-  // 5. Veränderungen
+  // Veränderungen
   const changeTwh = value2024 - value2015
   const percentagePointChange = (share2024 - share2015) * 100
 
-  // 6. Höchst- und Tiefstmonat
+  // Höchst- und Tiefstmonat
   const extremes = findSourceExtremes(monthRows, sourceKey)
 
   if (extremes === null) {
@@ -385,8 +380,6 @@ export function getSourceMetrics(
   }
 }
 
-// =========================================================================
-
 /**
  * Berechnet den Kontext für eine ausgewählte Annotation.
  *
@@ -396,9 +389,8 @@ export function getAnnotationContext(
   monthRows: MixMonthRow[],
   annotation: MixAnnotation,
 ): AnnotationContext | null {
-  // 1. Monatszeile anhand des annotation.date suchen
+  // Monatszeile anhand des annotation.date suchen
   let matchingMonthRow: MixMonthRow | null = null
-
   for (const monthRow of monthRows) {
     if (monthRow.month === annotation.date) {
       matchingMonthRow = monthRow
@@ -410,13 +402,13 @@ export function getAnnotationContext(
     return null
   }
 
-  // 2. Monatsgesamtsumme
+  // Monatsgesamtsumme
   const monthTotal = calculateMonthTotal(matchingMonthRow)
 
-  // 3. Gruppensummen
+  // Gruppensummen
   const groupValues = calculateMonthGroupValues(matchingMonthRow)
 
-  // 4. Gruppenanteile in Reihenfolge MIX_GROUP_ORDER
+  // Gruppenanteile in Reihenfolge MIX_GROUP_ORDER
   const groupShares: AnnotationGroupShare[] = []
 
   for (const group of MIX_GROUP_ORDER) {

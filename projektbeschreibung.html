@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Strom und Klimaneutralität – der deutsche Strommix zwischen 2015 und 2024</title>
+<style>
+  :root {
+    --accent: #2d6a4f;
+    --text: #222222;
+    --muted: #5a5a5a;
+    --border: #e0e0e0;
+    --bg-soft: #f7f7f5;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: system-ui, sans-serif;
+    color: var(--text);
+    line-height: 1.6;
+    margin: 0;
+    padding: 0 1rem;
+    background: #ffffff;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 2.5rem 0 4rem;
+  }
+
+  h1, h2, h3 {
+    font-family: Georgia, serif;
+    line-height: 1.3;
+  }
+
+  h1 {
+    font-size: 1.9rem;
+    margin-bottom: 0.3rem;
+  }
+
+  .subtitle {
+    font-size: 1.15rem;
+    color: var(--muted);
+    margin-top: 0;
+    margin-bottom: 1.25rem;
+  }
+
+  .meta {
+    font-size: 0.9rem;
+    color: var(--muted);
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    padding: 0.75rem 0;
+    margin-bottom: 1.5rem;
+  }
+
+  .meta p {
+    margin: 0.2rem 0;
+  }
+
+  h2 {
+    font-size: 1.4rem;
+    margin-top: 2.5rem;
+    border-bottom: 2px solid var(--accent);
+    padding-bottom: 0.3rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    margin-top: 1.5rem;
+    color: var(--accent);
+  }
+
+  p {
+    margin: 0.9rem 0;
+  }
+
+  ul, ol {
+    padding-left: 1.4rem;
+  }
+
+  li {
+    margin-bottom: 0.4rem;
+  }
+
+  figure {
+    margin: 1.5rem 0;
+  }
+
+  figure img {
+    max-width: 100%;
+    display: block;
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+  }
+
+  figcaption {
+    font-size: 0.9rem;
+    color: var(--muted);
+    margin-top: 0.4rem;
+  }
+
+  .placeholder-img {
+    width: 100%;
+    min-height: 220px;
+    background: var(--bg-soft);
+    border: 1px dashed #b6b6b6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+    padding: 1rem;
+  }
+
+  .to-fill {
+    background: #fff8e6;
+    border: 1px solid #e6c97a;
+    border-radius: 6px;
+    padding: 1rem 1.25rem;
+    margin-top: 3rem;
+  }
+
+  .to-fill h2 {
+    border-bottom: none;
+    margin-top: 0;
+  }
+
+  code {
+    background: var(--bg-soft);
+    padding: 0.1rem 0.35rem;
+    border-radius: 3px;
+    font-size: 0.9em;
+  }
+
+  footer {
+    margin-top: 3rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border);
+    font-size: 0.9rem;
+    color: var(--muted);
+  }
+
+  a {
+    color: var(--accent);
+  }
+
+  @media (max-width: 600px) {
+    main {
+      padding: 1.5rem 0 3rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+    }
+  }
+</style>
+</head>
+<body>
+<main>
+
+  <header>
+    <h1>Strom und Klimaneutralität – der deutsche Strommix zwischen 2015 und 2024</h1>
+    <p class="subtitle">Eine interaktive Visualisierung von Erzeugung und CO₂-Emissionen</p>
+    <div class="meta">
+      <p>Verfasserin: Selina Schneider</p>
+      <p>Modul Visualisierung, Medieninformatik, Hochschule Harz</p>
+      <p>Betreuung: Prof. Jürgen Singer</p>
+      <p>Stand: <!-- Von der Verfasserin zu ergänzen: konkretes Veröffentlichungsdatum --> Von der Verfasserin zu ergänzen</p>
+    </div>
+    <p>
+      In diesem Projekt zeige ich, wie sich der deutsche Strommix zwischen 2015
+      und 2024 verändert hat und welche Energieträger dabei überproportional
+      viel zu den CO₂-Emissionen der Stromerzeugung beitragen.
+    </p>
+  </header>
+
+  <section>
+    <h2>Worum es geht</h2>
+    <p>
+      Ich habe mich in diesem Projekt mit einer Frage beschäftigt, die im
+      Modul Visualisierung immer wieder aufkam: Wie zeigt man Veränderung über
+      Zeit so, dass man nicht nur Zahlen sieht, sondern versteht, was dahinter
+      steckt? Der deutsche Strommix bot sich dafür an, weil er sich in den
+      letzten zehn Jahren tatsächlich stark verändert hat und weil es dazu
+      gut zugängliche, öffentliche Daten gibt.
+    </p>
+    <p>
+      Mich hat dabei besonders interessiert, dass nicht jeder Energieträger
+      gleich viel CO₂ pro erzeugter Strommenge verursacht. Ein Energieträger
+      kann also einen kleineren Anteil an der Erzeugung haben, aber trotzdem
+      einen größeren Anteil an den Emissionen – oder umgekehrt.
+    </p>
+    <p>
+      Aus dieser Überlegung sind zwei Leitfragen entstanden, die die
+      Anwendung beantworten soll:
+    </p>
+    <ul>
+      <li>Wie hat sich der Strommix – also der Anteil der einzelnen
+        Energieträger an der Stromerzeugung – zwischen 2015 und 2024
+        verschoben?</li>
+      <li>Welche Energieträger tragen überproportional zu den CO₂-Emissionen
+        der Stromerzeugung bei, gemessen an ihrem Anteil an der
+        Erzeugung selbst?</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Was die Anwendung zeigt</h2>
+    <p>
+      Die Anwendung besteht aus drei Diagrammen, die jeweils einen anderen
+      Blick auf dieselben Daten erlauben.
+    </p>
+
+    <h3>Balkenvergleich 2015 vs. 2024</h3>
+    <figure>
+      <div class="placeholder-img">
+        <!-- Screenshot vom Balkendiagramm der Startseite,
+             von der Verfasserin einzufügen -->
+        <img src="" alt="Gruppiertes Balkendiagramm auf der Startseite, das für jeden Energieträger die Erzeugung 2015 neben der Erzeugung 2024 zeigt">
+      </div>
+      <figcaption>Balkenvergleich der Energieträger 2015 gegenüber 2024 (Startseite)</figcaption>
+    </figure>
+    <p>
+      Auf der Startseite steht für jeden Energieträger ein Balkenpaar
+      nebeneinander: einer für 2015, einer für 2024. So sieht man auf einen
+      Blick, welche Energieträger zugelegt haben und welche zurückgegangen
+      sind, ohne gleich in die Detailansicht wechseln zu müssen.
+    </p>
+
+    <h3>Gestapeltes Flächendiagramm zum Strommix</h3>
+    <figure>
+      <div class="placeholder-img">
+        <!-- Screenshot vom gestapelten Flächendiagramm des Strommix,
+             von der Verfasserin einzufügen -->
+        <img src="" alt="Gestapeltes Flächendiagramm, das die monatliche Entwicklung aller Energieträger von 2015 bis 2024 zeigt">
+      </div>
+      <figcaption>Monatliche Entwicklung des Strommix im Zeitverlauf (Dashboard, Tab „Entwicklung")</figcaption>
+    </figure>
+    <p>
+      Dieses Diagramm zeigt die monatlichen Werte aller zehn dargestellten
+      Energieträger übereinandergestapelt, wahlweise als absolute Werte in
+      Terawattstunden (TWh) oder als Anteil an der Gesamterzeugung. Historische
+      Ereignisse wie der Kohleausstiegsbeschluss oder der Atomausstieg lassen
+      sich direkt im Diagramm markieren.
+    </p>
+
+    <h3>Abweichungsdiagramm zum CO₂-Vergleich</h3>
+    <figure>
+      <div class="placeholder-img">
+        <!-- Screenshot vom Abweichungsdiagramm des CO2-Vergleichs,
+             von der Verfasserin einzufügen -->
+        <img src="" alt="Abweichungsdiagramm, das für ein ausgewähltes Jahr je Energieträger die Differenz zwischen Erzeugungsanteil und Emissionsanteil in Prozentpunkten zeigt">
+      </div>
+      <figcaption>Abweichung zwischen Erzeugungsanteil und Emissionsanteil je Energieträger (Dashboard, Tab „CO₂-Vergleich")</figcaption>
+    </figure>
+    <p>
+      Hier vergleiche ich für ein ausgewähltes Jahr den Anteil eines
+      Energieträgers an der Stromerzeugung mit seinem Anteil an den direkten
+      CO₂-Emissionen. Die Differenz wird in Prozentpunkten angegeben: Ein
+      Balken nach rechts bedeutet, ein Energieträger verursacht
+      überproportional viele Emissionen im Verhältnis zu seinem
+      Erzeugungsanteil, ein Balken nach links das Gegenteil.
+    </p>
+  </section>
+
+  <section>
+    <h2>Bedienung</h2>
+    <p>
+      Die Anwendung lässt sich vollständig mit der Maus (oder Tastatur, wo
+      möglich) bedienen. Die wichtigsten Interaktionen sind:
+    </p>
+    <ul>
+      <li>Über die Navigation zwischen Startseite und den beiden
+        Dashboard-Tabs „Entwicklung" und „CO₂-Vergleich" wechseln.</li>
+      <li>Im Strommix-Diagramm zwischen der Ansicht in TWh und der
+        Ansicht als Anteil umschalten.</li>
+      <li>Im CO₂-Vergleich über den Jahres-Slider ein bestimmtes Jahr
+        auswählen.</li>
+      <li>Die Balken im CO₂-Vergleich nach Namen oder nach Größe der
+        Abweichung sortieren.</li>
+      <li>Beim Bewegen der Maus über Balken oder Flächen erscheint ein
+        Tooltip mit den genauen Werten.</li>
+      <li>Historische Ereignisse im Strommix-Diagramm anklicken, um sie
+        im Diagramm hervorzuheben und Details dazu anzuzeigen.</li>
+      <li>Einzelne Energieträger über die Legende ein- und ausblenden.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Daten und Methodik</h2>
+    <p>
+      Die Grundlage der Anwendung sind stündliche Erzeugungsdaten von SMARD
+      (Strommarktdaten der Bundesnetzagentur) für den Zeitraum 2015 bis 2024.
+      SMARD veröffentlicht die realisierte Stromerzeugung in Deutschland
+      aufgeschlüsselt nach Energieträger.
+    </p>
+    <p>
+      Für die CO₂-Berechnung verwende ich Emissionsfaktoren des
+      Umweltbundesamts, die angeben, wie viel CO₂ pro erzeugter Kilowattstunde
+      bei einem bestimmten Energieträger im Schnitt anfällt. Multipliziert mit
+      der erzeugten Strommenge ergibt sich daraus eine CO₂-Menge je
+      Energieträger und Zeitraum.
+    </p>
+    <p>
+      Die stündlichen Rohdaten liegen in koordinierter Weltzeit (UTC) vor und
+      werden für die Auswertung in Berliner Lokalzeit umgerechnet, damit
+      Tages- und Monatsgrenzen zur tatsächlichen Ortszeit passen.
+    </p>
+    <p>
+      SMARD unterscheidet mehr Energieträger-Kategorien, als in der
+      Anwendung einzeln dargestellt werden. Ich zeige zehn Energieträger,
+      nicht alle SMARD-Kategorien einzeln. Deshalb ergeben die dargestellten
+      Anteile in Summe nicht ganz 100 %, sondern liegen knapp darunter.
+    </p>
+  </section>
+
+  <section>
+    <h2>Zentrale Erkenntnisse</h2>
+    <p>
+      Ohne die genauen Zahlen vorwegzunehmen, lässt sich aus den Daten grob
+      Folgendes ablesen:
+    </p>
+    <ul>
+      <li>Die Stromerzeugung aus Kohle ist über den Betrachtungszeitraum
+        insgesamt zurückgegangen.</li>
+      <li>Erneuerbare Energieträger wie Windkraft und Photovoltaik haben
+        deutlich an Anteil gewonnen.</li>
+      <li>Braunkohle trägt in den meisten Jahren überproportional zu den
+        CO₂-Emissionen bei, gemessen an ihrem Anteil an der
+        Stromerzeugung.</li>
+      <li>Die Kernenergie wurde im April 2023 vollständig abgeschaltet
+        (Abschluss des Atomausstiegs), was im Strommix-Diagramm als
+        deutlicher Einschnitt sichtbar wird.</li>
+      <li>Genaue Prozentwerte zu einzelnen Jahren: Von der Verfasserin zu
+        ergänzen, sobald final geprüft.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Technische Grundlagen</h2>
+    <p>
+      Die Anwendung ist mit Vue und Nuxt sowie TypeScript umgesetzt, die
+      Diagramme selbst zeichne ich mit D3. Als Laufzeitumgebung während der
+      Entwicklung habe ich Bun verwendet.
+    </p>
+    <p>
+      Die Rohdaten liegen als JSON-Dateien im Projekt und werden beim ersten
+      Laden der Seite eingelesen. Danach läuft die Anwendung ohne weitere
+      Internetverbindung.
+    </p>
+  </section>
+
+  <section>
+    <h2>Einschränkungen</h2>
+    <p>
+      Ein paar Punkte, die man beim Betrachten der Anwendung im Hinterkopf
+      behalten sollte:
+    </p>
+    <ul>
+      <li>Nicht jede von SMARD erfasste Erzeugungskategorie wird einzeln
+        dargestellt – einige kleinere oder seltener genutzte Kategorien
+        fehlen in der Detailansicht.</li>
+      <li>Die verwendeten Emissionsfaktoren sind Durchschnittswerte je
+        Energieträger und keine Messwerte einzelner Kraftwerke. Reale
+        Anlagen können davon abweichen.</li>
+      <li>Berücksichtigt werden nur die direkten Emissionen der
+        Stromerzeugung, nicht die vorgelagerten Emissionsketten (z. B.
+        Abbau, Transport oder Bau der Anlagen).</li>
+      <li>Import- und Exportströme mit dem Ausland fließen nicht gesondert
+        in die Darstellung ein.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Zum Nachlesen und Weitermachen</h2>
+    <ul>
+      <li>SMARD (Strommarktdaten der Bundesnetzagentur): <a href="https://www.smard.de/">https://www.smard.de/</a></li>
+      <li>Vorlesungsmodul: Modul Visualisierung, Medieninformatik,
+        Hochschule Harz, Prof. Jürgen Singer</li>
+      <li>PDF-Dokumentation und Quellcode: Von der Verfasserin zu ergänzen</li>
+    </ul>
+  </section>
+
+  <footer>
+    <p>Selina Schneider &middot; Hochschule Harz &middot; Medieninformatik, Modul Visualisierung &middot; Von der Verfasserin zu ergänzen (Semester)</p>
+  </footer>
+
+  <section class="to-fill">
+    <h2>Vor der Veröffentlichung zu ergänzen</h2>
+    <ul>
+      <li>Screenshots aller drei Diagramme (Balkenvergleich, Strommix-Fläche,
+        CO₂-Abweichung) in die entsprechenden <code>&lt;img&gt;</code>-Platzhalter
+        einfügen.</li>
+      <li>Abrufdatum der SMARD-Daten ergänzen.</li>
+      <li>Quelle und Abrufdatum der Emissionsfaktoren ergänzen.</li>
+      <li>Link auf das öffentliche Repository bzw. die PDF-Dokumentation
+        ergänzen.</li>
+      <li>Matrikelnummer ergänzen, falls im Blog-Kontext gewünscht.</li>
+      <li>Veröffentlichungsdatum im Kopfbereich ergänzen.</li>
+      <li>Semesterangabe in der Fußzeile ergänzen.</li>
+    </ul>
+    <p>Diesen Abschnitt vor der Veröffentlichung entfernen, sobald alles
+      ausgefüllt ist.</p>
+  </section>
+
+</main>
+</body>
+</html>

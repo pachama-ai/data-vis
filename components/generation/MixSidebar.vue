@@ -1,12 +1,13 @@
 <script setup lang="ts">
 /**
- * MixSidebar.vue – Seitenleiste mit drei Zuständen (Übersicht, Quelle, Annotation).
+ * Seitenleiste für das Flächendiagramm
  *
- * Erhält alle Kennzahlen bereits berechnet über Props.
- * Enthält nur Anzeige-Logik und Formatierung.
+ * Zeigt eine Übersicht, einen Energieträger
+ * oder Informationen zu einem Ereignis
+ *
+ * @author Selina Schneider
  */
 
-import { computed } from 'vue'
 import {
   MIX_LABELS,
   MIX_COLORS,
@@ -14,22 +15,17 @@ import {
 } from '~/components/generation/mixConfig'
 import AnnotationMarkers from '~/components/generation/AnnotationMarkers.vue'
 
-import type { MixSourceKey, MixAnnotation } from '~/types/mix'
+import type { MixAnnotation } from '~/types/energy-mix'
 import type {
   OverviewMetrics,
   SourceMetrics,
   AnnotationContext,
 } from '~/composables/useMixMetrics'
 
-// =========================================================================
-// Props
-// =========================================================================
-
 interface MixSidebarProps {
   overviewMetrics: OverviewMetrics | null
   sourceMetrics: SourceMetrics | null
   annotationContext: AnnotationContext | null
-  highlighted: MixSourceKey | null
   annotations: MixAnnotation[]
   selectedAnnotation: number | null
 }
@@ -44,41 +40,17 @@ function handleAnnotationSelect(annotation: MixAnnotation): void {
   emit('selectAnnotation', annotation)
 }
 
-// =========================================================================
-// Zustands-Computed-Werte
-// =========================================================================
-
-const showsAnnotation = computed(function () {
-  return props.annotationContext !== null
-})
-
-const showsSource = computed(function () {
-  return (
-    props.annotationContext === null &&
-    props.sourceMetrics !== null
-  )
-})
-
-// =========================================================================
-// Formatierungsfunktionen
-// =========================================================================
-
 const numberFormatter = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
 
 function formatTwh(value: number): string {
-  const formattedValue = numberFormatter.format(value)
-
-  return `${formattedValue} TWh`
+  return `${numberFormatter.format(value)} TWh`
 }
 
 function formatPercent(share: number): string {
-  const percentValue = share * 100
-  const formattedPercent = numberFormatter.format(percentValue)
-
-  return `${formattedPercent} %`
+  return `${numberFormatter.format(share * 100)} %`
 }
 
 function formatPercentagePoints(value: number): string {
@@ -109,12 +81,12 @@ function formatSignedTwh(value: number): string {
   return `${formattedValue} TWh`
 }
 
-function formatMonth(date: Date): string {
-  const monthFormatter = new Intl.DateTimeFormat('de-DE', {
-    month: 'long',
-    year: 'numeric',
-  })
+const monthFormatter = new Intl.DateTimeFormat('de-DE', {
+  month: 'long',
+  year: 'numeric',
+})
 
+function formatMonth(date: Date): string {
   return monthFormatter.format(date)
 }
 </script>
@@ -129,51 +101,47 @@ function formatMonth(date: Date): string {
 
     <div class="sidebar-divider" />
 
-    <!-- ================================================= -->
-    <!-- Zustand C – Annotation (hat Vorrang)              -->
-    <!-- ================================================= -->
+    <!-- Ereignis -->
     <section
-      v-if="showsAnnotation && annotationContext"
+      v-if="annotationContext"
       class="sidebar-state"
     >
-      <p class="sidebar-eyebrow">
+      <p class="annotation-date">
         {{ annotationContext.annotation.date }}
-        </p>
+      </p>
 
-        <h2 class="sidebar-title">
-          {{ annotationContext.annotation.title }}
-        </h2>
+      <h2 class="sidebar-title">
+        {{ annotationContext.annotation.title }}
+      </h2>
 
-        <p class="annotation-text">
-          {{ annotationContext.annotation.text }}
-        </p>
+      <p class="annotation-text">
+        {{ annotationContext.annotation.text }}
+      </p>
 
-        <div class="sidebar-section">
-          <h3 class="sidebar-section-title">
-            Anteile im ausgewählten Monat
-          </h3>
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">
+          Anteile im ausgewählten Monat
+        </h3>
 
-          <div
-            v-for="groupShare in annotationContext.groupShares"
-            :key="groupShare.group"
-            class="metric-row"
-          >
-            <span class="metric-label">
-              {{ MIX_GROUP_LABELS[groupShare.group] }}
-            </span>
+        <div
+          v-for="groupShare in annotationContext.groupShares"
+          :key="groupShare.group"
+          class="metric-row"
+        >
+          <span class="metric-label">
+            {{ MIX_GROUP_LABELS[groupShare.group] }}
+          </span>
 
-            <span class="metric-value">
-              {{ formatPercent(groupShare.share) }}
-            </span>
-          </div>
+          <span class="metric-value">
+            {{ formatPercent(groupShare.share) }}
+          </span>
         </div>
+      </div>
     </section>
 
-    <!-- ================================================= -->
-    <!-- Zustand B – Energieträger                          -->
-    <!-- ================================================= -->
+    <!-- Energieträger -->
     <section
-      v-else-if="showsSource && sourceMetrics"
+      v-else-if="sourceMetrics"
       class="sidebar-state"
     >
       <h2 class="source-heading">
@@ -279,9 +247,7 @@ function formatMonth(date: Date): string {
       </p>
     </section>
 
-    <!-- ================================================= -->
-    <!-- Zustand A – Übersicht (Default)                   -->
-    <!-- ================================================= -->
+    <!-- Übersicht -->
     <section
       v-else
       class="sidebar-state"
@@ -357,8 +323,6 @@ function formatMonth(date: Date): string {
             </span>
           </div>
         </div>
-
-
       </template>
 
       <p
@@ -385,7 +349,7 @@ function formatMonth(date: Date): string {
   padding: 16px;
 }
 
-.sidebar-eyebrow {
+.annotation-date {
   margin: 0 0 2px;
   font-size: 11px;
   color: var(--muted-text-color);
@@ -480,13 +444,6 @@ function formatMonth(date: Date): string {
   font-style: italic;
 }
 
-.comparison-note {
-  margin: 0 0 8px;
-  font-size: 12px;
-  color: var(--muted-text-color);
-  line-height: 1.4;
-}
-
 .source-context {
   margin: 10px 0 0;
   font-size: 12px;
@@ -497,9 +454,5 @@ function formatMonth(date: Date): string {
   border-radius: 4px;
 }
 
-.sidebar-divider {
-  height: 1px;
-  background: var(--line-color);
-  margin: 12px 0;
-}
+/* .sidebar-divider – Regel in main.css */
 </style>

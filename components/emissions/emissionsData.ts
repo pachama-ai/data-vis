@@ -1,8 +1,10 @@
 /**
- * composables/useEmissions.ts – Reine Berechnungsfunktionen für CO₂-Emissionen.
+ * components/emissions/emissionsData.ts – Reine Berechnungsfunktionen für CO₂-Emissionen.
  *
- * Enthält kein Vue, kein Fetch, keinen State.
- * Alle Funktionen sind rein und geben bei fehlenden/ungültigen Eingaben null zurück.
+ * Enthält kein Vue und keinen eigenen State.
+ * Alle Berechnungsfunktionen sind rein und geben bei fehlenden/ungültigen
+ * Eingaben null zurück. Einzige Ausnahme ist loadEmissionFactorsFile, die
+ * die Emissionsfaktoren per fetch lädt.
  *
  * Die Emissionsfaktoren (g CO₂/kWh) stammen aus public/data/emission-factors.json
  * (UBA, Climate Change 16/2026). Sie bilden die direkten CO₂-Emissionen ab
@@ -11,21 +13,14 @@
 
 import { STACK_ORDER } from '~/components/generation/mixConfig'
 
-import type { MixSourceKey, EmissionRow, DeviationYear, EmissionFactorsFile } from '~/types/mix'
+import type { EmissionRow, DeviationYear, EmissionFactorsFile, EmissionFactorValues } from '~/types/emissions'
 import type { MixYearRow } from '~/composables/useMixData'
 
-// =========================================================================
 // Konstanten
-// =========================================================================
 
 /**
- * Standard-Emissionsfaktoren in g CO₂/kWh (direkte Emissionen).
- * Werte aus UBA Climate Change 16/2026.
- * Werden verwendet, falls emission-factors.json nicht geladen werden kann.
- */
-/**
  * Lädt die Emissionsfaktoren aus der JSON-Datei.
- * Verwendet $fetch (Nuxt-kompatibel).
+ * Verwendet die globale fetch-Funktion (nicht Nuxts $fetch).
  */
 export async function loadEmissionFactorsFile(): Promise<EmissionFactorsFile> {
   const response = await fetch('/data/emission-factors.json')
@@ -46,7 +41,7 @@ export async function loadEmissionFactorsFile(): Promise<EmissionFactorsFile> {
  * Werte aus UBA Climate Change 16/2026.
  * Werden verwendet, falls emission-factors.json nicht geladen werden kann.
  */
-export const DEFAULT_EMISSION_FACTORS: Record<MixSourceKey, number> = {
+export const DEFAULT_EMISSION_FACTORS: EmissionFactorValues = {
   hydro: 0,
   biomass: 0,
   wind_offshore: 0,
@@ -59,9 +54,7 @@ export const DEFAULT_EMISSION_FACTORS: Record<MixSourceKey, number> = {
   lignite: 1075,
 }
 
-// =========================================================================
 // Hilfsfunktionen
-// =========================================================================
 
 /**
  * Berechnet die CO₂-Emissionen eines Jahres für einen einzelnen Energieträger.
@@ -119,9 +112,7 @@ function calculateShare(value: number, total: number): number {
   return value / total
 }
 
-// =========================================================================
 // Hauptfunktionen
-// =========================================================================
 
 /**
  * Berechnet für ein einzelnes Jahr die Emissionszeilen (EmissionRow) aus
@@ -133,7 +124,7 @@ function calculateShare(value: number, total: number): number {
  */
 export function calculateEmissionRows(
   yearRow: MixYearRow | null,
-  emissionFactors: Record<MixSourceKey, number> = DEFAULT_EMISSION_FACTORS,
+  emissionFactors: EmissionFactorValues = DEFAULT_EMISSION_FACTORS,
 ): EmissionRow[] | null {
   if (!yearRow) {
     return null
@@ -151,7 +142,7 @@ export function calculateEmissionRows(
   }
 
   // 2. Emissionen pro Quelle berechnen und Gesamtemissionen ermitteln
-  const emissionsPerSource = {} as Record<MixSourceKey, number>
+  const emissionsPerSource = {} as EmissionFactorValues
   let totalEmissionsMt = 0
 
   for (const sourceKey of STACK_ORDER) {
@@ -195,7 +186,7 @@ export function calculateEmissionRows(
  */
 export function calculateDeviationYear(
   yearRow: MixYearRow | null,
-  emissionFactors: Record<MixSourceKey, number> = DEFAULT_EMISSION_FACTORS,
+  emissionFactors: EmissionFactorValues = DEFAULT_EMISSION_FACTORS,
 ): DeviationYear | null {
   if (!yearRow) {
     return null

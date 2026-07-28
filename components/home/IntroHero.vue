@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * components/intro/IntroHero.vue
- * ===============================
+ * components/home/IntroHero.vue
  * Hero-Bereich der Intro-Landingpage.
  * Linksbündig mit Eyebrow, Headline, Subline.
+ *
+ * @author Selina Schneider
  */
 </script>
 
@@ -18,17 +19,6 @@
 <style scoped>
 .intro-hero {
   margin-bottom: 64px;
-}
-
-.eyebrow {
-  display: block;
-  font-family: var(--sans-font);
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--muted-text-color);
-  margin-bottom: 12px;
 }
 
 .hero-headline {

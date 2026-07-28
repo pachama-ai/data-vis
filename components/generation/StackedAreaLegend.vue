@@ -5,6 +5,8 @@
  * Zeigt alle zehn Energieträger nach Gruppen geordnet.
  * Klick auf einen Chip emittiert den Source-Key.
  * Die Toggle-Logik liegt in useMixSelection, nicht hier.
+ *
+ * @author Selina Schneider
  */
 
 import { computed } from 'vue'
@@ -19,7 +21,7 @@ import {
   STACK_ORDER,
 } from '~/components/generation/mixConfig'
 
-import type { ColorMode, MixGroup, MixSourceKey } from '~/types/mix'
+import type { ColorMode, MixGroup, MixSourceKey } from '~/types/energy-mix'
 
 const props = defineProps<{
   highlighted: MixSourceKey | null
@@ -49,10 +51,6 @@ function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   return sources
 }
 
-const hasEvent = computed(function () {
-  return props.highlightedSources != null && props.highlightedSources.length > 0
-})
-
 function isSourceActive(sourceKey: MixSourceKey): boolean {
   if (props.hasActiveAnnotation && props.highlightedSources != null) {
     return props.highlightedSources.includes(sourceKey)
@@ -67,13 +65,9 @@ function isSourceDisabled(sourceKey: MixSourceKey): boolean {
   return !props.highlightedSources.includes(sourceKey)
 }
 
-const showAllDisabled = computed(function () {
-  return props.hasActiveAnnotation === true
-})
-
-const showAllActive = computed(function () {
+function isAllActive(): boolean {
   return props.highlightedSources == null && props.highlighted === null
-})
+}
 
 function handleSelect(sourceKey: MixSourceKey): void {
   if (isSourceDisabled(sourceKey)) return
@@ -81,7 +75,7 @@ function handleSelect(sourceKey: MixSourceKey): void {
 }
 
 function handleShowAll(): void {
-  if (showAllDisabled.value) return
+  if (props.hasActiveAnnotation) return
   emit('select', null)
 }
 </script>
@@ -92,10 +86,10 @@ function handleShowAll(): void {
       type="button"
       class="legend-chip legend-all-button"
       :class="{
-        'legend-chip--active': showAllActive,
+        'legend-chip--active': isAllActive(),
       }"
-      :aria-pressed="showAllActive"
-      :disabled="showAllDisabled"
+      :aria-pressed="isAllActive()"
+      :disabled="hasActiveAnnotation"
       aria-label="Alle Energieträger anzeigen"
       @click="handleShowAll"
     >
@@ -231,27 +225,6 @@ function handleShowAll(): void {
 
 .legend-label {
   font-weight: 400;
-}
-
-.legend-hint {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-family: var(--sans-font);
-  font-size: 12px;
-  letter-spacing: 0.03em;
-  color: var(--muted-text-color);
-  padding: 6px 14px;
-  background: rgba(0, 0, 0, 0.03);
-  border: 1px solid rgba(0, 0, 0, 0.06);
-  border-radius: 999px;
-  margin: 20px 0 8px;
-  font-style: normal;
-}
-
-.legend-hint-arrow {
-  font-size: 11px;
-  opacity: 0.6;
 }
 
 .legend-all-button {

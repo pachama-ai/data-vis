@@ -1,76 +1,64 @@
 /**
- * composables/useDeviation.ts – Reine Berechnungsfunktionen für die
- * Abweichungsanalyse (Strombeitrag vs. Emissionsanteil).
+ * Berechnet Abweichungen zwischen Stromerzeugung
+ * und direkten CO₂-Emissionen.
  *
- * Enthält kein Vue, kein Fetch, keinen State.
- * Alle Funktionen sind rein und geben null zurück, wenn nicht genügend
- * Daten vorliegen.
+ * Verglichen werden der Anteil eines Energieträgers
+ * an der Stromerzeugung und sein Anteil an den gesamten
+ * direkten CO₂-Emissionen.
  *
- * Kernidee:
- *  Jeder Energieträger hat einen Anteil an der Gesamterzeugung (Strombeitrag)
- *  und einen Anteil an den gesamten CO₂-Emissionen (Emissionsanteil).
- *  Die Abweichung (Deviation) in Prozentpunkten zeigt, ob ein Energieträger
- *  überproportional (positiv) oder unterproportional (negativ) zu den
- *  Emissionen beiträgt.
+ * Positive Werte bedeuten einen größeren Emissionsanteil.
+ * Negative Werte bedeuten einen kleineren Emissionsanteil.
  *
- *  deviation_pp = emissionShare - generationShare
- *
- *  Ein positiver Wert bedeutet: Der Anteil an den Emissionen ist höher als
- *  der Anteil an der Erzeugung (z. B. Braunkohle: 20 % Erzeugung, 80 %
- *  Emissionen → +60 pp).
- *  Ein negativer Wert bedeutet: Der Anteil an den Emissionen ist niedriger
- *  (z. B. Erneuerbare: 50 % Erzeugung, 0 % Emissionen → –50 pp).
+ * @author Selina Schneider
  */
 
-import { GROUP_OF, STACK_ORDER } from '~/components/generation/mixConfig'
-
-import type { EmissionRow, DeviationYear, MixGroup, MixSourceKey } from '~/types/mix'
-import type { MixYearRow } from '~/composables/useMixData'
+import {
+  GROUP_OF,
+  STACK_ORDER,
+} from '~/components/generation/mixConfig'
 
 import {
   calculateDeviationYear,
   DEFAULT_EMISSION_FACTORS,
 } from '~/components/emissions/emissionsData'
 
-// =========================================================================
-// Typen (nur hier, da Phase A noch keine separaten Typ-Dateien anlegt)
-// =========================================================================
+import type { MixYearRow } from '~/composables/useMixData'
+import type {
+  DeviationYear,
+  EmissionFactorValues,
+  EmissionRow,
+  MixSourceKey,
+} from '~/types/emissions'
 
-/** Ergebnis der größten Abweichung (positiv = höherer Emissionsanteil). */
+/**
+ * Enthält die Angaben zur größten absoluten Abweichung.
+ */
 export interface LargestMismatch {
+  /** Energieträger mit der größten Abweichung */
   sourceKey: MixSourceKey
+
+  /** Abweichung in Prozentpunkten */
   deviationPp: number
+
+  /** Richtung der Abweichung */
   direction: 'over' | 'under'
+
+  /** Anteil an der Stromerzeugung */
   generationShare: number
+
+  /** Anteil an den direkten CO₂-Emissionen */
   emissionShare: number
 }
 
-/** Fachliches Basisjahr für den Vergleich. */
+/** Festgelegtes Vergleichsjahr des Diagramms. */
 export const BASE_YEAR = 2015
 
-// =========================================================================
-// Hilfsfunktionen
-// =========================================================================
-
 /**
- * Berechnet deviationPp aus zwei Anteilen.
+ * Berechnet den gesamten Erzeugungsanteil
+ * der erneuerbaren Energieträger.
  *
- * @param emissionShare – Anteil an den Emissionen (0–1)
- * @param generationShare – Anteil an der Erzeugung (0–1)
- * @returns Abweichung in Prozentpunkten
- */
-export function calculateDeviationPp(
-  emissionShare: number,
-  generationShare: number,
-): number {
-  return (emissionShare - generationShare) * 100
-}
-
-/**
- * Berechnet den kumulierten Erzeugungsanteil aller erneuerbaren Quellen.
- *
- * @param deviationYear – Das Jahr mit Emissionszeilen
- * @returns Anteil der Erneuerbaren an der Gesamterzeugung (0–100)
+ * @param deviationYear Berechnete Daten eines Jahres
+ * @returns Anteil der erneuerbaren Energien in Prozent
  */
 export function calculateRenewableShare(
   deviationYear: DeviationYear,
@@ -78,7 +66,9 @@ export function calculateRenewableShare(
   let renewableShare = 0
 
   for (const row of deviationYear.rows) {
-    if (GROUP_OF[row.sourceKey] === 'renewable') {
+    const group = GROUP_OF[row.sourceKey]
+
+    if (group === 'renewable') {
       renewableShare += row.generationShare
     }
   }
@@ -87,44 +77,45 @@ export function calculateRenewableShare(
 }
 
 /**
- * Findet den Energieträger mit der größten positiven Abweichung.
- * Nur Werte mit deviationPp > 0 werden berücksichtigt.
+ * Sucht den Energieträger mit der größten
+ * positiven Abweichung.
  *
- * @param rows – Liste der Emissionszeilen
- * @returns Die Zeile mit der größten positiven Abweichung oder null
+ * Negative Abweichungen werden dabei nicht berücksichtigt.
+ *
+ * @param rows Berechnete Daten der Energieträger
+ * @returns Zeile mit der größten positiven Abweichung oder null
  */
 export function findLargestPositiveDeviation(
   rows: EmissionRow[],
 ): EmissionRow | null {
-  let largest: EmissionRow | null = null
-  let largestValue = -Infinity
+  let largestRow: EmissionRow | null = null
+  let largestValue = 0
 
   for (const row of rows) {
-    if (row.deviationPp > 0 && row.deviationPp > largestValue) {
+    if (row.deviationPp > largestValue) {
       largestValue = row.deviationPp
-      largest = row
+      largestRow = row
     }
   }
 
-  return largest
+  return largestRow
 }
 
-// =========================================================================
-// Hauptfunktionen
-// =========================================================================
-
 /**
- * Berechnet den prozentualen Erzeugungsanteil eines Energieträgers.
+ * Berechnet den Erzeugungsanteil eines Energieträgers.
  *
- * @param yearRow – Erzeugungsdaten des Jahres
- * @param sourceKey – Der Energieträger
- * @returns Anteil als Zahl zwischen 0 und 1 (oder 0 bei fehlender Erzeugung)
+ * Dafür wird zuerst die gesamte Erzeugung des Jahres
+ * aus allen Energieträgern zusammengezählt.
+ *
+ * @param yearRow Erzeugungsdaten eines Jahres
+ * @param sourceKey Gesuchter Energieträger
+ * @returns Anteil an der Gesamterzeugung von 0 bis 1
  */
 export function calculateShare(
   yearRow: MixYearRow | null,
   sourceKey: MixSourceKey,
 ): number {
-  if (!yearRow) {
+  if (yearRow === null) {
     return 0
   }
 
@@ -138,57 +129,72 @@ export function calculateShare(
     return 0
   }
 
-  return yearRow.values[sourceKey] / totalGenerationTwh
+  const sourceGenerationTwh =
+    yearRow.values[sourceKey]
+
+  return sourceGenerationTwh / totalGenerationTwh
 }
 
 /**
- * Findet den Energieträger mit der größten Abweichung (nach Absolutwert).
+ * Sucht den Energieträger mit der größten absoluten Abweichung.
  *
- * @param deviationYear – Das berechnete Jahr
- * @returns Der Energieträger mit der größten Abweichung oder null
+ * @param deviationYear Berechnete Daten eines Jahres
+ * @returns Angaben zur größten Abweichung oder null
  */
 export function findLargestMismatch(
   deviationYear: DeviationYear | null,
 ): LargestMismatch | null {
-  if (!deviationYear || deviationYear.rows.length === 0) {
+  if (deviationYear === null) {
     return null
   }
 
-  let largest: EmissionRow | null = null
-  let largestAbs = -1
+  if (deviationYear.rows.length === 0) {
+    return null
+  }
+
+  let largestRow = deviationYear.rows[0]!
 
   for (const row of deviationYear.rows) {
-    const absDeviation = Math.abs(row.deviationPp)
+    const currentValue =
+      Math.abs(row.deviationPp)
 
-    if (absDeviation > largestAbs) {
-      largestAbs = absDeviation
-      largest = row
+    const largestValue =
+      Math.abs(largestRow.deviationPp)
+
+    if (currentValue > largestValue) {
+      largestRow = row
     }
   }
 
-  if (!largest) {
-    return null
+  let direction: 'over' | 'under' = 'under'
+
+  if (largestRow.deviationPp > 0) {
+    direction = 'over'
   }
 
   return {
-    sourceKey: largest.sourceKey,
-    deviationPp: largest.deviationPp,
-    direction: largest.deviationPp > 0 ? 'over' : 'under',
-    generationShare: largest.generationShare,
-    emissionShare: largest.emissionShare,
+    sourceKey: largestRow.sourceKey,
+    deviationPp: largestRow.deviationPp,
+    direction,
+    generationShare: largestRow.generationShare,
+    emissionShare: largestRow.emissionShare,
   }
 }
 
 /**
- * Berechnet für mehrere Jahre die Abweichungsanalyse.
+ * Berechnet die Abweichungsdaten für mehrere Jahre.
  *
- * @param yearRows – Liste der Jahres-Erzeugungsdaten
- * @param emissionFactors – Emissionsfaktoren
- * @returns Liste der DeviationYear-Objekte (nur Jahre mit gültigen Daten)
+ * Jahre ohne gültiges Ergebnis werden nicht in die
+ * fertige Liste übernommen.
+ *
+ * @param yearRows Erzeugungsdaten aller Jahre
+ * @param emissionFactors Emissionsfaktoren der Energieträger
+ * @returns Berechnete Jahresdaten
  */
 export function calculateMultipleYears(
   yearRows: MixYearRow[],
-  emissionFactors: Record<MixSourceKey, number> = DEFAULT_EMISSION_FACTORS,
+  emissionFactors: EmissionFactorValues =
+    DEFAULT_EMISSION_FACTORS,
 ): DeviationYear[] {
   const results: DeviationYear[] = []
 

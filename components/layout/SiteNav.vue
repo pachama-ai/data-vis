@@ -4,6 +4,8 @@
  *
  * Zeigt die drei Hauptbereiche an: Strommix, Entwicklung,
  * CO₂-Vergleich. Rechts Zoom-Button und Kontrast-Schalter.
+ *
+ * @author Selina Schneider
  */
 
 import { computed } from 'vue'
@@ -13,7 +15,7 @@ import { useHighContrast } from '~/composables/useHighContrast'
 
 const route = useRoute()
 
-const { level, cycle } = usePageZoom()
+const { level, cycleZoom } = usePageZoom()
 const {
   isActive: contrastOn,
   toggle: toggleContrast,
@@ -94,7 +96,7 @@ const zoomLabel = computed(function () {
           :class="{ 'nav-underline--active': level > 100 }"
           :aria-label="zoomLabel"
           title="Vergrößert die gesamte Seite. Mehrfach klicken für weitere Stufen."
-          @click="cycle"
+          @click="cycleZoom"
         >
           <svg
             class="zoom-icon"
