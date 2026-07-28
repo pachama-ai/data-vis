@@ -1,5 +1,13 @@
 /**
- * Berechnungsfunktionen für Kennzahlen.
+ * Berechnet die Kennzahlen für die Bedienleisten neben dem Strommix-
+ * Diagramm.
+ *
+ * Ich habe die drei Fälle „Übersicht 2015 gegen 2024",
+ * „ausgewählter Energieträger" und „ausgewählte Annotation" in eigenen
+ * Funktionen gebündelt, weil sie unterschiedliche Rückgabetypen haben
+ * und in der UI von verschiedenen Komponenten benutzt werden.
+ *
+ * @author Selina Schneider
  */
 
 import {
@@ -16,8 +24,10 @@ import type {
 } from '~/types/energy-mix'
 import type { MixYearRow } from '~/composables/useMixData'
 
+
 // Ergebnis-Typen
 
+/** Ein Eintrag im Gruppenvergleich (erneuerbar / Kernenergie / fossil). */
 interface GroupComparisonMetric {
   group: MixGroup
   value2015: number
@@ -27,22 +37,26 @@ interface GroupComparisonMetric {
   percentagePointChange: number
 }
 
+/** Veränderung eines einzelnen Energieträgers zwischen 2015 und 2024. */
 interface SourceChangeMetric {
   sourceKey: MixSourceKey
   changeTwh: number
 }
 
+/** Kennzahlen für den Gruppenvergleich im Strommix-Seitenbereich. */
 export interface OverviewMetrics {
   groups: GroupComparisonMetric[]
   largestIncrease: SourceChangeMetric
   largestDecrease: SourceChangeMetric
 }
 
+/** Ein Monat mit dem zugehörigen Wert einer bestimmten Quelle. */
 interface SourceMonthMetric {
   monthRow: MixMonthRow
   valueTwh: number
 }
 
+/** Kennzahlen zu einem ausgewählten Energieträger. */
 export interface SourceMetrics {
   sourceKey: MixSourceKey
   value2015: number
@@ -55,23 +69,24 @@ export interface SourceMetrics {
   minimumMonth: SourceMonthMetric
 }
 
+/** Anteil einer Gruppe an der Gesamterzeugung eines Monats. */
 interface AnnotationGroupShare {
   group: MixGroup
   valueTwh: number
   share: number
 }
 
+/** Kontext für eine ausgewählte Annotation. */
 export interface AnnotationContext {
   annotation: MixAnnotation
   monthRow: MixMonthRow
   groupShares: AnnotationGroupShare[]
 }
 
+
 // Hilfsfunktionen
 
-/**
- * Erzeugt einen leeren Group-Values-Record mit allen drei Gruppen auf 0.
- */
+/** Startwert für Gruppen-Aggregate: alle drei Gruppen auf 0. */
 type GroupValues = {
   renewable: number
   nuclear: number
@@ -87,17 +102,8 @@ function createEmptyGroupValues(): GroupValues {
 }
 
 /**
- * Berechnet die Gesamtsumme aller Erzeugung eines Jahres
- * (alle SMARD-Kategorien inkl. Pumpspeicher und sonstige).
- * Pumpspeicher wird nicht einer Gruppe zugeordnet, sondern
- * nur in der Gesamtsumme berücksichtigt.
- */
-function calculateYearTotal(yearRow: MixYearRow): number {
-  return yearRow.totalTwh
-}
-
-/**
- * Berechnet die Summen jeder Gruppe (renewable, nuclear, fossil) für ein Jahr.
+ * Summiert die Werte einer Jahreszeile pro Gruppe.
+ * Nutze ich für den Übersichtsvergleich 2015 gegen 2024.
  */
 function calculateYearGroupValues(
   yearRow: MixYearRow,
@@ -114,9 +120,7 @@ function calculateYearGroupValues(
   return groupValues
 }
 
-/**
- * Berechnet die Gesamtsumme aller zehn Quellen einer Monatszeile.
- */
+/** Summe der zehn im Chart dargestellten Quellen für einen Monat. */
 function calculateMonthTotal(monthRow: MixMonthRow): number {
   let total = 0
 
@@ -128,7 +132,8 @@ function calculateMonthTotal(monthRow: MixMonthRow): number {
 }
 
 /**
- * Berechnet die Summen jeder Gruppe für einen Monat.
+ * Summiert die Werte einer Monatszeile pro Gruppe.
+ * Nutze ich für die Monatsansicht in der Annotation.
  */
 function calculateMonthGroupValues(
   monthRow: MixMonthRow,
@@ -145,15 +150,13 @@ function calculateMonthGroupValues(
   return groupValues
 }
 
-/**
- * Rundet einen Wert auf eine Nachkommastelle.
- */
+/** Rundet einen Wert auf eine Nachkommastelle. */
 function roundToOneDecimal(value: number): number {
   return Math.round(value * 10) / 10
 }
 
 /**
- * Berechnet einen Anteil sicher ohne Division durch null.
+ * Berechnet einen Anteil und schützt vor der Division durch 0.
  */
 function calculateShare(value: number, total: number): number {
   if (total === 0) {
@@ -163,17 +166,19 @@ function calculateShare(value: number, total: number): number {
   return value / total
 }
 
+
 // Hauptfunktionen
 
 /**
- * Berechnet die Übersichts-Kennzahlen für den Strommix 2015 → 2024.
+ * Berechnet die Kennzahlen für den Gruppenvergleich 2015–2024
+ * im Strommix-Seitenbereich: gruppierte Anteile sowie der
+ * Energieträger mit dem größten Zuwachs und dem größten Rückgang.
  *
- * Liefert null, wenn eines der beiden Jahre fehlt.
+ * Gibt null zurück, wenn eines der beiden Jahre in den Daten fehlt.
  */
 export function getOverviewMetrics(
   yearRows: MixYearRow[],
 ): OverviewMetrics | null {
-  // Jahre suchen
   let year2015: MixYearRow | null = null
   let year2024: MixYearRow | null = null
 
@@ -191,15 +196,12 @@ export function getOverviewMetrics(
     return null
   }
 
-  // Gesamtsummen
-  const total2015 = calculateYearTotal(year2015)
-  const total2024 = calculateYearTotal(year2024)
+  const total2015 = year2015.totalTwh
+  const total2024 = year2024.totalTwh
 
-  // Gruppensummen
   const groupValues2015 = calculateYearGroupValues(year2015)
   const groupValues2024 = calculateYearGroupValues(year2024)
 
-  // Gruppenvergleich in Reihenfolge MIX_GROUP_ORDER
   const groups: GroupComparisonMetric[] = []
 
   for (const group of MIX_GROUP_ORDER) {
@@ -208,7 +210,9 @@ export function getOverviewMetrics(
     const share2015 = calculateShare(value2015, total2015)
     const share2024 = calculateShare(value2024, total2024)
 
-    // Auf eine Nachkommastelle runden
+    // Für die angezeigte Differenz die gerundeten Anteile verwenden,
+    // damit die im Chart sichtbare Differenz mit den beiden Balken
+    // zusammenpasst (gleiche Idee wie in homeDataTransform.ts).
     const displayed2015 = roundToOneDecimal(share2015 * 100)
     const displayed2024 = roundToOneDecimal(share2024 * 100)
     const percentagePointChange = roundToOneDecimal(
@@ -225,7 +229,7 @@ export function getOverviewMetrics(
     })
   }
 
-  // Größten Zuwachs und größten Rückgang bestimmen
+  // Größten Zuwachs und größten Rückgang bestimmen.
   let largestIncrease: SourceChangeMetric | null = null
   let largestDecrease: SourceChangeMetric | null = null
 
@@ -266,7 +270,9 @@ export function getOverviewMetrics(
 }
 
 /**
- * Findet den Monat mit dem höchsten und niedrigsten Wert für eine Quelle.
+ * Findet den Monat mit dem höchsten und dem niedrigsten Wert für eine
+ * bestimmte Quelle. Start der Suche mit dem ersten Monat als
+ * Ausgangswert und vergleich mit restlichen Monaten.
  */
 function findSourceExtremes(
   monthRows: MixMonthRow[],
@@ -279,20 +285,23 @@ function findSourceExtremes(
     return null
   }
 
-  const firstMonthRow = monthRows[0]!
+  const firstRow = monthRows[0]
+
+  if (!firstRow) {
+    return null
+  }
 
   let maximumMonth: SourceMonthMetric = {
-    monthRow: firstMonthRow,
-    valueTwh: firstMonthRow.values[sourceKey],
+    monthRow: firstRow,
+    valueTwh: firstRow.values[sourceKey],
   }
 
   let minimumMonth: SourceMonthMetric = {
-    monthRow: firstMonthRow,
-    valueTwh: firstMonthRow.values[sourceKey],
+    monthRow: firstRow,
+    valueTwh: firstRow.values[sourceKey],
   }
 
-  for (let index = 1; index < monthRows.length; index++) {
-    const monthRow = monthRows[index]!
+  for (const monthRow of monthRows.slice(1)) {
     const value = monthRow.values[sourceKey]
 
     if (value > maximumMonth.valueTwh) {
@@ -317,16 +326,17 @@ function findSourceExtremes(
 }
 
 /**
- * Berechnet alle Kennzahlen für einen ausgewählten Energieträger.
+ * Berechnet die Kennzahlen für einen ausgewählten Energieträger:
+ * Anteile 2015 und 2024, absolute Veränderung, prozentuale Veränderung
+ * sowie die beiden Extremmonate über den gesamten Zeitraum.
  *
- * Liefert null, wenn eines der beiden Jahre fehlt.
+ * Gibt null zurück, wenn eines der beiden Jahre fehlt.
  */
 export function getSourceMetrics(
   yearRows: MixYearRow[],
   monthRows: MixMonthRow[],
   sourceKey: MixSourceKey,
 ): SourceMetrics | null {
-  // Jahre suchen
   let year2015: MixYearRow | null = null
   let year2024: MixYearRow | null = null
 
@@ -344,23 +354,18 @@ export function getSourceMetrics(
     return null
   }
 
-  // Jahreswerte
   const value2015 = year2015.values[sourceKey]
   const value2024 = year2024.values[sourceKey]
 
-  // Jahressummen
-  const total2015 = calculateYearTotal(year2015)
-  const total2024 = calculateYearTotal(year2024)
+  const total2015 = year2015.totalTwh
+  const total2024 = year2024.totalTwh
 
-  // Jahresanteile
   const share2015 = calculateShare(value2015, total2015)
   const share2024 = calculateShare(value2024, total2024)
 
-  // Veränderungen
   const changeTwh = value2024 - value2015
   const percentagePointChange = (share2024 - share2015) * 100
 
-  // Höchst- und Tiefstmonat
   const extremes = findSourceExtremes(monthRows, sourceKey)
 
   if (extremes === null) {
@@ -381,16 +386,18 @@ export function getSourceMetrics(
 }
 
 /**
- * Berechnet den Kontext für eine ausgewählte Annotation.
+ * Berechnet den Kontext für eine ausgewählte Annotation. Sucht die
+ * passende Monatszeile über das annotation.date und ergänzt die
+ * Gruppenanteile für diesen Monat.
  *
- * Liefert null, wenn die Monatszeile nicht gefunden wird.
+ * Gibt null zurück, wenn die Monatszeile nicht gefunden wird.
  */
 export function getAnnotationContext(
   monthRows: MixMonthRow[],
   annotation: MixAnnotation,
 ): AnnotationContext | null {
-  // Monatszeile anhand des annotation.date suchen
   let matchingMonthRow: MixMonthRow | null = null
+
   for (const monthRow of monthRows) {
     if (monthRow.month === annotation.date) {
       matchingMonthRow = monthRow
@@ -402,13 +409,9 @@ export function getAnnotationContext(
     return null
   }
 
-  // Monatsgesamtsumme
   const monthTotal = calculateMonthTotal(matchingMonthRow)
-
-  // Gruppensummen
   const groupValues = calculateMonthGroupValues(matchingMonthRow)
 
-  // Gruppenanteile in Reihenfolge MIX_GROUP_ORDER
   const groupShares: AnnotationGroupShare[] = []
 
   for (const group of MIX_GROUP_ORDER) {

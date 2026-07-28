@@ -29,10 +29,17 @@ export interface MixHoverPayload {
  */
 export function parseAnnotationDate(dateStr: string): Date {
   const parts = dateStr.split('-')
-  const year = Number.parseInt(parts[0]!, 10)
-  const month = Number.parseInt(parts[1]!, 10)
+  const yearText = parts[0]
+  const monthText = parts[1]
 
-  return new Date(year, month - 1, 1)
+  if (yearText === undefined || monthText === undefined) {
+    return new Date(NaN, NaN, 1)
+  }
+
+  const year = Number(yearText)
+  const monthIndex = Number(monthText) - 1
+
+  return new Date(year, monthIndex, 1)
 }
 
 /**
@@ -46,7 +53,17 @@ export function findNearestMonthRow(
   monthlyRows: MixMonthRow[],
   targetDate: Date,
 ): MixMonthRow | null {
-  let nearest = monthlyRows[0]!
+  if (monthlyRows.length === 0) {
+    return null
+  }
+
+  const firstRow = monthlyRows[0]
+
+  if (firstRow === undefined) {
+    return null
+  }
+
+  let nearest = firstRow
   let smallestDiff = Math.abs(
     targetDate.getTime() - nearest.date.getTime(),
   )

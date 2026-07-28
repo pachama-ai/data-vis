@@ -12,13 +12,17 @@ import { STACK_ORDER } from '~/components/generation/mixConfig'
 import type { MixMonthRow, RawMixMonthPoint } from '~/types/energy-mix'
 import type { VisualizationData } from '~/types/visualization-data'
 
-// Typ für eine berechnete Jahreszeile (nur hier definiert, weil es
-// keine eigene globale Typdatei dafür braucht).
-
 type SourceValues = {
-  hydro: number; biomass: number; wind_offshore: number; wind_onshore: number
-  pv: number; nuclear: number; gas: number; other_fossil: number
-  hardcoal: number; lignite: number
+  hydro: number
+  biomass: number
+  wind_offshore: number
+  wind_onshore: number
+  pv: number
+  nuclear: number
+  gas: number
+  other_fossil: number
+  hardcoal: number
+  lignite: number
 }
 
 export interface MixYearRow {
@@ -28,80 +32,53 @@ export interface MixYearRow {
   totalTwh: number
 }
 
-// Hilfsfunktionen
+/**
+ * Erzeugt eine SourceValues-Struktur, bei der alle zehn Quellen auf 0 gesetzt sind.
+ */
+function createEmptySourceValues(): SourceValues {
+  return {
+    hydro: 0,
+    biomass: 0,
+    wind_offshore: 0,
+    wind_onshore: 0,
+    pv: 0,
+    nuclear: 0,
+    gas: 0,
+    other_fossil: 0,
+    hardcoal: 0,
+    lignite: 0,
+  }
+}
 
 /**
  * Wandelt einen Monatsstring "2015-01" in ein Date für den 1. des Monats um.
- * Wir erzeugen ein lokales Datum, damit die Zeitzone keine Rolle spielt.
  */
 function parseMonth(month: string): Date {
-  const parts = month.split('-')
-
-  if (parts.length !== 2) {
-    throw new Error(
-      `Ungültiges Monatsformat: "${month}". Erwartet wird "YYYY-MM".`,
-    )
-  }
-
-  const yearText = parts[0]!
-  const monthText = parts[1]!
-
-  const year = Number(yearText)
-  const monthIndex = Number(monthText) - 1
-
-  if (isNaN(year) || isNaN(monthIndex)) {
-    throw new Error(
-      `Monatsstring "${month}" enthält keine gültigen Zahlen.`,
-    )
-  }
+  const year = Number(month.slice(0, 4))
+  const monthIndex = Number(month.slice(5, 7)) - 1
 
   return new Date(year, monthIndex, 1)
 }
 
 /**
  * Rechnet einen Wert in MWh in TWh um.
- * 1 TWh = 1 000 000 MWh.
  */
 function convertMwhToTwh(valueInMwh: number): number {
   return valueInMwh / 1_000_000
 }
 
 /**
- * Erzeugt einen leeren Values-Record, bei dem alle zehn Quellen auf 0 gesetzt sind.
- * Wird für die Jahressummen-Vorbereitung verwendet.
- */
-function createEmptySourceValues(): SourceValues {
-  const emptyValues = {} as SourceValues
-
-  for (const sourceKey of STACK_ORDER) {
-    emptyValues[sourceKey] = 0
-  }
-
-  return emptyValues
-}
-
-// Normalisierung eines Rohdatenpunktes
-
-/**
  * Normalisiert einen einzelnen MonthlyMixPoint in eine MixMonthRow.
- *
- * Schritte:
- * 1. Datum parsen
- * 2. Nur die zehn Quellen aus STACK_ORDER übernehmen
- * 3. Werte von MWh in TWh umrechnen
  */
 export function normalizeMonth(
   monthPoint: RawMixMonthPoint,
 ): MixMonthRow {
   const parsedDate = parseMonth(monthPoint.month)
 
-  const values = {} as SourceValues
+  const values = createEmptySourceValues()
 
   for (const sourceKey of STACK_ORDER) {
-    const valueInMwh = monthPoint.sources[sourceKey]
-    const valueInTwh = convertMwhToTwh(valueInMwh)
-
-    values[sourceKey] = valueInTwh
+    values[sourceKey] = convertMwhToTwh(monthPoint.sources[sourceKey])
   }
 
   return {
@@ -112,61 +89,51 @@ export function normalizeMonth(
   }
 }
 
-// Jahressummen aus Monatsdaten
-
 /**
  * Berechnet aus normalisierten Monatszeilen die Jahressummen.
- * Die Jahre werden aufsteigend sortiert zurückgegeben.
- *
- * Diese Funktion ist rein – sie verändert keine externen Daten.
  */
 export function calculateYearRows(
   monthlyRows: MixMonthRow[],
 ): MixYearRow[] {
-  // 1. Monate nach Jahr gruppieren und Quellenwerte aufsummieren
-  const yearTotals = new Map<number, SourceValues>()
-  const yearFullTotals = new Map<number, number>()
+  const yearAccum = new Map<number, {
+    values: SourceValues
+    totalTwh: number
+  }>()
 
   for (const monthRow of monthlyRows) {
     const year = monthRow.date.getFullYear()
 
-    // Fehlendes Jahr initialisieren
-    if (!yearTotals.has(year)) {
-      yearTotals.set(year, createEmptySourceValues())
-      yearFullTotals.set(year, 0)
+    let accum = yearAccum.get(year)
+
+    if (!accum) {
+      accum = { values: createEmptySourceValues(), totalTwh: 0 }
+      yearAccum.set(year, accum)
     }
 
-    const yearlyValues = yearTotals.get(year)!
-
-    // Quellenwerte des Monats zur Jahressumme addieren
     for (const sourceKey of STACK_ORDER) {
-      yearlyValues[sourceKey] += monthRow.values[sourceKey]
+      accum.values[sourceKey] += monthRow.values[sourceKey]
     }
 
-    // Gesamterzeugung inkl. aller SMARD-Kategorien aufsummieren
-    yearFullTotals.set(year, (yearFullTotals.get(year) ?? 0) + monthRow.totalGenerationTwh)
+    accum.totalTwh += monthRow.totalGenerationTwh
   }
 
-  // 2. Map in ein Array umwandeln
   const result: MixYearRow[] = []
 
-  for (const [year, values] of yearTotals) {
-    result.push({ year, values, totalTwh: yearFullTotals.get(year) ?? 0 })
+  for (const [year, accum] of yearAccum) {
+    result.push({
+      year,
+      values: accum.values,
+      totalTwh: accum.totalTwh,
+    })
   }
 
-  // 3. Aufsteigend nach Jahr sortieren
   result.sort(function (left, right) { return left.year - right.year })
 
   return result
 }
 
-// Composable
-
 /**
  * Stellt normalisierte Monats- und Jahresdaten für das Stacked-Area-Chart bereit.
- *
- * Nutzt useVisualizationData für den Fetch und wandelt die Rohdaten
- * in das MixMonthRow-Format um.
  */
 export function useMixData() {
   const rawData = ref<VisualizationData | null>(null)
@@ -179,26 +146,17 @@ export function useMixData() {
 
     try {
       const { loadVisualizationData } = useVisualizationData()
-
-      const data = await loadVisualizationData()
-
-      rawData.value = data
+      rawData.value = await loadVisualizationData()
     } catch (caughtError: unknown) {
-      if (caughtError instanceof Error) {
-        error.value = caughtError.message
-      } else {
-        error.value =
-          'Die Visualisierungsdaten konnten nicht geladen werden.'
-      }
+      error.value =
+        caughtError instanceof Error
+          ? caughtError.message
+          : 'Die Visualisierungsdaten konnten nicht geladen werden.'
     } finally {
       pending.value = false
     }
   }
 
-  /**
-   * Normalisierte Monatszeilen: reduziert auf 10 Quellen, Werte in TWh.
-   * Solange keine Daten geladen sind, wird ein leeres Array zurückgegeben.
-   */
   const monthRows = computed<MixMonthRow[]>(function () {
     const data = rawData.value
 
@@ -206,22 +164,9 @@ export function useMixData() {
       return []
     }
 
-    const rawMonths = data.monthlyMix
-    const normalizedMonths: MixMonthRow[] = []
-
-    for (const rawMonth of rawMonths) {
-      const normalized = normalizeMonth(rawMonth)
-
-      normalizedMonths.push(normalized)
-    }
-
-    return normalizedMonths
+    return data.monthlyMix.map(normalizeMonth)
   })
 
-  /**
-   * Berechnete Jahressummen aus den normalisierten Monatsdaten.
-   * Aktualisiert sich automatisch, wenn sich monthRows ändert.
-   */
   const yearRows = computed<MixYearRow[]>(function () {
     return calculateYearRows(monthRows.value)
   })

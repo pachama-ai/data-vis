@@ -1,5 +1,5 @@
 /**
- * Führt einfache Kontrollrechnungen für 2024 durch.
+ * Führt Kontrollrechnungen für 2024 durch.
  *
  * @author Selina Schneider
  */
@@ -25,7 +25,7 @@ function roundToTwoDecimals(value: number): number {
   return Math.round(value * 100) / 100
 }
 
-/** Lädt die fertige visualization-data.json direkt von der Festplatte. */
+/** Lädt die fertige visualization-data.json von der Festplatte. */
 function loadData(): VisualizationData {
   const content = fs.readFileSync(
     'public/data/visualization-data.json',
@@ -150,7 +150,7 @@ function checkRenewableShare(
 
 /**
  * Führt alle Kontrollrechnungen nacheinander aus. Bricht die Prüfung
- * für Kernenergie 2024 direkt hier ab, weil sie nur aus einer
+ * für Kernenergie 2024 hier ab, weil sie nur aus einer
  * einzigen Bedingung besteht und daher keine eigene Funktion braucht.
  */
 function main(): void {
@@ -172,7 +172,7 @@ function main(): void {
 
 try {
   main()
-} catch (caughtError: unknown) {
+} catch (caughtError) {
   let message = String(caughtError)
 
   if (caughtError instanceof Error) {
