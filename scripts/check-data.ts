@@ -12,7 +12,7 @@
  */
 
 declare var Bun: { file(path: string): { json(): Promise<unknown> } }
-import type { VisualizationData, EnergySourceValues, MonthlyMixPoint, ScatterDailyPoint, YearlyMixPoint } from '../types/visualization-data'
+import type { VisualizationData, EnergySourceValues, MonthlyMixPoint, YearlyMixPoint } from '../types/visualization-data'
 const SOURCE_KEYS: (keyof EnergySourceValues)[] = [
   'biomass', 'hydro', 'wind_onshore', 'wind_offshore', 'pv',
   'other_renewables', 'lignite', 'hardcoal', 'gas', 'nuclear',
@@ -20,7 +20,12 @@ const SOURCE_KEYS: (keyof EnergySourceValues)[] = [
 ]
 const errors: string[] = []
 
-/** Prüft, ob ein Wert eine echte, endliche Zahl ist (kein NaN/Infinity). */
+/**
+ * Prüft, ob ein Wert eine echte, endliche Zahl ist.
+ *
+ * @param value Zu prüfender Wert
+ * @returns true wenn der Wert eine endliche Zahl ist
+ */
 function isValidNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
 }
@@ -30,7 +35,7 @@ function isValidNumber(value: unknown): value is number {
  * gibt ihre Summe zurück, damit der Aufrufer sie mit dem gespeicherten
  * Gesamtwert vergleichen kann.
  *
- * @param label Bezeichner für die Fehlermeldung (z. B. Monat oder Jahr)
+ * @param label Bezeichner für die Fehlermeldung
  * @param sources Erzeugungswerte der Energieträger
  * @returns Summe aller (gültigen) Energieträgerwerte
  */
@@ -44,7 +49,6 @@ function checkSources(label: string, sources: EnergySourceValues): number {
       errors.push(`${label}: ${key} ungültig (${value})`)
       continue
     }
-
     sum += value
   }
 
@@ -81,45 +85,8 @@ function checkMonthlyData(data: MonthlyMixPoint[]): void {
 }
 
 /**
- * Prüft die Tagesdaten fürs Streudiagramm. Der CO₂-Wert darf laut
- * meiner Erfahrung mit den Emissionsfaktoren nicht über 1200 g/kWh
- * liegen - das ist großzügig genug für auch für seltene Extremtage.
- *
- * @param data Tagesdaten aus visualization-data.json
- */
-function checkDailyData(data: ScatterDailyPoint[]): void {
-  if (data.length === 0) {
-    errors.push('scatterDaily ist leer')
-    return
-  }
-  for (const entry of data) {
-    const label = `scatterDaily ${entry.date}`
-    const share = entry.renewableSharePercent
-
-    if (!isValidNumber(share)) {
-      errors.push(`${label}: renewableSharePercent ungültig`)
-    } else if (share < 0 || share > 100) {
-      errors.push(`${label}: renewableSharePercent nicht 0–100`)
-    }
-
-    const co2 = entry.co2GramsPerKwh
-
-    if (!isValidNumber(co2)) {
-      errors.push(`${label}: co2GramsPerKwh ungültig`)
-    } else if (co2 < 0 || co2 > 1200) {
-      errors.push(`${label}: co2GramsPerKwh nicht 0–1200`)
-    }
-
-    if (!isValidNumber(entry.availableHourCount) || entry.availableHourCount <= 0) {
-      errors.push(`${label}: availableHourCount ungültig (${entry.availableHourCount})`)
-    }
-  }
-}
-
-/**
- * Prüft die Jahresdaten. Zusätzlich zu den Prüfungen aus
- * checkMonthlyData/checkDailyData wird hier noch geprüft, ob das
- * Jahr im erwarteten Bereich 2015-2024 liegt.
+ * Prüft die Jahresdaten. Zusätzlich wird geprüft, ob das
+ * Jahr im erwarteten Bereich 2015–2024 liegt.
  *
  * @param data Jahresdaten aus visualization-data.json
  */
@@ -180,7 +147,7 @@ async function main(): Promise<void> {
   }
 
   const data = raw as Record<string, unknown>
-  const dataFields = ['monthlyMix', 'scatterDaily', 'yearlyMix']
+  const dataFields = ['monthlyMix', 'yearlyMix']
 
   for (const fieldName of dataFields) {
     if (!(fieldName in data)) {
@@ -200,9 +167,6 @@ async function main(): Promise<void> {
   console.log('Validiere Monatsdaten...')
   checkMonthlyData(typedData.monthlyMix)
 
-  console.log('Validiere Tageswerte...')
-  checkDailyData(typedData.scatterDaily)
-
   console.log('Validiere Jahresdaten...')
   checkYearlyData(typedData.yearlyMix)
 
@@ -215,6 +179,10 @@ async function main(): Promise<void> {
   console.log('Datenprüfung erfolgreich.')
 }
 
+/**
+ * Gibt alle gesammelten Fehler aus.
+ * Tut nichts, wenn keine Fehler vorliegen.
+ */
 function printErrors(): void {
   if (errors.length === 0) {
     return

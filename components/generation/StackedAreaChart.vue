@@ -111,6 +111,10 @@ const highlightedSources = computed<MixSourceKey[] | null>(function () {
 
 // Diagramm erstellen
 
+/**
+ * Erstellt das Diagramm. Ohne Container-Element kann es noch
+ * nicht aufgebaut werden.
+ */
 function initializeChart(): void {
   const container = chartTemplate.value?.chartContainer
 
@@ -130,20 +134,37 @@ function initializeChart(): void {
   chart.setAnnotations(annotations.value)
 }
 
+/**
+ * Speichert den Hover-Payload für den Tooltip.
+ *
+ * @param payload Hover-Informationen (Monat und optionaler Quellschlüssel)
+ */
 function handleChartHover(payload: MixHoverPayload): void {
   hoverPayload.value = payload
 }
 
+/**
+ * Entfernt den Hover-Payload (Tooltip verschwindet).
+ */
 function handleChartLeave(): void {
   hoverPayload.value = null
 }
 
+/**
+ * Setzt bei Klick ins Leere alle Auswahlen zurück.
+ */
 function handleChartBackgroundClick(): void {
   setHighlighted(null)
   setSelectedAnnotation(null)
   setSelectedYear(null)
 }
 
+/**
+ * Schaltet die Hervorhebung eines Energieträgers um oder setzt
+ * sie zurück (bei null).
+ *
+ * @param sourceKey Ausgewählter Träger oder null zum Zurücksetzen
+ */
 function handleSourceSelect(sourceKey: MixSourceKey | null): void {
   if (sourceKey === null) {
     setHighlighted(null)
@@ -152,6 +173,12 @@ function handleSourceSelect(sourceKey: MixSourceKey | null): void {
   }
 }
 
+/**
+ * Wählt eine Annotation aus und schaltet die vorherige Auswahl
+ * aus. Extrahiert das Jahr aus dem Datum der Annotation.
+ *
+ * @param annotation Ausgewählte Annotation
+ */
 function handleAnnotationSelect(annotation: MixAnnotation): void {
   const parts = annotation.date.split('-')
   const year = Number.parseInt(parts[0] ?? '0', 10)
@@ -224,7 +251,6 @@ onBeforeUnmount(function () {
       <ChartTemplate
         ref="chartTemplate"
         title=""
-        wrapper-class="stacked-area-chart"
       >
         <template #controls>
           <div class="mode-toggle" aria-label="Darstellungsmodus">

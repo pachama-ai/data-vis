@@ -1,9 +1,13 @@
 /**
- * Normalisiert die Rohdaten aus useVisualizationData für das
- * Stacked-Area-Chart: reduziert auf 10 Quellen, MWh → TWh,
- * Datumsparsing, Jahressummen.
+ * Bereitet die Rohdaten aus useVisualizationData für das Strommix-
+ * Diagramm auf. Konkret: Reduzieren auf die 10 im Diagramm gezeigten
+ * Energieträger, Umrechnung MWh → TWh, Parsen der Monatsstrings zu
+ * Date-Objekten und Aggregation zu Jahressummen.
  *
- * Keine eigene Fetch-Logik – nutzt useVisualizationData.
+ * Die eigentliche Fetch-Logik liegt in useVisualizationData – dieses
+ * Composable ruft sie nur auf und normalisiert das Ergebnis.
+ *
+ * @author Selina Schneider
  */
 
 import { ref, computed } from 'vue'
@@ -12,6 +16,8 @@ import { STACK_ORDER } from '~/components/generation/mixConfig'
 import type { MixMonthRow, RawMixMonthPoint } from '~/types/energy-mix'
 import type { VisualizationData } from '~/types/visualization-data'
 
+
+/** Die 10 Energieträger, die im Diagramm dargestellt werden. */
 type SourceValues = {
   hydro: number
   biomass: number
@@ -25,15 +31,20 @@ type SourceValues = {
   lignite: number
 }
 
+/** Zusammengefasste Jahreswerte pro Energieträger. */
 export interface MixYearRow {
   year: number
   values: SourceValues
-  /** Gesamterzeugung in TWh (alle SMARD-Kategorien inkl. Pumpspeicher) */
   totalTwh: number
 }
 
+
 /**
- * Erzeugt eine SourceValues-Struktur, bei der alle zehn Quellen auf 0 gesetzt sind.
+ * Erzeugt ein SourceValues-Objekt mit allen zehn Trägern auf 0.
+ * Nutze ich als Startwert, wenn ich Monats- oder Jahres-Aggregate
+ * aufbaue.
+ *
+ * @returns Leeres SourceValues-Objekt
  */
 function createEmptySourceValues(): SourceValues {
   return {
@@ -51,7 +62,10 @@ function createEmptySourceValues(): SourceValues {
 }
 
 /**
- * Wandelt einen Monatsstring "2015-01" in ein Date für den 1. des Monats um.
+ * Wandelt einen Monatsstring in ein Date-Objekt um.
+ *
+ * @param month Monat im Format "YYYY-MM"
+ * @returns Date für den 1. des Monats
  */
 function parseMonth(month: string): Date {
   const year = Number(month.slice(0, 4))
@@ -61,14 +75,21 @@ function parseMonth(month: string): Date {
 }
 
 /**
- * Rechnet einen Wert in MWh in TWh um.
+ * Rechnet MWh in TWh um.
+ *
+ * @param valueInMwh Wert in Megawattstunden
+ * @returns Wert in Terawattstunden
  */
 function convertMwhToTwh(valueInMwh: number): number {
   return valueInMwh / 1_000_000
 }
 
 /**
- * Normalisiert einen einzelnen MonthlyMixPoint in eine MixMonthRow.
+ * Normalisiert einen einzelnen Rohdatensatz aus der JSON in eine
+ * MixMonthRow. Filtert dabei die zehn Träger aus STACK_ORDER.
+ *
+ * @param monthPoint Rohdatensatz aus visualization-data.json
+ * @returns Normalisierte Monatszeile
  */
 export function normalizeMonth(
   monthPoint: RawMixMonthPoint,
@@ -90,9 +111,15 @@ export function normalizeMonth(
 }
 
 /**
- * Berechnet aus normalisierten Monatszeilen die Jahressummen.
+ * Baut aus den Monatszeilen die Jahressummen. Sammlung in einer Map
+ * über das Jahr, addiert werden pro Energieträger die Monatswerte auf und
+ * sortiert am Ende einmal aufsteigend nach Jahr, damit die Reihenfolge
+ * fürs Diagramm stimmt.
+ *
+ * @param monthlyRows Alle Monatszeilen
+ * @returns Nach Jahr sortierte Jahreszeilen
  */
-export function calculateYearRows(
+function calculateYearRows(
   monthlyRows: MixMonthRow[],
 ): MixYearRow[] {
   const yearAccum = new Map<number, {
@@ -127,19 +154,31 @@ export function calculateYearRows(
     })
   }
 
+  // Aufsteigend nach Jahr sortieren, weil die Map die Reihenfolge nicht garantiert.
   result.sort(function (left, right) { return left.year - right.year })
 
   return result
 }
 
 /**
- * Stellt normalisierte Monats- und Jahresdaten für das Stacked-Area-Chart bereit.
+ * Stellt die normalisierten Monats- und Jahresdaten für das Strommix-
+ * Diagramm als reactive computed-Werte bereit. Die eigentliche
+ * Ladelogik läuft in loadData() über useVisualizationData; die
+ * computed-Werte transformieren die geladenen Rohdaten bei jeder
+ * Änderung.
+ *
+ * @returns Objekt mit monthRows, yearRows, pending, error und loadData
  */
 export function useMixData() {
   const rawData = ref<VisualizationData | null>(null)
   const pending = ref(true)
   const error = ref<string | null>(null)
 
+  /**
+   * Lädt die Rohdaten und legt sie in rawData ab. Der catch-Zweig
+   * unterscheidet zwischen Error-Instanzen (übernehmen der Message)
+   * und allem anderen (dann ein fester Fallback-Text).
+   */
   async function loadData(): Promise<void> {
     pending.value = true
     error.value = null
@@ -157,6 +196,7 @@ export function useMixData() {
     }
   }
 
+  // Monatszeilen: leeres Array, solange noch nichts geladen ist.
   const monthRows = computed<MixMonthRow[]>(function () {
     const data = rawData.value
 
@@ -167,6 +207,7 @@ export function useMixData() {
     return data.monthlyMix.map(normalizeMonth)
   })
 
+  // Jahresrows aus den bereits normalisierten Monatsrows ableiten.
   const yearRows = computed<MixYearRow[]>(function () {
     return calculateYearRows(monthRows.value)
   })

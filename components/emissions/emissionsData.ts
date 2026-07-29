@@ -1,29 +1,38 @@
 /**
- * components/emissions/emissionsData.ts – Reine Berechnungsfunktionen für CO₂-Emissionen.
+ * Berechnen der direkten CO₂-Emissionen
  *
- * Enthält kein Vue und keinen eigenen State.
- * Alle Berechnungsfunktionen sind rein und geben bei fehlenden/ungültigen
- * Eingaben null zurück. Einzige Ausnahme ist loadEmissionFactorsFile, die
- * die Emissionsfaktoren per fetch lädt.
+ * Enthalten sind Funktionen für Emissionen,
+ * Emissionsintensität und Abweichungen
  *
- * Die Emissionsfaktoren (g CO₂/kWh) stammen aus public/data/emission-factors.json
- * (UBA, Climate Change 16/2026). Sie bilden die direkten CO₂-Emissionen ab
- * (ohne Vorketten). Erneuerbare und Kernenergie haben in dieser Bilanz 0 g/kWh.
+ * Die Emissionsfaktoren werden aus
+ * public/data/emission-factors.json geladen
  */
 
+/* Reihenfolge der Energieträger */
 import { STACK_ORDER } from '~/components/generation/mixConfig'
 
-import type { EmissionRow, DeviationYear, EmissionFactorsFile, EmissionFactorValues } from '~/types/emissions'
+import type {
+  DeviationYear,
+  EmissionFactorValues,
+  EmissionFactorsFile,
+  EmissionRow,
+} from '~/types/emissions'
+
 import type { MixYearRow } from '~/composables/useMixData'
 
-// Konstanten
-
 /**
- * Lädt die Emissionsfaktoren aus der JSON-Datei.
- * Verwendet die globale fetch-Funktion (nicht Nuxts $fetch).
+ * Laden der Emissionsfaktoren aus der JSON-Datei
+ *
+ * Bei einem Fehler wird eine Fehlermeldung ausgelöst,
+ * damit die aufrufende Komponente darauf reagieren kann
+ *
+ * @returns Geladene Emissionsfaktoren
  */
-export async function loadEmissionFactorsFile(): Promise<EmissionFactorsFile> {
-  const response = await fetch('/data/emission-factors.json')
+export async function loadEmissionFactorsFile():
+Promise<EmissionFactorsFile> {
+  const response = await fetch(
+    '/data/emission-factors.json',
+  )
 
   if (!response.ok) {
     throw new Error(
@@ -31,17 +40,20 @@ export async function loadEmissionFactorsFile(): Promise<EmissionFactorsFile> {
     )
   }
 
-  const data: EmissionFactorsFile = await response.json()
+  const data: EmissionFactorsFile =
+    await response.json()
 
   return data
 }
 
 /**
- * Standard-Emissionsfaktoren in g CO₂/kWh (direkte Emissionen).
- * Werte aus UBA Climate Change 16/2026.
- * Werden verwendet, falls emission-factors.json nicht geladen werden kann.
+ * Standardwerte für die direkten CO₂-Emissionen
+ *
+ * Die Werte werden verwendet, wenn keine anderen
+ * Emissionsfaktoren übergeben werden
  */
-export const DEFAULT_EMISSION_FACTORS: EmissionFactorValues = {
+export const DEFAULT_EMISSION_FACTORS:
+EmissionFactorValues = {
   hydro: 0,
   biomass: 0,
   wind_offshore: 0,
@@ -54,41 +66,42 @@ export const DEFAULT_EMISSION_FACTORS: EmissionFactorValues = {
   lignite: 1075,
 }
 
-// Hilfsfunktionen
-
 /**
- * Berechnet die CO₂-Emissionen eines Jahres für einen einzelnen Energieträger.
+ * Berechnen der CO₂-Emissionen eines Energieträgers
  *
- * @param generationTwh – Erzeugung in TWh
- * @param factorGPerKwh – Emissionsfaktor in g CO₂/kWh
- * @returns Emissionen in Millionen Tonnen CO₂ (Mt)
+ * Für die Umrechnung gilt:
+ * TWh × g/kWh ÷ 1000 = Mt
  *
- * Umrechnung: 1 TWh = 10⁹ kWh
- *  Emission (g) = generation_kWh × factor_g/kWh
- *  Emission (Mt) = g ÷ 10¹² = TWh × 10⁹ × factor ÷ 10¹² = TWh × factor ÷ 10³
- *  Kurz: TWh × g/kWh ÷ 1000 = Mt
+ * @param generationTwh Erzeugung in TWh
+ * @param factorGPerKwh Emissionsfaktor in g CO₂/kWh
+ * @returns Emissionen in Millionen Tonnen CO₂
  */
 export function calculateEmissionsMt(
   generationTwh: number,
   factorGPerKwh: number,
 ): number {
-  if (generationTwh <= 0 || factorGPerKwh <= 0) {
+  if (
+    generationTwh <= 0
+    || factorGPerKwh <= 0
+  ) {
     return 0
   }
 
-  return (generationTwh * factorGPerKwh) / 1000
+  return (
+    generationTwh
+    * factorGPerKwh
+  ) / 1000
 }
 
 /**
- * Berechnet die CO₂-Emissionsintensität eines Energieträgers.
+ * Berechnen der CO₂-Emissionsintensität
  *
- * @param emissionsMt – Emissionen in Mt CO₂
- * @param generationTwh – Erzeugung in TWh
- * @returns Emissionsintensität in g CO₂/kWh oder 0 bei fehlender Erzeugung
+ * Bei einer Erzeugung von 0 wird 0 zurückgegeben,
+ * damit nicht durch 0 gerechnet wird
  *
- * Umrechnung: emissions_g / generation_kWh
- *  = (emissionsMt × 10¹²) / (generationTwh × 10⁹)
- *  = emissionsMt × 10³ / generationTwh
+ * @param emissionsMt Emissionen in Mt CO₂
+ * @param generationTwh Erzeugung in TWh
+ * @returns Emissionsintensität in g CO₂/kWh
  */
 export function calculateEmissionIntensity(
   emissionsMt: number,
@@ -98,13 +111,25 @@ export function calculateEmissionIntensity(
     return 0
   }
 
-  return (emissionsMt * 1000) / generationTwh
+  return (
+    emissionsMt * 1000
+  ) / generationTwh
 }
 
 /**
- * Berechnet einen Anteil sicher ohne Division durch null.
+ * Berechnen eines Anteils
+ *
+ * Bei einer Gesamtsumme von 0 wird 0 zurückgegeben,
+ * damit nicht durch 0 gerechnet wird
+ *
+ * @param value Einzelwert
+ * @param total Gesamtsumme
+ * @returns Anteil zwischen 0 und 1
  */
-function calculateShare(value: number, total: number): number {
+function calculateShare(
+  value: number,
+  total: number,
+): number {
   if (total === 0) {
     return 0
   }
@@ -112,65 +137,92 @@ function calculateShare(value: number, total: number): number {
   return value / total
 }
 
-// Hauptfunktionen
-
 /**
- * Berechnet für ein einzelnes Jahr die Emissionszeilen (EmissionRow) aus
- * den Jahres-Erzeugungswerten und Emissionsfaktoren.
+ * Berechnen der Emissionswerte für ein Jahr
  *
- * @param yearRow – Erzeugungsdaten eines Jahres (MixYearRow)
- * @param emissionFactors – Emissionsfaktoren in g CO₂/kWh
- * @returns Berechnete EmissionRows oder null, wenn yearRow ungültig ist
+ * Zuerst wird die gesamte Stromerzeugung berechnet
+ * Danach werden die Emissionen je Energieträger bestimmt
+ * und daraus die jeweiligen Anteile berechnet
+ *
+ * @param yearRow Erzeugungsdaten eines Jahres
+ * @param emissionFactors Emissionsfaktoren der Energieträger
+ * @returns Berechnete Emissionswerte oder null
  */
-export function calculateEmissionRows(
+function calculateEmissionRows(
   yearRow: MixYearRow | null,
-  emissionFactors: EmissionFactorValues = DEFAULT_EMISSION_FACTORS,
+  emissionFactors: EmissionFactorValues =
+    DEFAULT_EMISSION_FACTORS,
 ): EmissionRow[] | null {
-  if (!yearRow) {
+  if (yearRow === null) {
     return null
   }
 
-  // 1. Erzeugungssumme berechnen
   let totalGenerationTwh = 0
 
   for (const sourceKey of STACK_ORDER) {
-    totalGenerationTwh += yearRow.values[sourceKey]
+    totalGenerationTwh +=
+      yearRow.values[sourceKey]
   }
 
   if (totalGenerationTwh === 0) {
     return null
   }
 
-  // 2. Emissionen pro Quelle berechnen und Gesamtemissionen ermitteln
-  const emissionsPerSource = {} as EmissionFactorValues
+  const emissionsPerSource =
+    {} as EmissionFactorValues
+
   let totalEmissionsMt = 0
 
   for (const sourceKey of STACK_ORDER) {
-    const generationTwh = yearRow.values[sourceKey]
-    const factor = emissionFactors[sourceKey] ?? 0
-    const emissionsMt = calculateEmissionsMt(generationTwh, factor)
+    const generationTwh =
+      yearRow.values[sourceKey]
 
-    emissionsPerSource[sourceKey] = emissionsMt
+    const factor =
+      emissionFactors[sourceKey] ?? 0
+
+    const emissionsMt =
+      calculateEmissionsMt(
+        generationTwh,
+        factor,
+      )
+
+    emissionsPerSource[sourceKey] =
+      emissionsMt
+
     totalEmissionsMt += emissionsMt
   }
 
-  // 3. Ergebniszeilen bauen
   const rows: EmissionRow[] = []
 
   for (const sourceKey of STACK_ORDER) {
-    const generationTwh = yearRow.values[sourceKey]
-    const emissionsMt = emissionsPerSource[sourceKey]
+    const generationTwh =
+      yearRow.values[sourceKey]
+
+    const emissionsMt =
+      emissionsPerSource[sourceKey]
+
+    const generationShare =
+      calculateShare(
+        generationTwh,
+        totalGenerationTwh,
+      )
+
+    const emissionShare =
+      calculateShare(
+        emissionsMt,
+        totalEmissionsMt,
+      )
+
+    const deviationPp =
+      (emissionShare - generationShare) * 100
 
     rows.push({
       sourceKey,
       generationTwh,
-      generationShare: calculateShare(generationTwh, totalGenerationTwh),
+      generationShare,
       emissionsMt,
-      emissionShare: calculateShare(emissionsMt, totalEmissionsMt),
-      deviationPp:
-        (calculateShare(emissionsMt, totalEmissionsMt) -
-          calculateShare(generationTwh, totalGenerationTwh)) *
-        100,
+      emissionShare,
+      deviationPp,
     })
   }
 
@@ -178,33 +230,43 @@ export function calculateEmissionRows(
 }
 
 /**
- * Berechnet ein vollständiges DeviationYear-Objekt.
+ * Berechnen der gesamten Abweichungsdaten eines Jahres
  *
- * @param yearRow – Erzeugungsdaten eines Jahres
- * @param emissionFactors – Emissionsfaktoren in g CO₂/kWh
- * @returns DeviationYear oder null bei ungültigen Eingaben
+ * Die Summen werden aus den bereits berechneten
+ * Zeilen zusammengesetzt
+ *
+ * @param yearRow Erzeugungsdaten eines Jahres
+ * @param emissionFactors Emissionsfaktoren der Energieträger
+ * @returns Berechnete Jahresdaten oder null
  */
 export function calculateDeviationYear(
   yearRow: MixYearRow | null,
-  emissionFactors: EmissionFactorValues = DEFAULT_EMISSION_FACTORS,
+  emissionFactors: EmissionFactorValues =
+    DEFAULT_EMISSION_FACTORS,
 ): DeviationYear | null {
-  if (!yearRow) {
+  if (yearRow === null) {
     return null
   }
 
-  const rows = calculateEmissionRows(yearRow, emissionFactors)
+  const rows =
+    calculateEmissionRows(
+      yearRow,
+      emissionFactors,
+    )
 
-  if (!rows) {
+  if (rows === null) {
     return null
   }
 
-  // Erzeugungs- und Emissionssummen aus den Zeilen ermitteln
   let totalGenerationTwh = 0
   let totalEmissionsMt = 0
 
   for (const row of rows) {
-    totalGenerationTwh += row.generationTwh
-    totalEmissionsMt += row.emissionsMt
+    totalGenerationTwh +=
+      row.generationTwh
+
+    totalEmissionsMt +=
+      row.emissionsMt
   }
 
   return {

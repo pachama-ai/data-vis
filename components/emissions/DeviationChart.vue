@@ -1,9 +1,11 @@
 <script setup lang="ts">
 /**
- * Verbindet das Abweichungsdiagramm mit der Vue-Oberfläche
+ * Reiter „CO₂-Vergleich" im Dashboard.
  *
- * Hier werden die Daten geladen und die Werte für
- * Diagramm, Tooltip, Slider und Seitenleiste vorbereitet
+ * Lädt die Emissionsfaktoren, kombiniert sie mit den Erzeugungsdaten
+ * und übergibt die berechneten Abweichungen an DeviationChart. Das
+ * Diagramm zeigt, wie stark sich der Anteil eines Energieträgers
+ * an der CO₂-Bilanz gegenüber dem Basisjahr verändert hat.
  *
  * @author Selina Schneider
  */
@@ -45,15 +47,15 @@ import type {
   MixSourceKey,
 } from '~/types/emissions'
 
-/* Typ für den Zugriff auf den Diagrammbereich */
 type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 
-/* Mögliche Sortierungen der Balken */
+/**
+ * Sortierrichtungen der Balken im Diagramm.
+ * - 'category': Erneuerbare, Kernenergie, Fossile in dieser Reihenfolge
+ * - 'impact': absteigend nach Beitrag zum CO₂-Effekt
+ */
 type SortMode = 'category' | 'impact'
 
-/**
- * Angaben für eine Sortiermöglichkeit
- */
 interface SortOption {
   key: SortMode
   label: string
@@ -73,11 +75,14 @@ const {
   setSelectedYear,
 } = useMixSelection()
 
+// Emissionsfaktoren liegen in einer eigenen JSON, deshalb ein separater
+// Ladezustand mit optionalem Fehlertext.
 const emissionFactors = ref<EmissionFactorsFile | null>(null)
 const emissionError = ref<string | null>(null)
 
 const hoverPayload = ref<DeviationHoverPayload | null>(null)
 const selectedSourceKey = ref<MixSourceKey | null>(null)
+
 const sortMode = ref<SortMode>('category')
 
 const sortOptions: SortOption[] = [
@@ -91,21 +96,16 @@ const sortOptions: SortOption[] = [
   },
 ]
 
-/*
- * Gleicher Bereich der x-Achse für alle Jahre
- *
- * Ich lasse die Grenzen fest, damit die Jahre
- * direkt miteinander verglichen werden können
- */
+// Fester X-Achsenbereich für alle Jahre, damit die Balkenlängen zwischen
+// den Jahren direkt vergleichbar bleiben.
 const xDomain: [number, number] = [-50, 50]
 
 let chart: DeviationChart | null = null
 
 /**
- * Laden der Emissionsfaktoren
- *
- * Bei einem Fehler wird die Meldung gespeichert
- * und später in der Oberfläche angezeigt
+ * Lädt die Emissionsfaktoren aus der JSON-Datei. Ich fange Fehler ab,
+ * damit die Seite trotzdem eine sinnvolle Meldung anzeigt und nicht
+ * mit einer weißen Ansicht dasteht.
  */
 async function loadEmissionFactors(): Promise<void> {
   emissionError.value = null
@@ -123,11 +123,8 @@ async function loadEmissionFactors(): Promise<void> {
   }
 }
 
-/*
- * Berechnen der Abweichungen für alle vorhandenen Jahre
- *
- * Ohne Emissionsfaktoren kann die Berechnung noch nicht starten
- */
+// Abweichungen für alle vorhandenen Jahre. Solange die Emissionsfaktoren
+// noch nicht da sind, gebe ich ein leeres Array zurück.
 const deviationYears = computed(function () {
   if (emissionFactors.value === null) {
     return []
@@ -139,7 +136,7 @@ const deviationYears = computed(function () {
   )
 })
 
-/* Sammeln der Jahre für den Jahresregler */
+// Verfügbare Jahre für den Slider.
 const availableYears = computed(function () {
   const years: number[] = []
 
@@ -150,16 +147,18 @@ const availableYears = computed(function () {
   return years
 })
 
-/* Ermitteln des letzten verfügbaren Jahres */
+// Fallback auf das neueste Jahr, wenn noch keine Auswahl getroffen wurde.
 const latestYear = computed(function () {
   const years = availableYears.value
   return years[years.length - 1] ?? null
 })
 
-/*
- * Ermitteln des Jahres, das gerade angezeigt werden soll
+/**
+ * Bestimmt das aktuell anzuzeigende Jahr. Ich prüfe zuerst die
+ * gespeicherte Auswahl aus useMixSelection und falle sonst auf das
+ * neueste Jahr zurück.
  *
- * Falls die Auswahl nicht vorhanden ist, wird das letzte Jahr genommen
+ * @returns Jahreszahl oder null, wenn noch keine Daten geladen sind
  */
 const activeYearNumber = computed(function () {
   const currentYear = selectedYear.value
@@ -174,7 +173,7 @@ const activeYearNumber = computed(function () {
   return latestYear.value
 })
 
-/* Suchen der Daten für das aktuell ausgewählte Jahr */
+// Vollständiger Datensatz zum aktiven Jahr.
 const activeYear = computed(function () {
   const year = activeYearNumber.value
 
@@ -191,7 +190,7 @@ const activeYear = computed(function () {
   return null
 })
 
-/* Suchen der Daten für das Vergleichsjahr */
+// Vollständiger Datensatz zum Basisjahr, das als Vergleichspunkt dient.
 const baseYear = computed(function () {
   for (const yearData of deviationYears.value) {
     if (yearData.year === BASE_YEAR) {
@@ -202,11 +201,12 @@ const baseYear = computed(function () {
   return null
 })
 
-/*
- * Berechnen der Emissionsintensität des aktuellen Jahres
+/**
+ * Emissionsintensität des aktuellen Jahres in g CO₂/kWh.
+ * Bei fehlenden Erzeugungsdaten gebe ich 0 zurück, damit der Rest
+ * der Seite nicht mit NaN weiterrechnet.
  *
- * Bei einer Erzeugung von 0 gebe ich 0 zurück,
- * damit nicht durch 0 gerechnet wird
+ * @returns Wert in g CO₂/kWh oder 0
  */
 const emissionIntensity = computed(function () {
   const yearData = activeYear.value
@@ -224,34 +224,25 @@ const emissionIntensity = computed(function () {
   )
 })
 
-/* Berechnen des Erneuerbaren-Anteils im aktuellen Jahr */
+// Erneuerbaren-Anteil des aktiven Jahres in Prozent.
 const renewableShare = computed(function () {
   if (activeYear.value === null) {
     return 0
   }
 
-  return calculateRenewableShare(
-    activeYear.value,
-  )
+  return calculateRenewableShare(activeYear.value)
 })
 
-/* Berechnen des Erneuerbaren-Anteils im Vergleichsjahr */
+// Erneuerbaren-Anteil des Basisjahres, für den Vergleich in der Sidebar.
 const baseRenewableShare = computed(function () {
   if (baseYear.value === null) {
     return 0
   }
 
-  return calculateRenewableShare(
-    baseYear.value,
-  )
+  return calculateRenewableShare(baseYear.value)
 })
 
-/*
- * Berechnen der Emissionsintensität des Vergleichsjahres
- *
- * Bei einer Erzeugung von 0 wird wieder 0 verwendet,
- * damit nicht durch 0 gerechnet wird
- */
+// Emissionsintensität des Basisjahres.
 const baseEmissionIntensity = computed(function () {
   const yearData = baseYear.value
 
@@ -269,9 +260,9 @@ const baseEmissionIntensity = computed(function () {
 })
 
 /**
- * Speichern der Daten für den Tooltip
+ * Speichert den Hover-Payload für den Tooltip.
  *
- * @param payload Daten und Position des Balkens
+ * @param payload Position und Zeilendaten des gehoverten Balkens
  */
 function handleChartHover(
   payload: DeviationHoverPayload,
@@ -280,16 +271,16 @@ function handleChartHover(
 }
 
 /**
- * Zurücksetzen der Hover-Daten nach dem Verlassen des Diagramms
+ * Blendet den Tooltip aus, wenn der Cursor die Zeichenfläche verlässt.
  */
 function handleChartLeave(): void {
   hoverPayload.value = null
 }
 
 /**
- * Speichern des angeklickten Energieträgers
+ * Merkt sich den angeklickten Balken für die Sidebar-Anzeige.
  *
- * @param sourceKey Ausgewählter Energieträger oder null
+ * @param sourceKey Angeklickter Energieträger, oder null zum Zurücksetzen
  */
 function handleChartSelection(
   sourceKey: MixSourceKey | null,
@@ -297,7 +288,7 @@ function handleChartSelection(
   selectedSourceKey.value = sourceKey
 }
 
-/* Suchen der ausgewählten Zeile im aktuellen Jahr */
+// Zeile des ausgewählten Energieträgers im aktiven Jahr oder null.
 const selectedRow = computed(function () {
   const sourceKey = selectedSourceKey.value
   const yearData = activeYear.value
@@ -318,11 +309,8 @@ const selectedRow = computed(function () {
   return null
 })
 
-/*
- * Suchen des Erzeugungsanteils der Auswahl im Vergleichsjahr
- *
- * Der Wert wird für den Vergleich mit 2015 gebraucht
- */
+// Erzeugungsanteil des ausgewählten Energieträgers im Basisjahr.
+// Null, wenn nichts ausgewählt ist oder der Träger 2015 noch nicht existierte.
 const selectedRowBaseShare = computed(function () {
   const sourceKey = selectedSourceKey.value
   const yearData = baseYear.value
@@ -344,7 +332,7 @@ const selectedRowBaseShare = computed(function () {
 })
 
 /**
- * Ändern der Sortierung im Diagramm
+ * Ändert die Sortierung und leitet sie an die Chart-Klasse weiter.
  *
  * @param mode Neue Sortierung
  */
@@ -354,9 +342,7 @@ function handleSortChange(mode: SortMode): void {
 }
 
 /**
- * Laden der Daten und anschließendes Erstellen des Diagramms
- *
- * Ich warte mit nextTick, bis Vue den Diagrammbereich erstellt hat
+ * Lädt Erzeugungs- und Emissionsdaten und erstellt danach das Diagramm.
  */
 async function loadAndCreateChart(): Promise<void> {
   await loadData()
@@ -366,14 +352,11 @@ async function loadAndCreateChart(): Promise<void> {
 }
 
 /**
- * Erstellen des D3-Diagramms
- *
- * Ohne Container oder Emissionsfaktoren kann das Diagramm
- * noch nicht aufgebaut werden
+ * Erstellt die DeviationChart-Instanz und registriert alle Handler,
+ * bevor sie zum ersten Mal Daten bekommt.
  */
 function createChart(): void {
-  const container =
-    chartTemplate.value?.chartContainer
+  const container = chartTemplate.value?.chartContainer
 
   if (
     container === null
@@ -385,6 +368,7 @@ function createChart(): void {
 
   chart = new DeviationChart()
 
+  // Handler zuerst, damit das erste Render bereits reagieren kann.
   chart.setHoverHandler(handleChartHover)
   chart.setHoverEndHandler(handleChartLeave)
   chart.setSelectionHandler(handleChartSelection)
@@ -399,12 +383,11 @@ function createChart(): void {
 }
 
 /**
- * Weitergeben der neuen Jahresdaten an die D3-Klasse
+ * Übergibt die Zeilen des neu ausgewählten Jahres an das Diagramm.
+ * Hover-Zustand und Klick-Auswahl werden zurückgesetzt, damit keine
+ * veralteten Werte des Vorjahres in Tooltip oder Sidebar stehen bleiben.
  *
- * Hover und Auswahl werden beim Jahreswechsel zurückgesetzt,
- * damit keine Werte des vorherigen Jahres stehen bleiben
- *
- * @param updatedYear Daten des ausgewählten Jahres
+ * @param updatedYear Datensatz des neuen Jahres, oder null
  */
 function updateChartYear(
   updatedYear: DeviationYear | null,
@@ -418,7 +401,7 @@ function updateChartYear(
 }
 
 /**
- * Weitergeben des neuen Farbmodus an das Diagramm
+ * Gibt den neuen Farbmodus an das Diagramm weiter.
  *
  * @param updatedMode Neuer Farbmodus
  */
@@ -428,8 +411,12 @@ function updateChartColors(
   chart?.setColors(updatedMode)
 }
 
-onMounted(function () { loadAndCreateChart() })
+onMounted(function () {
+  loadAndCreateChart()
+})
 
+// Aufräumen beim Wechsel auf eine andere Seite, damit keine D3-Listener
+// oder DOM-Reste zurückbleiben.
 onBeforeUnmount(function () {
   chart?.destroy()
   chart = null
@@ -437,12 +424,14 @@ onBeforeUnmount(function () {
   selectedSourceKey.value = null
 })
 
+// Ein Watcher pro Chart-Methode, damit unnötige Aufrufe wegfallen.
 watch(activeYear, updateChartYear)
 watch(colorMode, updateChartColors)
 </script>
 
 <template>
   <div class="deviation-layout">
+    <!-- Fehlerfall: Emissionsfaktoren konnten nicht geladen werden. -->
     <div
       v-if="emissionError"
       class="deviation-error"
@@ -450,6 +439,7 @@ watch(colorMode, updateChartColors)
       {{ emissionError }}
     </div>
 
+    <!-- Ladezustand: Daten sind noch nicht verfügbar. -->
     <div
       v-else-if="pending && emissionFactors === null"
       class="deviation-loading"
@@ -458,7 +448,7 @@ watch(colorMode, updateChartColors)
     </div>
 
     <template v-else>
-      <!-- Diagramm mit Tooltip und Sortierung -->
+      <!-- Diagramm mit Tooltip und Sortierauswahl. -->
       <div class="deviation-main">
         <ChartTemplate ref="chartTemplate">
           <template #overlay>
@@ -486,16 +476,12 @@ watch(colorMode, updateChartColors)
                 type="button"
                 class="sort-chip"
                 role="radio"
-                :aria-checked="
-                  sortMode === option.key
-                "
+                :aria-checked="sortMode === option.key"
                 :class="{
                   'sort-chip--active':
                     sortMode === option.key,
                 }"
-                @click="
-                  handleSortChange(option.key)
-                "
+                @click="handleSortChange(option.key)"
               >
                 {{ option.label }}
               </button>
@@ -504,7 +490,7 @@ watch(colorMode, updateChartColors)
         </ChartTemplate>
       </div>
 
-      <!-- Jahresauswahl und Kennzahlen -->
+      <!-- Jahresauswahl und Kennzahlen. -->
       <div class="deviation-sidebar">
         <YearSlider
           v-if="activeYearNumber !== null"
@@ -518,30 +504,19 @@ watch(colorMode, updateChartColors)
         <DeviationSidebar
           :active-year="activeYear"
           :base-year="baseYear"
-          :hovered-row="
-            hoverPayload?.row ?? null
-          "
+          :hovered-row="hoverPayload?.row ?? null"
           :selected-row="selectedRow"
-          :selected-row-base-share="
-            selectedRowBaseShare
-          "
-          :emission-intensity="
-            emissionIntensity
-          "
-          :renewable-share="
-            renewableShare
-          "
-          :base-renewable-share="
-            baseRenewableShare
-          "
-          :base-emission-intensity="
-            baseEmissionIntensity
-          "
+          :selected-row-base-share="selectedRowBaseShare"
+          :emission-intensity="emissionIntensity"
+          :renewable-share="renewableShare"
+          :base-renewable-share="baseRenewableShare"
+          :base-emission-intensity="baseEmissionIntensity"
           :color-mode="colorMode"
         />
       </div>
     </template>
 
+    <!-- Sonderfall: ein Jahr ist gewählt, aber es gibt keine Daten dafür. -->
     <p
       v-if="
         activeYearNumber !== null
@@ -555,7 +530,9 @@ watch(colorMode, updateChartColors)
 </template>
 
 <style scoped>
-/* Anordnung von Diagramm und Seitenleiste */
+/*
+ * Zweispaltiges Layout
+ */
 .deviation-layout {
   display: grid;
   grid-template-columns:
@@ -569,7 +546,6 @@ watch(colorMode, updateChartColors)
   min-width: 0;
 }
 
-/* Gestaltung der Statusmeldungen */
 .deviation-loading,
 .deviation-error,
 .deviation-empty {
@@ -583,7 +559,6 @@ watch(colorMode, updateChartColors)
   color: #b33;
 }
 
-/* Anordnung von Jahresregler und Kennzahlen */
 .deviation-sidebar {
   display: flex;
   flex-direction: column;
@@ -595,7 +570,6 @@ watch(colorMode, updateChartColors)
   background: var(--line-color);
 }
 
-/* Abstand für die Sortierung */
 .sort-section {
   margin-bottom: 16px;
 }
@@ -604,7 +578,6 @@ watch(colorMode, updateChartColors)
   margin-bottom: 12px;
 }
 
-/* Anordnung der Sortierbuttons */
 .sort-chips {
   display: flex;
   flex-wrap: wrap;

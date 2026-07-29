@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * Seitenleiste für das Flächendiagramm
  *
@@ -120,7 +120,7 @@ function formatMonth(date: Date): string {
 
       <div class="sidebar-section">
         <h3 class="sidebar-section-title">
-          Anteile im ausgewählten Monat
+          Anteile im dargestellten Monat
         </h3>
 
         <div
@@ -241,9 +241,8 @@ function formatMonth(date: Date): string {
         class="source-context"
       >
         Die letzten drei Kernkraftwerke wurden am 15. April 2023
-        abgeschaltet. Da die Abschaltung in der Monatsmitte erfolgte,
-        enthält der April noch einen Teilmonat Kernenergie. Ab Mai
-        liegt die Erzeugung bei null.
+        abgeschaltet. Deshalb ist im April noch ein kleiner Anteil
+        Kernenergie zu sehen.
       </p>
     </section>
 
@@ -456,3 +455,4 @@ function formatMonth(date: Date): string {
 
 /* .sidebar-divider – Regel in main.css */
 </style>
+

@@ -86,7 +86,11 @@ export interface AnnotationContext {
 
 // Hilfsfunktionen
 
-/** Startwert für Gruppen-Aggregate: alle drei Gruppen auf 0. */
+/**
+ * Startwert für Gruppen-Aggregate: alle drei Gruppen auf 0.
+ *
+ * @returns Leeres GroupValues-Objekt
+ */
 type GroupValues = {
   renewable: number
   nuclear: number
@@ -104,6 +108,9 @@ function createEmptyGroupValues(): GroupValues {
 /**
  * Summiert die Werte einer Jahreszeile pro Gruppe.
  * Nutze ich für den Übersichtsvergleich 2015 gegen 2024.
+ *
+ * @param yearRow Jahreszeile mit Werten pro Energieträger
+ * @returns Gruppensummen (renewable, nuclear, fossil)
  */
 function calculateYearGroupValues(
   yearRow: MixYearRow,
@@ -120,7 +127,12 @@ function calculateYearGroupValues(
   return groupValues
 }
 
-/** Summe der zehn im Chart dargestellten Quellen für einen Monat. */
+/**
+ * Summe der zehn im Chart dargestellten Quellen für einen Monat.
+ *
+ * @param monthRow Monatszeile mit Werten pro Energieträger
+ * @returns Summe aller Werte in TWh
+ */
 function calculateMonthTotal(monthRow: MixMonthRow): number {
   let total = 0
 
@@ -134,6 +146,9 @@ function calculateMonthTotal(monthRow: MixMonthRow): number {
 /**
  * Summiert die Werte einer Monatszeile pro Gruppe.
  * Nutze ich für die Monatsansicht in der Annotation.
+ *
+ * @param monthRow Monatszeile mit Werten pro Energieträger
+ * @returns Gruppensummen (renewable, nuclear, fossil)
  */
 function calculateMonthGroupValues(
   monthRow: MixMonthRow,
@@ -150,13 +165,22 @@ function calculateMonthGroupValues(
   return groupValues
 }
 
-/** Rundet einen Wert auf eine Nachkommastelle. */
+/**
+ * Rundet einen Wert auf eine Nachkommastelle.
+ *
+ * @param value Zu rundender Wert
+ * @returns Gerundeter Wert
+ */
 function roundToOneDecimal(value: number): number {
   return Math.round(value * 10) / 10
 }
 
 /**
  * Berechnet einen Anteil und schützt vor der Division durch 0.
+ *
+ * @param value Einzelwert
+ * @param total Gesamtmenge
+ * @returns Anteil zwischen 0 und 1 (0 bei total === 0)
  */
 function calculateShare(value: number, total: number): number {
   if (total === 0) {
@@ -175,6 +199,9 @@ function calculateShare(value: number, total: number): number {
  * Energieträger mit dem größten Zuwachs und dem größten Rückgang.
  *
  * Gibt null zurück, wenn eines der beiden Jahre in den Daten fehlt.
+ *
+ * @param yearRows Alle Jahreszeilen
+ * @returns Übersichts-Kennzahlen oder null
  */
 export function getOverviewMetrics(
   yearRows: MixYearRow[],
@@ -272,7 +299,11 @@ export function getOverviewMetrics(
 /**
  * Findet den Monat mit dem höchsten und dem niedrigsten Wert für eine
  * bestimmte Quelle. Start der Suche mit dem ersten Monat als
- * Ausgangswert und vergleich mit restlichen Monaten.
+ * Ausgangswert und vergleich mit den restlichen Monaten.
+ *
+ * @param monthRows Alle Monatszeilen
+ * @param sourceKey Zu untersuchender Energieträger
+ * @returns Monats-Extrema oder null bei leeren Daten
  */
 function findSourceExtremes(
   monthRows: MixMonthRow[],
@@ -331,6 +362,11 @@ function findSourceExtremes(
  * sowie die beiden Extremmonate über den gesamten Zeitraum.
  *
  * Gibt null zurück, wenn eines der beiden Jahre fehlt.
+ *
+ * @param yearRows Alle Jahreszeilen
+ * @param monthRows Alle Monatszeilen
+ * @param sourceKey Ausgewählter Energieträger
+ * @returns Kennzahlen des Trägers oder null
  */
 export function getSourceMetrics(
   yearRows: MixYearRow[],

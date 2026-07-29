@@ -1,20 +1,23 @@
 /**
- * Berechnen von Abweichungen zwischen Stromerzeugung
- * und direkten CO₂-Emissionen
+ * Berechnet Abweichungen zwischen Stromerzeugung und direkten
+ * CO₂-Emissionen je Energieträger.
  *
- * Verglichen werden der Anteil eines Energieträgers
- * an der Stromerzeugung und sein Anteil an den gesamten
- * direkten CO₂-Emissionen
+ * Verglichen werden der Anteil eines Energieträgers an der
+ * Stromerzeugung und sein Anteil an den gesamten direkten
+ * CO₂-Emissionen. Die Differenz sagt, ob ein Energieträger
+ * überproportional oder unterproportional zu den Emissionen
+ * beiträgt:
  *
- * Positive Werte stehen für einen größeren Emissionsanteil
- * Negative Werte stehen für einen kleineren Emissionsanteil
+ * - Positive Werte: größerer Emissionsanteil als Erzeugungsanteil
+ *   – der Träger ist klimaschädlicher als der Durchschnitt.
+ * - Negative Werte: kleinerer Emissionsanteil als Erzeugungsanteil
+ *   – der Träger ist klimafreundlicher als der Durchschnitt.
  *
  * @author Selina Schneider
  */
 
 import {
   GROUP_OF,
-  STACK_ORDER,
 } from '~/components/generation/mixConfig'
 
 import {
@@ -26,17 +29,17 @@ import type { MixYearRow } from '~/composables/useMixData'
 import type {
   DeviationYear,
   EmissionFactorValues,
-  EmissionRow,
 } from '~/types/emissions'
 
-/* Festlegen des Vergleichsjahres */
+
+/** Basisjahr, gegen das alle anderen Jahre verglichen werden. */
 export const BASE_YEAR = 2015
 
 /**
- * Berechnen des gesamten Erzeugungsanteils
- * der erneuerbaren Energieträger
+ * Berechnet den gesamten Erzeugungsanteil aller erneuerbaren
+ * Energieträger in einem Jahr.
  *
- * @param deviationYear Berechnete Daten eines Jahres
+ * @param deviationYear Berechnete Jahresdaten mit allen Energieträgern
  * @returns Anteil der erneuerbaren Energien in Prozent
  */
 export function calculateRenewableShare(
@@ -52,23 +55,22 @@ export function calculateRenewableShare(
     }
   }
 
+  // generationShare liegt als Dezimalzahl (0–1) vor, daher mal 100
+  // für die Anzeige in Prozent.
   return renewableShare * 100
 }
 
 /**
- * Berechnen der Abweichungsdaten für mehrere Jahre
+ * Berechnet die Abweichungsdaten für eine Liste von Jahren.
+ * Jahre, die sich nicht auswerten lassen, werden übersprungen.
  *
- * Jahre ohne gültiges Ergebnis werden übersprungen,
- * damit nur verwendbare Daten in der Liste landen
- *
- * @param yearRows Erzeugungsdaten aller Jahre
- * @param emissionFactors Emissionsfaktoren der Energieträger
- * @returns Berechnete Jahresdaten
+ * @param yearRows Rohe Erzeugungsdaten aller verfügbaren Jahre
+ * @param emissionFactors Emissionsfaktoren je Energieträger
+ * @returns Liste der erfolgreich berechneten Jahresdaten
  */
 export function calculateMultipleYears(
   yearRows: MixYearRow[],
-  emissionFactors: EmissionFactorValues =
-    DEFAULT_EMISSION_FACTORS,
+  emissionFactors: EmissionFactorValues = DEFAULT_EMISSION_FACTORS,
 ): DeviationYear[] {
   const results: DeviationYear[] = []
 
@@ -78,6 +80,7 @@ export function calculateMultipleYears(
       emissionFactors,
     )
 
+    // null bedeutet, dass das Jahr nicht auswertbar war.
     if (deviationYear !== null) {
       results.push(deviationYear)
     }

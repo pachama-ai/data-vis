@@ -14,7 +14,7 @@
  */
 
 // Bun stellt diese Funktionen zur Laufzeit bereit.
-// Die Deklaration wird für die TypeScript-Prüfung benötigt.
+// Deklaration wird für TypeScript-Prüfung benötigt.
 declare var Bun: {
   file(path: string): {
     exists(): Promise<boolean>
@@ -25,7 +25,6 @@ declare var Bun: {
 
 import type {
   MonthlyMixPoint,
-  ScatterDailyPoint,
   YearlyMixPoint,
 } from '../types/visualization-data'
 
@@ -106,14 +105,6 @@ interface MonthBucket {
   count: number
 }
 
-/** Sammelt die Werte für einen Tag. */
-interface DayBucket {
-  renewableGen: number
-  totalGen: number
-  co2Weighted: number
-  count: number
-}
-
 /** Sammelt die Werte für ein Jahr. */
 interface YearBucket {
   sources: EnergySourceAccum
@@ -126,7 +117,6 @@ interface YearBucket {
 /** Ergebnis von processData(). */
 interface ProcessResult {
   monthBuckets: Map<string, MonthBucket>
-  dayBuckets: Map<string, DayBucket>
   yearBuckets: Map<string, YearBucket>
   validCount: number
   skippedOutside: number
@@ -135,10 +125,9 @@ interface ProcessResult {
   totalSkipped: number
 }
 
-/** Fertige Monats-, Tages- und Jahresdaten für die JSON-Datei. */
+/** Fertige Monats- und Jahresdaten für die JSON-Datei. */
 interface VisualizationOutput {
   monthlyMix: MonthlyMixPoint[]
-  scatterDaily: ScatterDailyPoint[]
   yearlyMix: YearlyMixPoint[]
 }
 
@@ -177,8 +166,7 @@ const RENEWABLE_FIELDS = new Set([
 ])
 
 /**
- * Die letzten deutschen Kernkraftwerke wurden am 15. April 2023
- * abgeschaltet.
+ * Die letzten deutschen Kernkraftwerke wurden am 15. April 2023 abgeschaltet.
  */
 const NUCLEAR_PHASEOUT_DATE = '2023-04-15'
 
@@ -234,8 +222,8 @@ function roundToTwoDecimals(value: number): number {
 
 /**
  * Liest Jahr, Monat, Tag und Stunde eines Zeitpunkts in Berliner
- * Lokalzeit aus und baut daraus gleich die Schlüssel für die Tages-
- * und Monats-Buckets. Datum und Stunde hole ich mit zwei getrennten
+ * Lokalzeit aus und baut daraus gleich die Bucket-Schlüssel.
+ * Datum und Stunde hole ich mit zwei getrennten
  * Formatern, weil ich für die Stunde das 24-Stunden-Format
  * (hourCycle: 'h23') brauche, für das Datum aber nicht.
  *
@@ -416,34 +404,6 @@ function finalizeMonthlyMix(buckets: Map<string, MonthBucket>): MonthlyMixPoint[
 }
 
 /**
- * Erstellt die fertigen Tageswerte aus den gesammelten Daten.
- *
- * @param buckets Gesammelte Werte nach Tag
- * @returns Sortierte Tagesdaten für das Streudiagramm
- */
-function finalizeScatterDaily(buckets: Map<string, DayBucket>): ScatterDailyPoint[] {
-  const entries = Array.from(buckets.entries())
-
-  entries.sort(function (firstEntry, secondEntry) {
-    return firstEntry[0].localeCompare(secondEntry[0])
-  })
-
-  return entries.map(function (entry) {
-    const date = entry[0]
-    const bucket = entry[1]
-
-    return {
-      date,
-      renewableSharePercent: roundToTwoDecimals(
-        (bucket.renewableGen / bucket.totalGen) * 100,
-      ),
-      co2GramsPerKwh: roundToTwoDecimals(bucket.co2Weighted / bucket.totalGen),
-      availableHourCount: bucket.count,
-    }
-  })
-}
-
-/**
  * Erstellt die fertigen Jahreswerte aus den gesammelten Daten.
  *
  * @param buckets Gesammelte Werte nach Jahr
@@ -514,6 +474,14 @@ async function loadEmissionFactors(): Promise<EmissionFactors> {
 
   const factorData = rawData as Record<string, unknown>
 
+  /**
+   * Liest einen einzelnen Emissionsfaktor und prüft, ob er eine
+   * gültige Zahl ist.
+   *
+   * @param field Feldname im JSON
+   * @returns Emissionsfaktor in g CO₂/kWh
+   * @throws Fehler, wenn der Wert fehlt oder ungültig ist
+   */
   function readFactor(field: string): number {
     const value = factorData[field]
 
@@ -583,35 +551,6 @@ function addToMonthBucket(
 }
 
 /**
- * Addiert die Werte einer Stunde zu einem Tages-Bucket.
- *
- * @param buckets Tages-Buckets
- * @param dateParts Datumsteile der Stunde
- * @param renewableGeneration Erneuerbare Erzeugung der Stunde
- * @param totalGeneration Gesamterzeugung der Stunde
- * @param co2Weighted Gewichtete CO₂-Summe der Stunde
- */
-function addToDayBucket(
-  buckets: Map<string, DayBucket>,
-  dateParts: BerlinDateParts,
-  renewableGeneration: number,
-  totalGeneration: number,
-  co2Weighted: number,
-): void {
-  let bucket = buckets.get(dateParts.dateKey)
-
-  if (bucket === undefined) {
-    bucket = { renewableGen: 0, totalGen: 0, co2Weighted: 0, count: 0 }
-    buckets.set(dateParts.dateKey, bucket)
-  }
-
-  bucket.renewableGen += renewableGeneration
-  bucket.totalGen += totalGeneration
-  bucket.co2Weighted += co2Weighted
-  bucket.count++
-}
-
-/**
  * Addiert die Werte einer Stunde zu einem Jahres-Bucket.
  *
  * @param buckets Jahres-Buckets
@@ -674,7 +613,6 @@ function processData(
   let skippedZeroTotal = 0
 
   const monthBuckets = new Map<string, MonthBucket>()
-  const dayBuckets = new Map<string, DayBucket>()
   const yearBuckets = new Map<string, YearBucket>()
 
   for (const row of smardData) {
@@ -712,7 +650,6 @@ function processData(
     const renewableGeneration = calculateRenewableGeneration(sources)
 
     addToMonthBucket(monthBuckets, dateParts, sources, totalGeneration, co2Weighted)
-    addToDayBucket(dayBuckets, dateParts, renewableGeneration, totalGeneration, co2Weighted)
     addToYearBucket(yearBuckets, dateParts, sources, renewableGeneration, totalGeneration, co2Weighted)
   }
 
@@ -720,7 +657,6 @@ function processData(
 
   return {
     monthBuckets,
-    dayBuckets,
     yearBuckets,
     validCount,
     skippedOutside,
@@ -743,7 +679,7 @@ function printEvaluation(result: ProcessResult): void {
 }
 
 /**
- * Baut aus den gefüllten Buckets die fertigen Monats-, Tages- und
+ * Baut aus den gefüllten Buckets die fertigen Monats- und
  * Jahresdaten für die JSON-Datei.
  *
  * @param result Ergebnis von processData()
@@ -751,10 +687,9 @@ function printEvaluation(result: ProcessResult): void {
  */
 function createOutput(result: ProcessResult): VisualizationOutput {
   const monthlyMix = finalizeMonthlyMix(result.monthBuckets)
-  const scatterDaily = finalizeScatterDaily(result.dayBuckets)
   const yearlyMix = finalizeYearlyMix(result.yearBuckets)
 
-  return { monthlyMix, scatterDaily, yearlyMix }
+  return { monthlyMix, yearlyMix }
 }
 
 /**
@@ -772,9 +707,8 @@ async function writeOutput(output: VisualizationOutput): Promise<void> {
   const fileSizeMb = (fileSizeBytes / 1024 / 1024).toFixed(2)
 
   console.log(`\nGespeichert: visualization-data.json (${fileSizeMb} MB)`)
-  console.log(`  monthlyMix:   ${output.monthlyMix.length} Monate`)
-  console.log(`  scatterDaily: ${output.scatterDaily.length} Tage`)
-  console.log(`  yearlyMix:    ${output.yearlyMix.length} Jahre`)
+  console.log(`  monthlyMix: ${output.monthlyMix.length} Monate`)
+  console.log(`  yearlyMix:  ${output.yearlyMix.length} Jahre`)
 }
 
 /**

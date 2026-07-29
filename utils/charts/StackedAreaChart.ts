@@ -174,6 +174,8 @@ export class StackedAreaChart extends BaseChart {
 
   /**
    * Speichert die Funktion für einen Hintergrundklick.
+   *
+   * @param handler Funktion oder null
    */
   setBackgroundClickHandler(handler: (() => void) | null): void {
     this.backgroundClickHandler = handler

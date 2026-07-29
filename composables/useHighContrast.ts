@@ -1,13 +1,7 @@
 /**
- * composables/useHighContrast.ts – Globaler Kontrastmodus.
+ * Schaltet stärkere Farben und Kontraste ein oder aus.
  *
- * Ein/Aus-Schalter für kräftigere Farben und stärkere Kontraste.
- * Der Wert wird als Modul-Variable (ref) gehalten, damit er beim
- * Seitenwechsel erhalten bleibt.
- *
- * Setzt dataset.contrast auf dem Wurzelelement, damit CSS global
- * reagieren kann, und synchronisiert den Chart-Farbmodus über
- * useMixSelection.
+ * @author Selina Schneider
  */
 
 import { ref } from 'vue'
@@ -15,32 +9,46 @@ import { useMixSelection } from '~/composables/useMixSelection'
 
 const isActive = ref(false)
 
+/**
+ * Composable zum Umschalten zwischen normalem und kontrastreichem
+ * Farbmodus. Setzt ein data-Attribut auf dem <html>-Element und
+ * aktualisiert den Farbmodus in useMixSelection.
+ *
+ * @returns Objekt mit isActive, toggle, setActive
+ */
 export function useHighContrast() {
-  /** Schaltet den Kontrastmodus um. */
+  /**
+   * Übernimmt den aktuellen Kontrastmodus.
+   */
+  function apply(): void {
+    if (import.meta.client) {
+      document.documentElement.dataset.contrast = isActive.value ? 'on' : 'off'
+    }
+
+    const { setColorMode } = useMixSelection()
+    setColorMode(isActive.value ? 'accessible' : 'default')
+  }
+
+  /**
+   * Schaltet den Kontrastmodus um.
+   */
   function toggle(): void {
     isActive.value = !isActive.value
     apply()
   }
 
-  function apply(): void {
-    // CSS-Kontrast-Token umschalten
-    if (import.meta.client) {
-      document.documentElement.dataset.contrast = isActive.value ? 'on' : 'off'
-    }
-
-    // Chart-Farbmodus synchronisieren
-    const { setColorMode } = useMixSelection()
-    setColorMode(isActive.value ? 'accessible' : 'default')
-  }
-
-  // Initial anwenden (verwendet dieselbe apply-Funktion)
-  apply()
-
-  /** Setzt den Kontrastmodus direkt auf einen bestimmten Wert. */
+  /**
+   * Setzt den Kontrastmodus.
+   *
+   * @param value Neuer Zustand
+   */
   function setActive(value: boolean): void {
     isActive.value = value
     apply()
   }
+
+  // Aktuellen Zustand beim Aufruf übernehmen
+  apply()
 
   return {
     isActive,

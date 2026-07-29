@@ -1,10 +1,7 @@
 <script setup lang="ts">
 /**
- * StackedAreaLegend.vue – Klickbare Legende für den Stacked-Area-Chart.
- *
+ * Klickbare Legende für das gestapelte Flächendiagramm.
  * Zeigt alle zehn Energieträger nach Gruppen geordnet.
- * Klick auf einen Chip emittiert den Source-Key.
- * Die Toggle-Logik liegt in useMixSelection, nicht hier.
  *
  * @author Selina Schneider
  */
@@ -24,10 +21,15 @@ import {
 import type { ColorMode, MixGroup, MixSourceKey } from '~/types/energy-mix'
 
 const props = defineProps<{
+  /** Vom Nutzer per Hover oder Klick ausgewählter Träger. */
   highlighted: MixSourceKey | null
+
+  /** Von einer Annotation vorgegebene Träger. Überschreibt highlighted, wenn gesetzt. */
   highlightedSources?: MixSourceKey[] | null
+
   colorMode: ColorMode
-  /** Ob ein Ereignis (Annotation) aktiv ist – dann wird die Legende gesperrt */
+
+  /** Ob eine Annotation aktiv ist – dann wird die Legende gesperrt. */
   hasActiveAnnotation?: boolean
 }>()
 
@@ -35,10 +37,18 @@ const emit = defineEmits<{
   select: [sourceKey: MixSourceKey | null]
 }>()
 
+// Umschalten zwischen Standard- und Kontrast-Palette.
 const activeColors = computed(function () {
   return props.colorMode === 'accessible' ? MIX_COLORS_ACCESSIBLE : MIX_COLORS
 })
 
+/**
+ * Gibt die Quellen-Schlüssel einer Gruppe in der festgelegten
+ * STACK_ORDER-Reihenfolge zurück.
+ *
+ * @param group Gruppe (erneuerbar, Kernenergie, fossil)
+ * @returns Liste der Quellen-Schlüssel in der Gruppe
+ */
 function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   const sources: MixSourceKey[] = []
 
@@ -51,6 +61,14 @@ function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   return sources
 }
 
+/**
+ * Prüft, ob ein Energieträger gerade aktiv hervorgehoben ist.
+ * Bei aktiver Annotation zählt die highlightedSources-Liste,
+ * sonst der einzelne highlighted-Wert.
+ *
+ * @param sourceKey Zu prüfender Energieträger
+ * @returns true, wenn der Träger aktiv ist
+ */
 function isSourceActive(sourceKey: MixSourceKey): boolean {
   if (props.hasActiveAnnotation && props.highlightedSources != null) {
     return props.highlightedSources.includes(sourceKey)
@@ -59,29 +77,64 @@ function isSourceActive(sourceKey: MixSourceKey): boolean {
   return props.highlighted === sourceKey
 }
 
+/**
+ * Prüft, ob ein Energieträger bei aktiver Annotation ausgegraut werden soll.
+ * Nur die von der Annotation angesprochenen Träger bleiben klar sichtbar.
+ *
+ * @param sourceKey Zu prüfender Energieträger
+ * @returns true, wenn der Träger deaktiviert ist
+ */
 function isSourceDisabled(sourceKey: MixSourceKey): boolean {
-  if (!props.hasActiveAnnotation) return false
-  if (props.highlightedSources == null) return false
+  if (!props.hasActiveAnnotation) {
+    return false
+  }
+
+  if (props.highlightedSources == null) {
+    return false
+  }
+
   return !props.highlightedSources.includes(sourceKey)
 }
 
+/**
+ * Prüft, ob kein Filter gesetzt ist, also alle Träger anzeigt werden.
+ *
+ * @returns true, wenn weder Highlight noch Annotation aktiv ist
+ */
 function isAllActive(): boolean {
   return props.highlightedSources == null && props.highlighted === null
 }
 
+/**
+ * Gibt den ausgewählten Energieträger an das Dashboard weiter.
+ *
+ * @param sourceKey Angeklickter Energieträger
+ */
 function handleSelect(sourceKey: MixSourceKey): void {
-  if (isSourceDisabled(sourceKey)) return
+  if (isSourceDisabled(sourceKey)) {
+    return
+  }
+
   emit('select', sourceKey)
 }
 
+/**
+ * Setzt die Auswahl zurück, damit wieder alle Träger sichtbar sind.
+ */
 function handleShowAll(): void {
-  if (props.hasActiveAnnotation) return
+  if (props.hasActiveAnnotation) {
+    return
+  }
+
   emit('select', null)
 }
 </script>
 
 <template>
-  <div class="stacked-area-legend" aria-label="Energieträger auswählen">
+  <div
+    class="stacked-area-legend"
+    aria-label="Energieträger auswählen"
+  >
     <button
       type="button"
       class="legend-chip legend-all-button"
@@ -93,7 +146,10 @@ function handleShowAll(): void {
       aria-label="Alle Energieträger anzeigen"
       @click="handleShowAll"
     >
-      <span class="legend-all-colors" aria-hidden="true">
+      <span
+        class="legend-all-colors"
+        aria-hidden="true"
+      >
         <span class="legend-all-color legend-all-color--renewable" />
         <span class="legend-all-color legend-all-color--nuclear" />
         <span class="legend-all-color legend-all-color--fossil" />

@@ -1,29 +1,23 @@
 <script setup lang="ts">
 /**
- * Gemeinsamer Rahmen für die D3-Diagramme.
+ * Gemeinsamer Rahmen für die beiden Dashboard-Diagramme.
  *
- * Die Komponente zeigt Titel, Untertitel, Bedienelemente
- * und zusätzliche Hinweise rund um das Diagramm.
- * Die eigentliche Zeichnung übernimmt die jeweilige
- * Diagramm-Komponente.
+ * Stellt den Bereich bereit, in den D3 das SVG hängt, plus Slots für
+ * Bedienelemente über und Fußnoten unter dem Diagramm. Das Zeichnen
+ * selbst passiert in der jeweiligen Chart-Klasse.
  *
  * @author Selina Schneider
  */
 
 import { ref } from 'vue'
 
-/**
- * Angaben, die an den Diagrammrahmen übergeben werden können.
- */
 interface ChartTemplateProps {
-  wrapperClass?: string
 }
 
 defineProps<ChartTemplateProps>()
 
-/**
- * Verweist auf den Bereich, in den D3 das Diagramm zeichnet.
- */
+// Diesen Ref reiche ich per defineExpose nach außen, damit die
+// Chart-Klasse das SVG direkt in dieses div hängen kann.
 const chartContainer = ref<HTMLElement | null>(null)
 
 defineExpose({
@@ -32,28 +26,24 @@ defineExpose({
 </script>
 
 <template>
-  <section :class="['chart-wrapper', wrapperClass]">
-    <header class="chart-header">
-      <div
-        v-if="$slots.controls"
-        class="chart-controls"
-      >
+  <section class="chart-wrapper">
+    <header
+      v-if="$slots.controls"
+      class="chart-header"
+    >
+      <div class="chart-controls">
         <slot name="controls" />
       </div>
     </header>
 
     <div class="chart-stage">
-      <!-- Hier wird das D3-Diagramm eingefügt. -->
       <div
         ref="chartContainer"
         class="chart"
       ></div>
-
-      <!-- Zusätzliche Elemente über dem Diagramm, zum Beispiel Tooltips. -->
       <slot name="overlay" />
     </div>
 
-    <!-- Platz für Hinweise unter dem Diagramm. -->
     <div
       v-if="$slots.default"
       class="chart-footer"
@@ -70,11 +60,6 @@ defineExpose({
   width: 100%;
 }
 
-/*
- * Ordnet Überschrift und Bedienelemente an. Der Bereich soll
- * auch bei wenig Platz lesbar bleiben und nicht über den Rand
- * laufen.
- */
 .chart-header {
   display: flex;
   align-items: flex-start;
@@ -84,32 +69,6 @@ defineExpose({
   margin-bottom: 16px;
 }
 
-.chart-heading {
-  flex: 1;
-  min-width: 0;
-}
-
-/* Überschrift des Diagramms. */
-.chart-title {
-  margin: 0 0 4px;
-  color: var(--text-color);
-  font-family: var(--serif-font);
-  font-size: 1.3rem;
-  font-weight: 500;
-  text-align: left;
-}
-
-/* Kurze Erklärung unter der Überschrift. */
-.chart-subtitle {
-  margin: 0;
-  padding-left: 60px;
-  color: var(--muted-text-color);
-  font-family: var(--sans-font);
-  font-size: 13px;
-  line-height: 1.4;
-}
-
-/* Filter oder Schaltflächen neben der Überschrift. */
 .chart-controls {
   display: flex;
   align-items: center;
@@ -117,13 +76,13 @@ defineExpose({
   gap: 8px;
 }
 
-/* Bezugspunkt für Elemente über dem Diagramm. */
+/* Bezugspunkt für den Overlay-Slot (Tooltips werden absolut positioniert). */
+/* min-width: 0 verhindert, dass das SVG den Flex-Container sprengt. */
 .chart-stage {
   position: relative;
   min-width: 0;
 }
 
-/* Zusätzliche Hinweise unter dem Diagramm. */
 .chart-footer {
   margin-top: 12px;
   color: var(--muted-text-color);

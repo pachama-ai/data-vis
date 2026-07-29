@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 /**
  * Anzeigen der Informationen zum Abweichungsdiagramm
  *
@@ -331,3 +331,303 @@ function getDevelopmentWord(
   return 'blieb gleich'
 }
 </script>
+
+<template>
+  <aside class="deviation-sidebar">
+    <!-- Jahresüberblick -->
+    <section
+      v-if="showsDefault"
+      class="sidebar-state"
+    >
+      <h2 class="sidebar-title">Jahresüberblick</h2>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">Erneuerbare Energien</h3>
+
+        <div class="metric-row">
+          <span class="metric-label">{{ props.activeYear?.year }}</span>
+          <span class="metric-value">{{ formatPercent(props.renewableShare) }}</span>
+        </div>
+
+        <div class="metric-row">
+          <span class="metric-label">2015</span>
+          <span class="metric-value">{{ formatPercent(props.baseRenewableShare) }}</span>
+        </div>
+
+        <div class="metric-row">
+          <span class="metric-label">Veränderung</span>
+          <span
+            class="metric-change"
+            :class="{
+              'metric-change--positive': props.renewableShare > props.baseRenewableShare,
+              'metric-change--negative': props.renewableShare < props.baseRenewableShare,
+            }"
+          >
+            {{ formatChange(props.renewableShare - props.baseRenewableShare, 'pp') }}
+          </span>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h3 class="sidebar-section-title">CO₂-Intensität</h3>
+
+        <div class="metric-row">
+          <span class="metric-label">{{ props.activeYear?.year }}</span>
+          <span class="metric-value">{{ formatIntensity(props.emissionIntensity) }}</span>
+        </div>
+
+        <div class="metric-row">
+          <span class="metric-label">2015</span>
+          <span class="metric-value">{{ formatIntensity(props.baseEmissionIntensity) }}</span>
+        </div>
+
+        <div class="metric-row">
+          <span class="metric-label">Veränderung</span>
+          <span
+            class="metric-change"
+            :class="{
+              'metric-change--positive': props.emissionIntensity < props.baseEmissionIntensity,
+              'metric-change--negative': props.emissionIntensity > props.baseEmissionIntensity,
+            }"
+          >
+            {{ formatChange(props.emissionIntensity - props.baseEmissionIntensity, 'g CO₂/kWh') }}
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Energieträger-Details -->
+    <section
+      v-else-if="showsSource"
+      class="sidebar-state"
+    >
+      <div
+        v-if="activeRow"
+        class="source-header"
+      >
+        <span
+          class="source-color"
+          :style="{ backgroundColor: getColor(activeRow.sourceKey) }"
+        />
+        <h2 class="source-name">
+          {{ MIX_LABELS[activeRow.sourceKey] }}
+        </h2>
+      </div>
+
+      <p class="source-group">{{ groupLabel }}</p>
+
+      <div
+        v-if="!hasZeroGeneration"
+        class="sidebar-section"
+      >
+        <h3 class="sidebar-section-title">Stromerzeugung</h3>
+
+        <div class="metric-row">
+          <span class="metric-label">Erzeugung</span>
+          <span class="metric-value">{{ formatPercent(activeRow?.generationShare ?? 0) }}</span>
+        </div>
+
+        <div class="metric-row">
+          <span class="metric-label">CO₂-Anteil</span>
+          <span class="metric-value">{{ formatPercent(activeRow?.emissionShare ?? 0) }}</span>
+        </div>
+
+        <div class="metric-row">
+          <span class="metric-label">Abweichung</span>
+          <span
+            class="metric-change"
+            :class="{
+              'metric-change--positive': (activeRow?.deviationPp ?? 0) > 0,
+              'metric-change--negative': (activeRow?.deviationPp ?? 0) < 0,
+            }"
+          >
+            {{ formatPercentagePoints(activeRow?.deviationPp ?? 0) }}
+          </span>
+        </div>
+
+        <div class="deviation-bar-container">
+          <div
+            class="deviation-bar"
+            :style="{ width: getBarWidth(activeRow?.generationShare ?? 0) }"
+          />
+        </div>
+      </div>
+
+      <p
+        v-if="activeRow && !hasZeroGeneration"
+        class="source-meaning"
+      >
+        {{ createMeaning(activeRow) }}
+      </p>
+
+      <p
+        v-if="hasZeroGeneration && activeRow"
+        class="source-meaning"
+      >
+        {{ MIX_LABELS[activeRow.sourceKey] }} hatte im ausgewählten Jahr keine Stromerzeugung.
+      </p>
+
+      <div
+        v-if="showsDevelopment && activeRow"
+        class="sidebar-section"
+      >
+        <h3 class="sidebar-section-title">Entwicklung seit 2015</h3>
+
+        <p class="development-text">
+          Der Anteil von {{ MIX_LABELS[activeRow.sourceKey] }}
+          {{ getDevelopmentWord(activeRow.generationShare) }}
+          von {{ formatPercent(props.selectedRowBaseShare ?? 0) }}
+          auf {{ formatPercent(activeRow.generationShare) }}.
+        </p>
+      </div>
+    </section>
+
+    <!-- Keine Daten -->
+    <section
+      v-else
+      class="sidebar-state"
+    >
+      <p class="empty-message">Keine Daten verfügbar.</p>
+    </section>
+  </aside>
+</template>
+
+<style scoped>
+.deviation-sidebar {
+  font-family: var(--sans-font);
+  font-size: 13px;
+  color: var(--text-color);
+}
+
+.sidebar-state {
+  background: var(--background-color);
+  border: 1px solid var(--line-color);
+  border-radius: 6px;
+  padding: 16px;
+}
+
+.sidebar-title {
+  margin: 0 0 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.sidebar-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line-color);
+}
+
+.sidebar-section-title {
+  margin: 0 0 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--muted-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.metric-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.metric-label {
+  color: var(--muted-text-color);
+  font-size: 13px;
+}
+
+.metric-value {
+  font-weight: 600;
+  font-size: 13px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.metric-change {
+  font-weight: 600;
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.metric-change--positive {
+  color: var(--accent-color);
+}
+
+.metric-change--negative {
+  color: #b33a3a;
+}
+
+.source-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.source-color {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.source-name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.source-group {
+  margin: 0 0 12px;
+  font-size: 11px;
+  color: var(--muted-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.deviation-bar-container {
+  margin-top: 8px;
+  height: 6px;
+  background: var(--line-color);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.deviation-bar {
+  height: 100%;
+  background: var(--accent-color);
+  border-radius: 3px;
+  transition: width 200ms ease-out;
+}
+
+.source-meaning {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted-text-color);
+  padding: 8px;
+  background: rgba(45, 106, 79, 0.04);
+  border-radius: 4px;
+}
+
+.development-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--text-color);
+}
+
+.empty-message {
+  margin: 0;
+  color: var(--muted-text-color);
+  font-style: italic;
+}
+</style>
+

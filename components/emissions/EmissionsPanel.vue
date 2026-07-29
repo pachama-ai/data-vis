@@ -1,12 +1,16 @@
 <template>
 <!--
-  EmissionsPanel.vue – Emissionsdiagramm mit Überschrift und Datenquelle.
-  @author Selina Schneider
--->
-  <section
+    Anzeigen des Emissionsdiagramms mit Überschrift und Datenquelle.
+
+    Der Bereich besteht aus einer kurzen Einleitung, dem eigentlichen
+    Diagramm und der Quellenangabe darunter.
+
+    @author Selina Schneider
+  -->  <section
     class="emission-panel"
     aria-labelledby="emission-panel-title"
   >
+    <!-- Überschrift und Erklärung des Diagramms. -->
     <header class="emission-panel-header">
       <p class="emission-panel-eyebrow">
         Strom und Klimaneutralität
@@ -16,7 +20,7 @@
         id="emission-panel-title"
         class="emission-panel-title"
       >
-        Stromerzeugung und CO₂-Emissionen im Vergleich
+        Stromerzeugung und CO₂-Emissionen<br>im Vergleich
       </h1>
 
       <p class="emission-panel-subtitle">
@@ -26,8 +30,10 @@
       </p>
     </header>
 
+    <!-- Darstellung des Emissionsvergleichs. -->
     <DeviationChart />
 
+    <!-- Datenquellen unterhalb des Diagramms. -->
     <footer class="emission-panel-footer">
       <p class="source-label">
         Datenquelle
@@ -43,6 +49,9 @@
 </template>
 
 <style scoped>
+/*
+ * Grundaufbau des Bereichs.
+ */
 .emission-panel {
   max-width: 1400px;
   width: 100%;
@@ -50,13 +59,17 @@
   padding: 32px 24px 48px;
 }
 
-/* Bereich über dem Diagramm */
+/*
+ * Kopfbereich über dem Diagramm.
+ */
 .emission-panel-header {
   max-width: 760px;
   margin-bottom: 28px;
 }
 
-/* Knappe Einordnung über der Überschrift. */
+/*
+ * Einordnung über der Hauptüberschrift.
+ */
 .emission-panel-eyebrow {
   margin: 0 0 8px;
   color: var(--muted-text-color);
@@ -66,6 +79,9 @@
   text-transform: uppercase;
 }
 
+/*
+ * Hauptüberschrift des Bereichs.
+ */
 .emission-panel-title {
   margin: 0;
   color: var(--text-color);
@@ -76,7 +92,9 @@
   letter-spacing: -0.01em;
 }
 
-/* Erklärung unter der Überschrift. */
+/*
+ * Erklärung unter der Überschrift.
+ */
 .emission-panel-subtitle {
   margin: 10px 0 0;
   color: var(--muted-text-color);
@@ -84,13 +102,18 @@
   line-height: 1.6;
 }
 
-/* Abstand zum Footer */
+/*
+ * Quellenbereich unter dem Diagramm.
+ */
 .emission-panel-footer {
   margin-top: 32px;
   padding-top: 20px;
   border-top: 1px solid var(--line-color);
 }
 
+/*
+ * Beschriftung über dem Quellentext.
+ */
 .source-label {
   margin: 0 0 4px;
   color: var(--muted-text-color);
@@ -100,6 +123,9 @@
   text-transform: uppercase;
 }
 
+/*
+ * Text mit den verwendeten Datenquellen.
+ */
 .source-text {
   margin: 0;
   color: var(--text-color);

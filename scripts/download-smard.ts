@@ -141,15 +141,7 @@ async function fetchFilter(name: string, filter: number): Promise<number[][]> {
   return result;
 }
 
-/**
- * Fügt die Werte eines Energieträgers in die zusammengeführte Tabelle
- * ein. Am Ende steht pro Zeitstempel ein Objekt mit allen Werten der
- * Energieträger, die zu diesem Zeitpunkt einen Eintrag hatten.
- *
- * @param merged Zusammengeführte Tabelle, wird direkt verändert
- * @param name Name des Energieträgers (Schlüssel in `filters`)
- * @param series Rohwerte dieses Energieträgers
- */
+/** Rohdatensatz in smard.json: Zeitstempel und optionale Energieträgerwerte. */
 interface SmardRow {
   timestamp: number
   biomasse?: number
@@ -166,6 +158,13 @@ interface SmardRow {
   pumpspeicher?: number
 }
 
+/**
+ * Fügt die Zeitreihe eines Energieträgers in die zusammengeführte Tabelle ein.
+ *
+ * @param merged Zusammengeführte Tabelle
+ * @param name Name des Energieträgers
+ * @param series Zeitreihe als Array von [timestamp, value]-Paaren
+ */
 function addSeriesToMerged(
   merged: Record<number, SmardRow>,
   name: string,

@@ -1,23 +1,90 @@
-<!--
-  IntroMethodology.vue – Aufklappbare Begriffserklärungen auf der Startseite.
-  @author Selina Schneider
--->
+/**
+ * Aufklappbare Begriffserklärungen auf der Startseite.
+ *
+ * @author Selina Schneider
+ */
+
+<script setup lang="ts">
+import { ref } from 'vue'
+
+/** true, wenn die Begriffserklärungen gerade sichtbar sind. */
+const isOpen = ref(false)
+
+/**
+ * Schaltet die Begriffserklärungen ein oder aus.
+ */
+function toggleMethodology(): void {
+  isOpen.value = !isOpen.value
+}
+</script>
+
 <template>
-  <details class="intro-methodology">
-    <summary class="method-summary">
-      <span class="method-chevron">
-        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">
-          <path d="M4 2l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <div class="intro-methodology">
+    <!--
+      type="button" verhindert, dass der Button innerhalb eines
+      Formulars ungewollt als Submit-Button gilt.
+    -->
+    <button
+      class="method-summary"
+      type="button"
+      @click="toggleMethodology"
+    >
+      <!--
+        method-chevron-open dreht das Icon um 90 Grad, wenn der
+        Bereich aufgeklappt ist.
+      -->
+      <span
+        class="method-chevron"
+        :class="{ 'method-chevron-open': isOpen }"
+      >
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 12 12"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 2l4 4-4 4"
+            stroke="currentColor"
+            stroke-width="1.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
         </svg>
       </span>
+
       Begriffe &amp; Definitionen
-    </summary>
-    <div class="method-content">
-      <p><strong>Prozentpunkte (pp)</strong> – Absolute Differenz zwischen den Anteilen von 2015 und 2024. Beispiel: Steigt ein Anteil von 20 % auf 25 %, ist das ein Zuwachs von 5 Prozentpunkten (nicht 25 %).</p>
-      <p><strong>Sonstige konventionelle Energieträger</strong> – Nicht-erneuerbare Energieträger außerhalb von Kohle, Erdgas und Kernenergie. Umfasst insbesondere Mineralöl, Grubengas und nicht erneuerbare Abfälle. Zusammen tragen sie in Deutschland typischerweise unter 5 % zur öffentlichen Nettostromerzeugung bei.</p>
-      <p><strong>Öffentliche Nettostromerzeugung</strong> – In das öffentliche Stromnetz eingespeister Strom. Der industrielle Eigenverbrauch (zum Beispiel werkseigene Kraftwerke, Photovoltaik-Eigenverbrauch privater Haushalte) ist nicht enthalten.</p>
+    </button>
+
+    <div
+      v-if="isOpen"
+      class="method-content"
+    >
+      <p>
+        <strong>Prozentpunkte (pp)</strong>
+        – Sie beschreiben den Unterschied zwischen zwei Prozentwerten.
+        Steigt ein Anteil zum Beispiel von 20 % auf 25 %, sind das 5 Prozentpunkte mehr.
+
+      </p>
+
+      <p>
+        <strong>Sonstige konventionelle Energieträger</strong> 
+        – Dazu gehören nicht-erneuerbare Energieträger, die nicht Kohle, Erdgas
+        oder Kernenergie sind. Beispiele sind Mineralöl, Grubengas und
+        nicht erneuerbare Abfälle. Ihr Anteil an der öffentlichen
+        Nettostromerzeugung liegt meist unter 5 %.
+      </p>
+
+
+      <p>
+        <strong>Öffentliche Nettostromerzeugung</strong>
+        – Strom, der in das öffentliche Stromnetz eingespeist wird.
+        Strom, der direkt selbst genutzt wird, zum Beispiel von Unternehmen
+        oder durch private Photovoltaikanlagen, zählt nicht dazu.
+      </p>
     </div>
-  </details>
+  </div>
 </template>
 
 <style scoped>
@@ -27,13 +94,18 @@
   padding-top: 24px;
 }
 
+/*
+ * Entfernt den Standard-Rahmen und Hintergrund des Buttons,
+ * damit er wie normaler Text aussieht.
+ */
 .method-summary {
+  border: none;
+  background: none;
   font-family: var(--sans-font);
   font-size: 14px;
   font-weight: 500;
   color: var(--muted-text-color);
   cursor: pointer;
-  list-style: none;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -45,11 +117,7 @@
 
 .method-summary:hover {
   color: var(--text-color);
-  background: rgba(0,0,0,0.03);
-}
-
-.method-summary::-webkit-details-marker {
-  display: none;
+  background: rgba(0, 0, 0, 0.03);
 }
 
 .method-chevron {
@@ -62,7 +130,8 @@
   flex-shrink: 0;
 }
 
-details[open] .method-chevron {
+/* Chevron dreht sich beim Öffnen um 90 Grad. */
+.method-chevron-open {
   transform: rotate(90deg);
 }
 
