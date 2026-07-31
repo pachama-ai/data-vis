@@ -4,13 +4,9 @@
  * in den Jahren 2015 und 2024.
  *
  * Die Seite lädt die aufbereiteten Jahresdaten und übergibt die
- * Vergleichswerte an das GroupedBarChart. Load-, Error- und
- * Datenzustand werden über drei separate refs verwaltet – so kann
- * das Template gezielt die passende Ansicht rendern.
+ * Vergleichswerte an das GroupedBarChart.
  *
  * @author Selina Schneider
- * @created 11.06.2026
- * @lastModified 23.07.2026
  */
 
 import { onMounted, ref } from 'vue'
@@ -23,10 +19,7 @@ import type { YearlyMixPoint } from '~/types/visualization-data'
 
 const { loadVisualizationData } = useVisualizationData()
 
-// Drei getrennte refs für die klassischen drei Zustände einer
-// Ladeoperation. Ich habe mich bewusst gegen eine einzige „state"-
-// Variable entschieden, weil das Template dadurch mit einfachen
-// v-if-Zweigen auskommt.
+// Zustände für geladene Daten, den Ladevorgang und mögliche Fehler.
 const strommixData = ref<EnergyDataPoint[]>([])
 const loading = ref(true)
 const error = ref<string | null>(null)
@@ -48,11 +41,6 @@ function findYear(
 /**
  * Lädt die Daten für die beiden Vergleichsjahre und rechnet sie
  * über transformYearlyDataToChartData in das Format des Diagramms um.
- *
- * Im catch-Zweig prüfe ich mit `caughtError instanceof Error`, weil
- * dort alles ankommen kann (Error, String, undefined, …) und ich mir
- * bei `caughtError.message` sonst einen zweiten Fehler einfangen
- * würde, falls `caughtError` gar kein Error-Objekt ist.
  */
 async function loadPageData(): Promise<void> {
   try {
@@ -93,8 +81,6 @@ onMounted(loadPageData)
       <IntroTrustLine />
     </div>
 
-    <!-- Ladezustand: schmales Platzhalter-Skeleton, damit der Layout-
-         Sprung beim späteren Einblenden des Charts kleiner ausfällt. -->
     <div
       v-if="loading"
       class="chart-loading"
@@ -114,11 +100,6 @@ onMounted(loadPageData)
       :data="strommixData"
     />
 
-    <!-- Prozentwerte in der Fußnote sind aus den Rohdaten berechnet:
-         nur die zehn im Diagramm dargestellten Träger, geteilt durch
-         die Gesamterzeugung des Jahres. Ich habe sie hier fest
-         eingetragen, damit die Grafik ohne zusätzliche Rechenlogik
-         auch bei einem Datenfehler noch die richtige Aussage macht. -->
     <p class="chart-footnote">
       Dargestellt sind zehn ausgewählte Energieträger der öffentlichen
       Nettostromerzeugung nach SMARD. Kleinere Energieträger wie sonstige
@@ -134,11 +115,7 @@ onMounted(loadPageData)
 
 <style scoped>
 /*
- * Responsives Verhalten der Seite: Zentrierung, maximale Breite,
- * Innenabstände und die Textbreite der Fußnote sind so gewählt,
- * dass der Inhalt auf allen Bildschirmgrößen gut lesbar bleibt.
- * Farbvariablen und Schriftgrößen richten sich nach dem restlichen
- * Projekt.
+ * Design der Seite.
  */
 
 .intro-page {
@@ -147,7 +124,7 @@ onMounted(loadPageData)
   padding: 48px 24px 64px;
 }
 
-/* Alle direkten Kinder bekommen einen einheitlichen Abstand
+/* Alle direkten Kinder bekommen den gleichen Abstand
    nach unten, damit ich nicht überall einzeln margin setzen muss. */
 .intro-page > :deep(*) {
   margin-bottom: 48px;
@@ -163,9 +140,6 @@ onMounted(loadPageData)
 
 /*
  * Skeleton-Fläche mit Shimmer-Animation als Ladeanzeige.
- * Der Farbverlauf mit verschobener background-position über
- * keyframes wirkt weniger statisch als ein einfacher grauer
- * Kasten. Farben und Dauer sind auf die restliche Seite abgestimmt.
  */
 .chart-skeleton {
   width: 100%;
@@ -200,8 +174,6 @@ onMounted(loadPageData)
   text-align: center;
 }
 
-/* max-width: 62ch begrenzt die Fußnote auf eine gut lesbare
-   Zeilenlänge (~62 Zeichen).*/
 .chart-footnote {
   max-width: 62ch;
   margin-top: 24px;

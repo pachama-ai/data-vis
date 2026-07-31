@@ -25,10 +25,6 @@ export function usePageZoom() {
    * Wendet die aktuelle Zoom-Stufe auf die Seite an.
    */
   function applyZoom(): void {
-    if (!import.meta.client) {
-      return
-    }
-
     document.documentElement.style.zoom =
       currentLevel.value === 100
         ? ''

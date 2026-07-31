@@ -1,6 +1,6 @@
 <template>
 <!--
-    Anzeigen des Emissionsdiagramms mit Überschrift und Datenquelle.
+    Bereich für das Emissionsdiagramm mit Überschrift und Datenquelle.
 
     Der Bereich besteht aus einer kurzen Einleitung, dem eigentlichen
     Diagramm und der Quellenangabe darunter.

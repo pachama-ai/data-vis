@@ -1,38 +1,40 @@
 ﻿# Die Klimabilanz des deutschen Stroms
 
-Interaktive D3-Visualisierung des deutschen Strommix und seiner CO₂-Bilanz 2015–2024.
+Interaktive Visualisierung des deutschen Strommixes und seiner CO₂-Bilanz von 2015 bis 2024.
 
 ## Setup
 
-`ash
-bun install        # Abhängigkeiten installieren
-bun run dev        # Entwicklungsserver (http://localhost:3000)
-bun run build      # Produktions-Build
-bun run check      # Typecheck + Tests + Build
-`
+```bash
+bun install
+bun run dev -o
+```
+
+## Wichtige Befehle
+
+- `bun run test` – Tests ausführen
+- `bun run check` – Typprüfung, Tests und Produktions-Build ausführen
+- `bun run generate` – statische Ausgabe erzeugen
 
 ## Daten aktualisieren
 
-`ash
-bun run data:download   # Rohdaten von SMARD neu laden
-bun run data:build      # visualization-data.json neu bauen
-bun run data:check      # Daten auf Plausibilität prüfen
-`
+- `bun run data:download` – SMARD-Daten herunterladen
+- `bun run data:build` – Visualisierungsdaten erzeugen
+- `bun run data:check` – Visualisierungsdaten prüfen
 
 ## Projektstruktur
 
-- pages/ – Startseite und Dashboard
-- components/ – Vue-Komponenten
-- composables/ – geteilte Logik (Daten, Auswahl, Zoom, Kontrast)
-- utils/charts/ – D3-Diagrammklassen
-- scripts/ – Datenpipeline
-- public/data/ – aufbereitete JSON-Daten
-- projektbeschreibung.html – ausführliche Projektdokumentation
+- `pages/` und `components/` – Seiten und Vue-Komponenten
+- `composables/` und `utils/` – Anwendungs- und Diagrammlogik
+- `scripts/` – Datenaufbereitung
+- `public/data/` – JSON-Daten
+- `tests/` – automatisierte Tests
+- `public/projektbeschreibung.html` – eigenständige HTML-Projektbeschreibung
 
 ## Datenquellen
 
-SMARD (Bundesnetzagentur) · Umweltbundesamt (Emissionsfaktoren)
+- SMARD/Bundesnetzagentur – Stromerzeugungsdaten
+- Umweltbundesamt – direkte CO₂-Emissionsfaktoren
 
 ## Verfasserin
 
-Selina Schneider · Modul 84171 Visualisierung · Hochschule Harz
+Selina Schneider · 84171 Visualisierung · Hochschule Harz

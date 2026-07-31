@@ -118,12 +118,14 @@ function checkYearlyData(data: YearlyMixPoint[]): void {
       errors.push(`${label}: renewableSharePercent nicht 0–100`)
     }
 
-    const co2 = entry.co2GramsPerKwh
+    if (entry.co2GramsPerKwh !== undefined) {
+      const co2 = entry.co2GramsPerKwh
 
-    if (!isValidNumber(co2)) {
-      errors.push(`${label}: co2GramsPerKwh ungültig`)
-    } else if (co2 < 0 || co2 > 1200) {
-      errors.push(`${label}: co2GramsPerKwh nicht 0–1200`)
+      if (!isValidNumber(co2)) {
+        errors.push(`${label}: co2GramsPerKwh ungültig`)
+      } else if (co2 < 0 || co2 > 1200) {
+        errors.push(`${label}: co2GramsPerKwh nicht 0–1200`)
+      }
     }
 
     if (!isValidNumber(entry.availableHourCount) || entry.availableHourCount <= 0) {

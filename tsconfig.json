@@ -1,9 +1,19 @@
 {
-  // tsconfig.json — Erweitert das von Nuxt generierte TSConfig aus .nuxt/.
-  // Nuxt generiert automatisch Pfad-Aliase (~/ und @/) und Module-Auflösung.
+  // tsconfig.json
+  // Erweitert das von Nuxt generierte TSConfig.
+  // Nuxt kümmert sich um Pfad-Aliase, Module-Auflösung und die meisten
+  // Compiler-Optionen – hier überschreibe ich nur, was ich anders brauche.
   "extends": "./.nuxt/tsconfig.json",
+  "compilerOptions": {
+    "strict": true,
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "types": ["node"]
+  },
   "exclude": [
     "dist",
-    "node_modules"
+    "node_modules",
+    ".output"
   ]
 }

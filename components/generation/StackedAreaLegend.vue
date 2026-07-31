@@ -43,11 +43,11 @@ const activeColors = computed(function () {
 })
 
 /**
- * Gibt die Quellen-Schlüssel einer Gruppe in der festgelegten
+ * Gibt die Schlüssel der Energieträger einer Gruppe in der festgelegten
  * STACK_ORDER-Reihenfolge zurück.
  *
  * @param group Gruppe (erneuerbar, Kernenergie, fossil)
- * @returns Liste der Quellen-Schlüssel in der Gruppe
+ * @returns Liste der Energieträger-Schlüssel in der Gruppe
  */
 function getSourcesForGroup(group: MixGroup): MixSourceKey[] {
   const sources: MixSourceKey[] = []

@@ -40,7 +40,7 @@ interface ItemConfigEntry {
  * fest. Die Sortierung (Erneuerbare → Fossile → Kernenergie) taucht so
  * auch im Diagramm wieder auf, deshalb ist sie fest verdrahtet.
  */
-export const ITEM_CONFIG: ItemConfigEntry[] = [
+const ITEM_CONFIG: ItemConfigEntry[] = [
   // Erneuerbare Energien
   {
     key: 'wind_onshore',

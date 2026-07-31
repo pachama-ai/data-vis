@@ -35,14 +35,13 @@ const BASE = "https://www.smard.de/app/chart_data";
 const REGION = "DE";
 const RESOLUTION = "hour";
 
-// Ab diesem Zeitpunkt beginnt mein Auswertungszeitraum.
-const START = Date.UTC(2015, 0, 1);
+// 1. Januar 2015, 00:00 Uhr in Berliner Zeit.
+const START = Date.UTC(2014, 11, 31, 23);
+
+const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Lädt eine JSON-Datei von SMARD.
- * Bei einer 404 (Datei existiert nicht) gebe ich null zurück -
- * das kommt beispielsweise vor, wenn ein angefragter Block noch nicht
- * existiert.
  *
  * @param url Adresse der JSON-Datei
  * @returns Geladene Daten oder null bei 404
@@ -68,7 +67,7 @@ async function fetchJSON(url: string): Promise<unknown> {
  * kann.
  *
  * @param filter SMARD-Filter-ID
- * @returns Zeitstempel ab meinem Startdatum (2015)
+ * @returns Wochenblöcke ab dem Block vor meinem Startdatum
  */
 async function getTimestamps(filter: number): Promise<number[]> {
   const json = await fetchJSON(
@@ -78,7 +77,7 @@ async function getTimestamps(filter: number): Promise<number[]> {
   if (!json) return [];
 
   const ts = (json as { timestamps: number[] }).timestamps
-  return ts.filter(function (t: number) { return t >= START });
+  return ts.filter(function (t: number) { return t >= START - WEEK_IN_MS });
 }
 
 /**
@@ -158,6 +157,9 @@ interface SmardRow {
   pumpspeicher?: number
 }
 
+/** Nur die Energieträger-Felder, ohne timestamp. */
+type SmardEnergyField = keyof Omit<SmardRow, 'timestamp'>
+
 /**
  * Fügt die Zeitreihe eines Energieträgers in die zusammengeführte Tabelle ein.
  *
@@ -167,11 +169,16 @@ interface SmardRow {
  */
 function addSeriesToMerged(
   merged: Record<number, SmardRow>,
-  name: string,
+  name: SmardEnergyField,
   series: number[][],
 ): void {
   for (const entry of series) {
     const timestamp = entry[0]!;
+
+    if (timestamp < START) {
+      continue;
+    }
+
     const value = entry[1];
 
     let record = merged[timestamp];
@@ -180,9 +187,9 @@ function addSeriesToMerged(
       merged[timestamp] = record;
     }
 
-    // Fehlende Werte (null) speichere ich als 0, damit später beim
-    // Aggregieren keine Lücken im Datensatz entstehen.
-    record[name as keyof SmardRow] = value ?? 0;
+    // Fehlende Werte (null) lasse ich als undefined durch, damit
+    // build-data.ts erkennen kann, ob ein Wert wirklich fehlt.
+    record[name] = value ?? undefined;
   }
 }
 
@@ -198,7 +205,7 @@ async function loadAndMergeAllFilters(): Promise<Record<number, SmardRow>> {
   for (const [name, filter] of Object.entries(filters)) {
     const series = await fetchFilter(name, filter);
 
-    addSeriesToMerged(merged, name, series);
+    addSeriesToMerged(merged, name as SmardEnergyField, series);
   }
 
   return merged;

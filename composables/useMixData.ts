@@ -91,7 +91,7 @@ function convertMwhToTwh(valueInMwh: number): number {
  * @param monthPoint Rohdatensatz aus visualization-data.json
  * @returns Normalisierte Monatszeile
  */
-export function normalizeMonth(
+function normalizeMonth(
   monthPoint: RawMixMonthPoint,
 ): MixMonthRow {
   const parsedDate = parseMonth(monthPoint.month)

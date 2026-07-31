@@ -29,18 +29,6 @@ import {
 import type { EmissionRow, MixSourceKey } from '~/types/emissions'
 
 
-/** Daten, die beim Überfahren eines Balkens weitergegeben werden. */
-export interface DeviationHoverPayload {
-  /** Daten des Balkens */
-  row: EmissionRow
-
-  /** Horizontale Position im Diagramm */
-  chartX: number
-
-  /** Vertikale Position im Diagramm */
-  chartY: number
-}
-
 /** Verfügbare Sortierungen des Diagramms. */
 type SortMode = 'category' | 'impact'
 
@@ -81,12 +69,6 @@ export class DeviationChart extends BaseChart {
   /** Gruppe für die Wertelabels */
   private labelsGroup: d3.Selection<SVGGElement, undefined, null, undefined> | null =
     null
-
-  /** Funktion für das Überfahren eines Balkens */
-  private hoverHandler: ((payload: DeviationHoverPayload) => void) | null = null
-
-  /** Funktion für das Verlassen eines Balkens */
-  private hoverEndHandler: (() => void) | null = null
 
   /** Funktion für eine geänderte Auswahl */
   private selectionHandler: ((sourceKey: MixSourceKey | null) => void) | null = null
@@ -145,24 +127,6 @@ export class DeviationChart extends BaseChart {
   setXDomain(domain: [number, number]): void {
     this.xDomain = domain
     this.update()
-  }
-
-  /**
-   * Speichert die Funktion für das Überfahren eines Balkens.
-   *
-   * @param handler Hover-Funktion oder null
-   */
-  setHoverHandler(handler: ((payload: DeviationHoverPayload) => void) | null): void {
-    this.hoverHandler = handler
-  }
-
-  /**
-   * Speichert die Funktion für das Verlassen eines Balkens.
-   *
-   * @param handler Funktion oder null
-   */
-  setHoverEndHandler(handler: (() => void) | null): void {
-    this.hoverEndHandler = handler
   }
 
   /**
@@ -542,7 +506,7 @@ export class DeviationChart extends BaseChart {
   // Balken und Labels
 
   /**
-   * Prüfung: Gibt es für diesen Energieträger Erzeugung?
+  * Prüft, ob für diesen Energieträger Erzeugung vorliegt.
    * Energieträger ohne Erzeugung werden als schmaler grauer Strich dargestellt.
    *
    * @param row Datenzeile
@@ -585,12 +549,10 @@ export class DeviationChart extends BaseChart {
       .on('mouseenter', function (_event: PointerEvent, row: EmissionRow) {
         self.highlightedSource = row.sourceKey
         self.updateHighlight()
-        self.hoverHandler?.({ row, chartX: 0, chartY: 0 })
       })
       .on('mouseleave', function () {
         self.highlightedSource = null
         self.updateHighlight()
-        self.hoverEndHandler?.()
       })
 
     const transitionDuration = this.firstRender ? 0 : 400
@@ -727,10 +689,6 @@ export class DeviationChart extends BaseChart {
    * Berechnet die Opacity für ein einzelnes Element (Balken, Label,
    * Achsen-Tick) je nach aktuellem Hover- und Auswahlzustand.
    *
-   * Hover hat Vorrang vor der festen Auswahl. Sind Hover und Auswahl
-   * gleichzeitig aktiv und betreffen unterschiedliche Energieträger,
-   * bleibt die Auswahl sichtbarer als der Rest.
-   *
    * @param sourceKey Energieträger des Elements
    * @returns Opacity zwischen 0 und 1
    */
@@ -738,7 +696,6 @@ export class DeviationChart extends BaseChart {
     const hoverKey = this.highlightedSource
     const selectedKey = this.selectedSource
 
-    // Hover schlägt Auswahl, wenn beides existiert.
     const highlightKey = hoverKey ?? selectedKey
 
     if (highlightKey === null) return OPACITY_ACTIVE

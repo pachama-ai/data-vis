@@ -59,30 +59,6 @@ export function getDeviationBarWidth(
 }
 
 /**
- * Erstellt einen symmetrischen Wertebereich um die Nulllinie.
- *
- * Die Domain bleibt beim Jahreswechsel fest (kein Springen der Achse)
- * und wird auf den nächsten Zehnerwert aufgerundet
- * (Math.ceil(x / 10) * 10). Den Sonderfall <= 0 habe ich ergänzt,
- * damit der Start-/Leerzustand vor dem ersten Datenladen sauber
- * abgefangen ist.
- *
- * @param maximumDeviation Größte absolute Abweichung
- * @returns Untere und obere Grenze der x-Achse
- */
-export function createSymmetricDomain(
-  maximumDeviation: number,
-): [number, number] {
-  if (maximumDeviation <= 0) {
-    return [-1, 1]
-  }
-
-  const roundedMaximum = Math.ceil(maximumDeviation / 10) * 10
-
-  return [-roundedMaximum, roundedMaximum]
-}
-
-/**
  * Bestimmt die horizontale Position eines Wertelabels.
  *
  * Negative Werte bekommen das Label links vom Balkenende,

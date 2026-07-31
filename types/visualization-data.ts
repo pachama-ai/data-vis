@@ -29,38 +29,37 @@ export interface EnergySourceValues {
 
 /** Ein Monat für das Strommix-Diagramm. */
 export interface MonthlyMixPoint {
-  /** Format "YYYY-MM". */
+  /** Format "YYYY-MM" */
   month: string
 
   sources: EnergySourceValues
 
-  /** Summe aller Energieträger in MWh. */
+  /** Summe aller Energieträger in MWh */
   totalGenerationMwh: number
 
   /**
    * Anzahl Stunden im Monat.
-   * Weicht bei März und Oktober um 1 Stunde ab (Zeitumstellung) und
-   * bei Januar 2015 wegen des Datenstarts am 05.01.2015.
+    * Weicht bei März und Oktober um 1 Stunde ab (Zeitumstellung).
    */
   availableHourCount: number
 }
 
-/** Ein Jahr für die Jahresübersicht (Strommix und Emissionen). */
+/** Ein Jahr für die Jahresübersicht */
 export interface YearlyMixPoint {
   year: number
 
   sources: EnergySourceValues
 
-  /** Summe aller Energieträger in MWh. */
+  /** Summe aller Energieträger in MWh */
   totalGenerationMwh: number
 
-  /** EE-Anteil in Prozent. */
+  /** EE-Anteil in Prozent */
   renewableSharePercent: number
 
-  /** CO₂-Intensität in g CO₂/kWh. */
-  co2GramsPerKwh: number
+  /** CO₂-Intensität in g CO₂/kWh */
+  co2GramsPerKwh?: number
 
-  /** Anzahl Stunden im Jahr (normal 8760, Schaltjahre 8784). */
+  /** Anzahl Stunden im Jahr (normal 8760, Schaltjahre 8784) */
   availableHourCount: number
 }
 

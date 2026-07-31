@@ -1,13 +1,12 @@
 /**
  * Erstellt die Datei visualization-data.json aus den SMARD-Daten.
  *
- * Das Skript lädt die stündlichen Erzeugungsdaten und die
- * Emissionsfaktoren und aggregiert sie zu Monats-, Tages- und
- * Jahreswerten.
+ * Das Skript lädt die stündlichen Erzeugungsdaten und aggregiert sie
+ * zu Monats- und Jahreswerten.
  *
  * Alle Zeitangaben werden in Berliner Lokalzeit ausgewertet, weil
- * SMARD selbst UTC-Zeitstempel liefert und ich Tages- und
- * Monatsgrenzen so haben wollte, wie sie in Deutschland tatsächlich
+ * SMARD selbst UTC-Zeitstempel liefert und ich Monats- und
+ * Jahresgrenzen so haben wollte, wie sie in Deutschland tatsächlich
  * gelten (inklusive Sommer-/Winterzeit).
  *
  * @author Selina Schneider
@@ -48,25 +47,6 @@ interface EnergySourceAccum {
 }
 
 /**
- * Enthält die Emissionsfaktoren in Gramm CO₂ pro kWh.
- * Die Schlüssel entsprechen den Feldnamen der SMARD-Daten.
- */
-interface EmissionFactors {
-  biomasse: number
-  wasserkraft: number
-  windOnshore: number
-  windOffshore: number
-  solar: number
-  sonstigeErneuerbare: number
-  kernenergie: number
-  braunkohle: number
-  steinkohle: number
-  erdgas: number
-  sonstigeKonventionelle: number
-  pumpspeicher: number
-}
-
-/**
  * Eine Zeile aus der von download-smard.ts erzeugten smard.json.
  * Alle Felder außer timestamp sind optional, weil nach dem
  * Kernenergieausstieg der Wert für kernenergie fehlen kann.
@@ -101,7 +81,6 @@ interface BerlinDateParts {
 interface MonthBucket {
   sources: EnergySourceAccum
   totalGen: number
-  co2Weighted: number
   count: number
 }
 
@@ -110,7 +89,6 @@ interface YearBucket {
   sources: EnergySourceAccum
   totalGen: number
   renewableGen: number
-  co2Weighted: number
   count: number
 }
 
@@ -150,9 +128,6 @@ const GERMAN_TO_ENGLISH = {
   erdgas: 'gas',
 } as const
 
-// Object.keys() gibt normalerweise nur string[] zurück - der Cast auf die
-// tatsächlichen Schlüssel von GERMAN_TO_ENGLISH sorgt dafür, dass germanField
-// beim Durchlaufen unten genau typisiert bleibt (keine Casts mehr nötig).
 const GENERATION_FIELDS = Object.keys(GERMAN_TO_ENGLISH) as (keyof typeof GERMAN_TO_ENGLISH)[]
 
 /** Feldnamen der erneuerbaren Energieträger. */
@@ -266,8 +241,10 @@ function getBerlinDateParts(timestamp: number): BerlinDateParts {
 /**
  * Liest die Erzeugungswerte aus einer SMARD-Zeile.
  *
- * Fehlt nach dem Kernenergieausstieg nur der Wert für Kernenergie,
- * setze ich 0 ein. Fehlen andere Werte oder sind keine gültigen
+ * Fehlt nach dem Kernenergieausstieg (15. April 2023) nur der
+ * Kernenergie-Wert, setze ich 0 ein – ab diesem Datum liefert SMARD
+ * keine Kernenergiedaten mehr, weil die letzten Meiler endgültig
+ * abgeschaltet sind. Fehlen andere Werte oder sind keine gültigen
  * Zahlen, gebe ich null zurück – die Zeile wird dann übersprungen.
  *
  * @param row Eine Zeile aus den geladenen SMARD-Daten
@@ -310,33 +287,6 @@ function extractSources(
   }
 
   return sources
-}
-
-/**
- * Berechnet die gewichtete CO₂-Summe einer Stunde.
- * Jeder Erzeugungswert wird mit dem passenden Emissionsfaktor
- * multipliziert.
- *
- * @param sources Erzeugungswerte der Energieträger
- * @param factors Emissionsfaktoren der Energieträger
- * @returns Gewichtete CO₂-Summe
- */
-function calculateCo2Weighted(
-  sources: EnergySourceAccum,
-  factors: EmissionFactors,
-): number {
-  let sum = 0
-
-  for (const germanField of GENERATION_FIELDS) {
-    const sourceKey = GERMAN_TO_ENGLISH[germanField]
-
-    const generation = sources[sourceKey]
-    const factor = factors[germanField]
-
-    sum += generation * factor
-  }
-
-  return sum
 }
 
 /**
@@ -427,7 +377,6 @@ function finalizeYearlyMix(buckets: Map<string, YearBucket>): YearlyMixPoint[] {
       renewableSharePercent: roundToTwoDecimals(
         (bucket.renewableGen / bucket.totalGen) * 100,
       ),
-      co2GramsPerKwh: roundToTwoDecimals(bucket.co2Weighted / bucket.totalGen),
       availableHourCount: bucket.count,
     }
   })
@@ -459,72 +408,18 @@ async function loadSmardData(): Promise<SmardRow[]> {
 }
 
 /**
- * Lädt die Emissionsfaktoren aus der JSON-Datei und prüft jedes Feld.
- *
- * @returns Vollständige Emissionsfaktoren
- * @throws Fehler, wenn ein Faktor fehlt oder ungültig ist
- */
-async function loadEmissionFactors(): Promise<EmissionFactors> {
-  const file = Bun.file('emission_factors.json')
-  const rawData: unknown = await file.json()
-
-  if (rawData === null || typeof rawData !== 'object') {
-    throw new Error('emission_factors.json enthält kein gültiges Objekt.')
-  }
-
-  const factorData = rawData as Record<string, unknown>
-
-  /**
-   * Liest einen einzelnen Emissionsfaktor und prüft, ob er eine
-   * gültige Zahl ist.
-   *
-   * @param field Feldname im JSON
-   * @returns Emissionsfaktor in g CO₂/kWh
-   * @throws Fehler, wenn der Wert fehlt oder ungültig ist
-   */
-  function readFactor(field: string): number {
-    const value = factorData[field]
-
-    if (typeof value !== 'number' || !Number.isFinite(value)) {
-      throw new Error(
-        `emission_factors.json: '${field}' fehlt oder ist keine gültige Zahl (${value}).`,
-      )
-    }
-
-    return value
-  }
-
-  return {
-    biomasse: readFactor('biomasse'),
-    wasserkraft: readFactor('wasserkraft'),
-    windOnshore: readFactor('windOnshore'),
-    windOffshore: readFactor('windOffshore'),
-    solar: readFactor('solar'),
-    sonstigeErneuerbare: readFactor('sonstigeErneuerbare'),
-    kernenergie: readFactor('kernenergie'),
-    braunkohle: readFactor('braunkohle'),
-    steinkohle: readFactor('steinkohle'),
-    erdgas: readFactor('erdgas'),
-    sonstigeKonventionelle: readFactor('sonstigeKonventionelle'),
-    pumpspeicher: readFactor('pumpspeicher'),
-  }
-}
-
-/**
  * Addiert die Werte einer Stunde zu einem Monats-Bucket.
  *
  * @param buckets Monats-Buckets
  * @param dateParts Datumsteile der Stunde
  * @param sources Erzeugungswerte der Stunde
  * @param totalGeneration Gesamterzeugung der Stunde
- * @param co2Weighted Gewichtete CO₂-Summe der Stunde
  */
 function addToMonthBucket(
   buckets: Map<string, MonthBucket>,
   dateParts: BerlinDateParts,
   sources: EnergySourceAccum,
   totalGeneration: number,
-  co2Weighted: number,
 ): void {
   let bucket = buckets.get(dateParts.monthKey)
 
@@ -532,7 +427,6 @@ function addToMonthBucket(
     bucket = {
       sources: createEmptySources(),
       totalGen: 0,
-      co2Weighted: 0,
       count: 0,
     }
 
@@ -546,7 +440,6 @@ function addToMonthBucket(
   }
 
   bucket.totalGen += totalGeneration
-  bucket.co2Weighted += co2Weighted
   bucket.count++
 }
 
@@ -558,7 +451,6 @@ function addToMonthBucket(
  * @param sources Erzeugungswerte der Stunde
  * @param renewableGeneration Erneuerbare Erzeugung der Stunde
  * @param totalGeneration Gesamterzeugung der Stunde
- * @param co2Weighted Gewichtete CO₂-Summe der Stunde
  */
 function addToYearBucket(
   buckets: Map<string, YearBucket>,
@@ -566,7 +458,6 @@ function addToYearBucket(
   sources: EnergySourceAccum,
   renewableGeneration: number,
   totalGeneration: number,
-  co2Weighted: number,
 ): void {
   const key = String(dateParts.year)
   let bucket = buckets.get(key)
@@ -576,7 +467,6 @@ function addToYearBucket(
       sources: createEmptySources(),
       totalGen: 0,
       renewableGen: 0,
-      co2Weighted: 0,
       count: 0,
     }
 
@@ -591,21 +481,18 @@ function addToYearBucket(
 
   bucket.totalGen += totalGeneration
   bucket.renewableGen += renewableGeneration
-  bucket.co2Weighted += co2Weighted
   bucket.count++
 }
 
 /**
  * Läuft über alle SMARD-Zeilen, prüft jede einzeln auf Gültigkeit und
- * sammelt die gültigen Zeilen in Monats-, Tages- und Jahres-Buckets.
+ * sammelt die gültigen Zeilen in Monats- und Jahres-Buckets.
  *
  * @param smardData Geladene SMARD-Zeilen
- * @param emissionFactors Emissionsfaktoren der Energieträger
  * @returns Gefüllte Buckets und Zähler für die Auswertung
  */
 function processData(
   smardData: SmardRow[],
-  emissionFactors: EmissionFactors,
 ): ProcessResult {
   let validCount = 0
   let skippedOutside = 0
@@ -646,11 +533,10 @@ function processData(
 
     validCount++
 
-    const co2Weighted = calculateCo2Weighted(sources, emissionFactors)
     const renewableGeneration = calculateRenewableGeneration(sources)
 
-    addToMonthBucket(monthBuckets, dateParts, sources, totalGeneration, co2Weighted)
-    addToYearBucket(yearBuckets, dateParts, sources, renewableGeneration, totalGeneration, co2Weighted)
+    addToMonthBucket(monthBuckets, dateParts, sources, totalGeneration)
+    addToYearBucket(yearBuckets, dateParts, sources, renewableGeneration, totalGeneration)
   }
 
   const totalSkipped = skippedNonNumeric + skippedZeroTotal
@@ -719,11 +605,7 @@ async function main(): Promise<void> {
   const smardData = await loadSmardData()
   console.log(`${smardData.length} Rohdatensätze geladen`)
 
-  console.log('Lade Emissionsfaktoren...')
-  const emissionFactors = await loadEmissionFactors()
-  console.log('Emissionsfaktoren geladen:', GENERATION_FIELDS.length, 'Träger')
-
-  const result = processData(smardData, emissionFactors)
+  const result = processData(smardData)
 
   printEvaluation(result)
 

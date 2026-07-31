@@ -10,9 +10,8 @@ import { useMixSelection } from '~/composables/useMixSelection'
 const isActive = ref(false)
 
 /**
- * Composable zum Umschalten zwischen normalem und kontrastreichem
- * Farbmodus. Setzt ein data-Attribut auf dem <html>-Element und
- * aktualisiert den Farbmodus in useMixSelection.
+ * Umschalten zwischen normalem und kontrastreichem Farbmodus.
+ * Setzt ein data-Attribut auf dem <html>-Element und aktualisiert den Farbmodus in useMixSelection.
  *
  * @returns Objekt mit isActive, toggle, setActive
  */
@@ -21,9 +20,7 @@ export function useHighContrast() {
    * Übernimmt den aktuellen Kontrastmodus.
    */
   function apply(): void {
-    if (import.meta.client) {
-      document.documentElement.dataset.contrast = isActive.value ? 'on' : 'off'
-    }
+    document.documentElement.dataset.contrast = isActive.value ? 'on' : 'off'
 
     const { setColorMode } = useMixSelection()
     setColorMode(isActive.value ? 'accessible' : 'default')

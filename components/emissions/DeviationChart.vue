@@ -4,8 +4,8 @@
  *
  * Lädt die Emissionsfaktoren, kombiniert sie mit den Erzeugungsdaten
  * und übergibt die berechneten Abweichungen an DeviationChart. Das
- * Diagramm zeigt, wie stark sich der Anteil eines Energieträgers
- * an der CO₂-Bilanz gegenüber dem Basisjahr verändert hat.
+ * Diagramm zeigt für das gewählte Jahr die Abweichung zwischen dem
+ * Emissionsanteil und dem Erzeugungsanteil eines Energieträgers.
  *
  * @author Selina Schneider
  */
@@ -21,9 +21,7 @@ import {
 
 import ChartTemplate from '~/components/shared/ChartTemplate.vue'
 import DeviationSidebar from '~/components/emissions/DeviationSidebar.vue'
-import DeviationTooltip from '~/components/emissions/DeviationTooltip.vue'
 import YearSlider from '~/components/emissions/YearSlider.vue'
-
 import { useMixData } from '~/composables/useMixData'
 import { useMixSelection } from '~/composables/useMixSelection'
 
@@ -40,7 +38,6 @@ import {
 
 import { DeviationChart } from '~/utils/charts/DeviationChart'
 
-import type { DeviationHoverPayload } from '~/utils/charts/DeviationChart'
 import type {
   DeviationYear,
   EmissionFactorsFile,
@@ -52,7 +49,7 @@ type ChartTemplateInstance = InstanceType<typeof ChartTemplate>
 /**
  * Sortierrichtungen der Balken im Diagramm.
  * - 'category': Erneuerbare, Kernenergie, Fossile in dieser Reihenfolge
- * - 'impact': absteigend nach Beitrag zum CO₂-Effekt
+ * - 'impact': aufsteigend nach Abweichung in Prozentpunkten
  */
 type SortMode = 'category' | 'impact'
 
@@ -80,7 +77,6 @@ const {
 const emissionFactors = ref<EmissionFactorsFile | null>(null)
 const emissionError = ref<string | null>(null)
 
-const hoverPayload = ref<DeviationHoverPayload | null>(null)
 const selectedSourceKey = ref<MixSourceKey | null>(null)
 
 const sortMode = ref<SortMode>('category')
@@ -260,23 +256,6 @@ const baseEmissionIntensity = computed(function () {
 })
 
 /**
- * Speichert den Hover-Payload für den Tooltip.
- *
- * @param payload Position und Zeilendaten des gehoverten Balkens
- */
-function handleChartHover(
-  payload: DeviationHoverPayload,
-): void {
-  hoverPayload.value = payload
-}
-
-/**
- * Blendet den Tooltip aus, wenn der Cursor die Zeichenfläche verlässt.
- */
-function handleChartLeave(): void {
-  hoverPayload.value = null
-}
-
 /**
  * Merkt sich den angeklickten Balken für die Sidebar-Anzeige.
  *
@@ -369,8 +348,6 @@ function createChart(): void {
   chart = new DeviationChart()
 
   // Handler zuerst, damit das erste Render bereits reagieren kann.
-  chart.setHoverHandler(handleChartHover)
-  chart.setHoverEndHandler(handleChartLeave)
   chart.setSelectionHandler(handleChartSelection)
   chart.setColors(colorMode.value)
 
@@ -385,7 +362,7 @@ function createChart(): void {
 /**
  * Übergibt die Zeilen des neu ausgewählten Jahres an das Diagramm.
  * Hover-Zustand und Klick-Auswahl werden zurückgesetzt, damit keine
- * veralteten Werte des Vorjahres in Tooltip oder Sidebar stehen bleiben.
+ * veralteten Werte des Vorjahres in der Sidebar stehen bleiben.
  *
  * @param updatedYear Datensatz des neuen Jahres, oder null
  */
@@ -396,7 +373,6 @@ function updateChartYear(
 
   chart?.setData(rows)
 
-  hoverPayload.value = null
   selectedSourceKey.value = null
 }
 
@@ -420,7 +396,6 @@ onMounted(function () {
 onBeforeUnmount(function () {
   chart?.destroy()
   chart = null
-  hoverPayload.value = null
   selectedSourceKey.value = null
 })
 
@@ -448,17 +423,8 @@ watch(colorMode, updateChartColors)
     </div>
 
     <template v-else>
-      <!-- Diagramm mit Tooltip und Sortierauswahl. -->
       <div class="deviation-main">
         <ChartTemplate ref="chartTemplate">
-          <template #overlay>
-            <DeviationTooltip
-              v-if="hoverPayload"
-              :row="hoverPayload.row"
-              :chart-x="hoverPayload.chartX"
-              :chart-y="hoverPayload.chartY"
-            />
-          </template>
 
           <div
             class="sort-section"
@@ -504,7 +470,7 @@ watch(colorMode, updateChartColors)
         <DeviationSidebar
           :active-year="activeYear"
           :base-year="baseYear"
-          :hovered-row="hoverPayload?.row ?? null"
+          :hovered-row="null"
           :selected-row="selectedRow"
           :selected-row-base-share="selectedRowBaseShare"
           :emission-intensity="emissionIntensity"

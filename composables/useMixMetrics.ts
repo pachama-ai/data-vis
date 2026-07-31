@@ -50,7 +50,7 @@ export interface OverviewMetrics {
   largestDecrease: SourceChangeMetric
 }
 
-/** Ein Monat mit dem zugehörigen Wert einer bestimmten Quelle. */
+/** Ein Monat mit dem zugehörigen Wert eines bestimmten Energieträgers. */
 interface SourceMonthMetric {
   monthRow: MixMonthRow
   valueTwh: number
@@ -128,7 +128,7 @@ function calculateYearGroupValues(
 }
 
 /**
- * Summe der zehn im Chart dargestellten Quellen für einen Monat.
+ * Summe der zehn im Diagramm dargestellten Energieträger für einen Monat.
  *
  * @param monthRow Monatszeile mit Werten pro Energieträger
  * @returns Summe aller Werte in TWh
@@ -297,9 +297,9 @@ export function getOverviewMetrics(
 }
 
 /**
- * Findet den Monat mit dem höchsten und dem niedrigsten Wert für eine
- * bestimmte Quelle. Start der Suche mit dem ersten Monat als
- * Ausgangswert und vergleich mit den restlichen Monaten.
+ * Findet den Monat mit dem höchsten und dem niedrigsten Wert für einen
+ * bestimmten Energieträger. Die Suche beginnt mit dem ersten Monat als
+ * Ausgangswert und vergleicht ihn mit den restlichen Monaten.
  *
  * @param monthRows Alle Monatszeilen
  * @param sourceKey Zu untersuchender Energieträger

@@ -1,68 +1,94 @@
 <script setup lang="ts">
 /**
- * SiteNav.vue – Globale Navigation
- *
- * Zeigt die drei Hauptbereiche an: Strommix, Entwicklung,
- * CO₂-Vergleich. Rechts Zoom-Button und Kontrast-Schalter.
+ * Globale Navigation mit den drei Seiten Strommix, Entwicklung und
+ * CO₂-Vergleich, plus den beiden Einstellungen für Zoom und Kontrast.
+ * Der aktive Eintrag wird aus der aktuellen Route abgeleitet.
  *
  * @author Selina Schneider
  */
 
+
 import { computed } from 'vue'
 import { useRoute } from 'nuxt/app'
-import { usePageZoom } from '~/composables/usePageZoom'
+
 import { useHighContrast } from '~/composables/useHighContrast'
+import { usePageZoom } from '~/composables/usePageZoom'
 
 const route = useRoute()
 
-const { level, cycleZoom } = usePageZoom()
+const {
+  level,
+  cycleZoom,
+} = usePageZoom()
+
 const {
   isActive: contrastOn,
   toggle: toggleContrast,
 } = useHighContrast()
 
+/**
+ * Angaben für einen Eintrag in der Navigation.
+ */
 interface NavItem {
+  /** Angezeigter Name */
   label: string
+
+  /** Ziel des Links */
   to: string
+
+  /** Gibt an, ob der Eintrag aktiv ist. */
   isActive: boolean
 }
 
-function isDevelopmentActive(): boolean {
-  return (
-    route.path === '/dashboard'
-    && route.query.tab !== 'emissions'
-  )
-}
+/*
+ * Berechnet die Navigationseinträge.
+ *
+ * Der aktive Eintrag wird aus der aktuellen Route
+ * und dem ausgewählten Dashboard-Reiter bestimmt.
+ */
+const navItems = computed<NavItem[]>(function (): NavItem[] {
+  const path = route.path
+  const tab = route.query.tab
 
-function isEmissionsActive(): boolean {
-  return (
-    route.path === '/dashboard'
-    && route.query.tab === 'emissions'
-  )
-}
-
-const navItems = computed<NavItem[]>(function () {
   return [
     {
       label: 'Strommix',
       to: '/',
-      isActive: route.path === '/',
+      isActive: path === '/',
     },
     {
       label: 'Entwicklung',
       to: '/dashboard',
-      isActive: isDevelopmentActive(),
+
+      /*
+       * Entwicklung ist der Standardbereich
+       * und deshalb auch ohne tab-Parameter aktiv.
+       */
+      isActive:
+        path === '/dashboard'
+        && tab !== 'emissions',
     },
     {
-      label: 'CO\u2082-Vergleich',
+      label: 'CO₂-Vergleich',
       to: '/dashboard?tab=emissions',
-      isActive: isEmissionsActive(),
+      isActive:
+        path === '/dashboard'
+        && tab === 'emissions',
     },
   ]
 })
 
-const zoomLabel = computed(function () {
-  return 'Ansicht vergr\u00f6\u00dfern (aktuell ' + level.value + ' %)'
+/*
+ * Berechnet die Beschriftung für den Zoom-Button.
+ *
+ * Die aktuelle Zoomstufe wird mit angezeigt.
+ */
+const zoomLabel = computed(function (): string {
+  return (
+    'Ansicht vergrößern (aktuell '
+    + level.value
+    + ' %)'
+  )
 })
 </script>
 
@@ -72,28 +98,34 @@ const zoomLabel = computed(function () {
     aria-label="Hauptnavigation"
   >
     <div class="site-nav-inner">
-      <!-- Hauptbereiche -->
+      <!-- Links zu den Hauptbereichen. -->
       <div class="site-nav-links">
         <NuxtLink
           v-for="item in navItems"
           :key="item.label"
           :to="item.to"
           class="nav-underline"
-          :class="{ 'nav-underline--active': item.isActive }"
+          :class="{
+            'nav-underline--active': item.isActive,
+          }"
           :aria-label="item.label"
-          :aria-current="item.isActive ? 'page' : undefined"
+          :aria-current="
+            item.isActive ? 'page' : undefined
+          "
         >
           {{ item.label }}
         </NuxtLink>
       </div>
 
-      <!-- Einstellungen -->
+      <!-- Einstellungen für Zoom und Kontrast. -->
       <div class="site-nav-controls">
-        <!-- Zoom -->
+        <!-- Zoom der gesamten Seite -->
         <button
           type="button"
           class="zoom-btn nav-underline"
-          :class="{ 'nav-underline--active': level > 100 }"
+          :class="{
+            'nav-underline--active': level > 100,
+          }"
           :aria-label="zoomLabel"
           title="Vergrößert die gesamte Seite. Mehrfach klicken für weitere Stufen."
           @click="cycleZoom"
@@ -110,29 +142,56 @@ const zoomLabel = computed(function () {
             stroke-linejoin="round"
             aria-hidden="true"
           >
-            <circle cx="7" cy="7" r="5" />
-            <line x1="10.5" y1="10.5" x2="14" y2="14" />
-            <line x1="7" y1="4.5" x2="7" y2="9.5" />
-            <line x1="4.5" y1="7" x2="9.5" y2="7" />
+            <circle
+              cx="7"
+              cy="7"
+              r="5"
+            />
+
+            <line
+              x1="10.5"
+              y1="10.5"
+              x2="14"
+              y2="14"
+            />
+
+            <line
+              x1="7"
+              y1="4.5"
+              x2="7"
+              y2="9.5"
+            />
+
+            <line
+              x1="4.5"
+              y1="7"
+              x2="9.5"
+              y2="7"
+            />
           </svg>
+
           <span
             v-if="level > 100"
             class="zoom-value"
             aria-hidden="true"
-          >{{ level }}%</span>
+          >
+            {{ level }}%
+          </span>
         </button>
 
-        <!-- Trennlinie -->
+        <!-- Trennung zwischen den Einstellungen -->
         <span
           class="control-separator"
           aria-hidden="true"
         />
 
-        <!-- Kontrast -->
+        <!-- Umschalten auf stärkere Kontraste -->
         <button
           type="button"
           class="contrast-btn nav-underline"
-          :class="{ 'nav-underline--active': contrastOn }"
+          :class="{
+            'nav-underline--active': contrastOn,
+          }"
           :aria-pressed="contrastOn"
           title="Kräftigere Farben und stärkere Kontraste – hilfreich bei Farbsehschwäche oder eingeschränkter Sehkraft."
           @click="toggleContrast"
@@ -145,83 +204,96 @@ const zoomLabel = computed(function () {
 </template>
 
 <style scoped>
+/* Grundgestaltung der Navigation. */
 .site-nav {
   position: sticky;
   top: 0;
   z-index: 100;
-  background: var(--background-color);
   border-bottom: 1px solid var(--line-color);
+  background: var(--background-color);
   font-family: var(--sans-font);
   font-size: 11px;
 }
 
+/* Anordnung des Inhalts. */
 .site-nav-inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   max-width: 1400px;
+  height: 44px;
   margin: 0 auto;
   padding: 0 24px;
-  height: 44px;
 }
 
-/* Hauptbereiche */
+/* Anordnung der Seitenlinks. */
 .site-nav-links {
   display: flex;
   align-items: center;
   gap: 0;
 }
 
-/* Einstellungen */
+/* Anordnung der Einstellungen. */
 .site-nav-controls {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
 
-/* Gemeinsamer Stil */
+/*
+ * Gemeinsame Basis für die Nav-Einträge und die beiden Einstellungs-Buttons.
+ * Die eigentliche Unterstreichung setze ich unten mit einem ::after-Pseudo-
+ * element, damit ich sie animieren kann, ohne das Layout zu verschieben.
+ */
 .nav-underline {
   position: relative;
   display: inline-flex;
   align-items: center;
   height: 44px;
   padding: 0 20px;
+  border: none;
+  background: none;
+  color: var(--muted-text-color);
+  font-family: inherit;
   font-size: 11px;
   font-weight: 500;
+  line-height: 1;
   letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--muted-text-color);
   text-decoration: none;
+  text-transform: uppercase;
   cursor: pointer;
   transition: color 150ms ease-out;
-  background: none;
-  border: none;
-  font-family: inherit;
-  line-height: 1;
 }
 
+/*
+ * Linie unter einem Navigationseintrag.
+ *
+ * Die kleinere Breite lässt an beiden Seiten Abstand.
+ */
 .nav-underline::after {
-  content: '';
   position: absolute;
   bottom: 0;
   left: 50%;
-  transform: translateX(-50%) scaleX(0);
   width: calc(100% - 40px);
   height: 2px;
   background: var(--accent-color);
+  content: '';
+  transform: translateX(-50%) scaleX(0);
   transition: transform 150ms ease-out;
 }
 
+/* Hervorheben beim Überfahren mit der Maus. */
 .nav-underline:hover {
   color: var(--text-color);
 }
 
 .nav-underline:hover::after {
-  transform: translateX(-50%) scaleX(1);
-  background: var(--line-color);
   height: 1px;
+  background: var(--line-color);
+  transform: translateX(-50%) scaleX(1);
 }
 
+/* Hervorheben des aktiven Bereichs. */
 .nav-underline--active {
   color: var(--accent-color);
   font-weight: 600;
@@ -229,22 +301,24 @@ const zoomLabel = computed(function () {
 }
 
 .nav-underline--active::after {
+  height: 2px;
+  background: var(--accent-color);
   transform: translateX(-50%) scaleX(1);
-  background: var(--accent-color);
-  height: 2px;
 }
 
+/* Aktiven Strich beim Hover beibehalten. */
 .nav-underline--active:hover::after {
-  background: var(--accent-color);
   height: 2px;
+  background: var(--accent-color);
 }
 
+/* Tastaturfokus. */
 .nav-underline:focus-visible {
   outline: 2px solid var(--accent-color);
   outline-offset: -2px;
 }
 
-/* Zoom */
+/* Gestaltung des Zoom-Buttons. */
 .zoom-btn {
   gap: 6px;
   padding: 0 8px;
@@ -254,28 +328,34 @@ const zoomLabel = computed(function () {
   width: calc(100% - 16px);
 }
 
+/* Zoom-Symbol. */
 .zoom-icon {
-  flex-shrink: 0;
   display: block;
+  flex-shrink: 0;
 }
 
+/*
+ * Anzeige der aktuellen Zoomstufe.
+ *
+ * Gleich breite Zahlen verhindern ein sichtbares Springen.
+ */
 .zoom-value {
+  color: var(--accent-color);
   font-size: 10px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-  color: var(--accent-color);
 }
 
-/* Trennlinie */
+/* Trennlinie zwischen Zoom und Kontrast. */
 .control-separator {
   display: inline-block;
   width: 1px;
   height: 16px;
-  background: var(--line-color);
   margin: 0 1.5rem;
+  background: var(--line-color);
 }
 
-/* Kontrast */
+/* Gestaltung des Kontrast-Buttons. */
 .contrast-btn {
   padding: 0 8px;
 }

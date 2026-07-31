@@ -1,9 +1,10 @@
-﻿<script setup lang="ts">
+<script setup lang="ts">
 /**
- * Seitenleiste für das Flächendiagramm
- *
- * Zeigt eine Übersicht, einen Energieträger
- * oder Informationen zu einem Ereignis
+ * Seitenleiste neben dem Flächendiagramm mit drei Zuständen:
+ * Übersicht (keine Auswahl), Energieträger (über die Legende ausgewählt)
+ * und Ereignis (Annotation ausgewählt). Der Hover bestimmt nur den Monat
+ * im Tooltip.
+ * Die Priorität ist Ereignis > Energieträger > Übersicht.
  *
  * @author Selina Schneider
  */
@@ -36,49 +37,71 @@ const emit = defineEmits<{
   selectAnnotation: [annotation: MixAnnotation]
 }>()
 
-function handleAnnotationSelect(annotation: MixAnnotation): void {
+/**
+ * Leitet die Auswahl einer Annotation an die übergeordnete
+ * Komponente weiter, die den Zustand verwaltet.
+ *
+ * @param annotation Ausgewählte Annotation
+ */
+function handleAnnotationSelect(
+  annotation: MixAnnotation,
+): void {
   emit('selectAnnotation', annotation)
 }
 
+// Formatierungsfunktionen für die Kennzahlen in der Seitenleiste.
 const numberFormatter = new Intl.NumberFormat('de-DE', {
   minimumFractionDigits: 1,
   maximumFractionDigits: 1,
 })
 
+/**
+ * Formatiert einen Energiemengenwert mit einer Nachkommastelle und der Einheit TWh.
+ *
+ * @param value Wert in Terawattstunden
+ * @returns Formatierter Wert
+ */
 function formatTwh(value: number): string {
   return `${numberFormatter.format(value)} TWh`
 }
 
+/**
+ * Formatiert einen Anteilswert als Prozentzahl mit einer Nachkommastelle.
+ *
+ * @param share Anteil zwischen 0 und 1
+ * @returns Formatierter Wert
+ */
 function formatPercent(share: number): string {
   return `${numberFormatter.format(share * 100)} %`
 }
 
+/**
+ * Formatiert eine Veränderung in Prozentpunkten mit Vorzeichen.
+ *
+ * @param value Veränderung in Prozentpunkten
+ * @returns Formatierter Wert
+ */
 function formatPercentagePoints(value: number): string {
-  const formattedValue = numberFormatter.format(Math.abs(value))
+  const rounded = Math.round(value * 10) / 10
+  const formatted = numberFormatter.format(Math.abs(rounded))
 
-  if (value > 0) {
-    return `+${formattedValue} pp`
-  }
-
-  if (value < 0) {
-    return `-${formattedValue} pp`
-  }
-
-  return `${formattedValue} pp`
+  if (rounded > 0) return `+${formatted} pp`
+  if (rounded < 0) return `-${formatted} pp`
+  return `${formatted} pp`
 }
 
+/**
+ * Formatiert eine Energiemengenveränderung mit Vorzeichen und der Einheit TWh.
+ *
+ * @param value Veränderung in Terawattstunden
+ * @returns Formatierter Wert
+ */
 function formatSignedTwh(value: number): string {
-  const formattedValue = numberFormatter.format(Math.abs(value))
+  const formatted = numberFormatter.format(Math.abs(value))
 
-  if (value > 0) {
-    return `+${formattedValue} TWh`
-  }
-
-  if (value < 0) {
-    return `-${formattedValue} TWh`
-  }
-
-  return `${formattedValue} TWh`
+  if (value > 0) return `+${formatted} TWh`
+  if (value < 0) return `-${formatted} TWh`
+  return `${formatted} TWh`
 }
 
 const monthFormatter = new Intl.DateTimeFormat('de-DE', {
@@ -86,6 +109,12 @@ const monthFormatter = new Intl.DateTimeFormat('de-DE', {
   year: 'numeric',
 })
 
+/**
+ * Formatiert ein Datum als deutschen Monatsnamen mit Jahr.
+ *
+ * @param date Datum des Monats
+ * @returns Formatierter Wert
+ */
 function formatMonth(date: Date): string {
   return monthFormatter.format(date)
 }
@@ -455,4 +484,3 @@ function formatMonth(date: Date): string {
 
 /* .sidebar-divider – Regel in main.css */
 </style>
-

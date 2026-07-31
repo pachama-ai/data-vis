@@ -1,9 +1,10 @@
 <script setup lang="ts">
 /**
- * Komponente für das gestapelte Flächendiagramm
- *
- * Lädt die Daten, erstellt das Diagramm und
- * gibt Änderungen an die Chart-Klasse weiter
+ * Steuert das Dashboard für den Strommix-Verlauf:
+ * lädt Monatsdaten und Annotationen, erstellt die StackedAreaChart-
+ * Instanz und leitet Hover, Klick und Farbmodus weiter.
+ * Die Seitenleiste zeigt je nach Zustand Übersicht, Energieträger
+ * oder Annotation.
  *
  * @author Selina Schneider
  */
@@ -37,6 +38,7 @@ const {
   error,
   loadData,
 } = useMixData()
+
 const {
   mode,
   colorMode,
@@ -51,13 +53,14 @@ const {
 } = useMixSelection()
 
 const hoverPayload = ref<MixHoverPayload | null>(null)
-
 const annotations = ref<MixAnnotation[]>([])
 
 let chart: StackedAreaChart | null = null
 
-// Werte für die Sidebar
+// Sidebar-Daten: alle drei Zustände werden als computed berechnet,
+// damit die Sidebar reaktiv auf Änderungen in den Monatsdaten reagiert.
 
+// Sucht die Annotation, deren ID der aktuellen Auswahl entspricht.
 const activeAnnotation = computed(function () {
   if (selectedAnnotation.value === null) {
     return null
@@ -68,10 +71,12 @@ const activeAnnotation = computed(function () {
   }) ?? null
 })
 
+// Kennzahlen für die Übersichtsansicht (kein Hover, keine Auswahl).
 const overviewMetrics = computed(function () {
   return getOverviewMetrics(yearRows.value)
 })
 
+// Kennzahlen für den ausgewählten Energieträger, null wenn keiner aktiv.
 const sourceMetrics = computed(function () {
   if (highlighted.value === null) {
     return null
@@ -84,6 +89,7 @@ const sourceMetrics = computed(function () {
   )
 })
 
+// Kontext für die ausgewählte Annotation, null wenn keine aktiv.
 const annotationContext = computed(function () {
   if (activeAnnotation.value === null) {
     return null
@@ -95,8 +101,8 @@ const annotationContext = computed(function () {
   )
 })
 
-// Auswahl im Diagramm
-
+// Bestimmt, welche Flächen hervorgehoben werden. Eine Annotation kann
+// mehrere Energieträger hervorheben, die Legende wählt genau einen aus.
 const highlightedSources = computed<MixSourceKey[] | null>(function () {
   if (activeAnnotation.value) {
     return activeAnnotation.value.highlight
@@ -109,11 +115,8 @@ const highlightedSources = computed<MixSourceKey[] | null>(function () {
   return null
 })
 
-// Diagramm erstellen
-
 /**
- * Erstellt das Diagramm. Ohne Container-Element kann es noch
- * nicht aufgebaut werden.
+ * Erstellt die StackedAreaChart-Instanz und registriert alle Handler.
  */
 function initializeChart(): void {
   const container = chartTemplate.value?.chartContainer
@@ -135,23 +138,23 @@ function initializeChart(): void {
 }
 
 /**
- * Speichert den Hover-Payload für den Tooltip.
+ * Speichert den Hover-Payload, damit MixTooltip ihn anzeigen kann.
  *
- * @param payload Hover-Informationen (Monat und optionaler Quellschlüssel)
+ * @param payload Hover-Informationen mit Monat und optionalem Quellschlüssel
  */
 function handleChartHover(payload: MixHoverPayload): void {
   hoverPayload.value = payload
 }
 
 /**
- * Entfernt den Hover-Payload (Tooltip verschwindet).
+ * Blendet den Tooltip aus, wenn der Cursor die Zeichenfläche verlässt.
  */
 function handleChartLeave(): void {
   hoverPayload.value = null
 }
 
 /**
- * Setzt bei Klick ins Leere alle Auswahlen zurück.
+ * Setzt alle aktiven Auswahlen zurück, wenn ins Leere geklickt wird.
  */
 function handleChartBackgroundClick(): void {
   setHighlighted(null)
@@ -160,10 +163,10 @@ function handleChartBackgroundClick(): void {
 }
 
 /**
- * Schaltet die Hervorhebung eines Energieträgers um oder setzt
- * sie zurück (bei null).
+ * Schaltet die Hervorhebung eines Energieträgers um.
+ * Wird null übergeben, wird die Hervorhebung zurückgesetzt.
  *
- * @param sourceKey Ausgewählter Träger oder null zum Zurücksetzen
+ * @param sourceKey Hervorzuhebender Energieträger oder null zum Zurücksetzen
  */
 function handleSourceSelect(sourceKey: MixSourceKey | null): void {
   if (sourceKey === null) {
@@ -174,8 +177,7 @@ function handleSourceSelect(sourceKey: MixSourceKey | null): void {
 }
 
 /**
- * Wählt eine Annotation aus und schaltet die vorherige Auswahl
- * aus. Extrahiert das Jahr aus dem Datum der Annotation.
+ * Wählt eine Annotation aus und setzt eine vorherige Hervorhebung zurück.
  *
  * @param annotation Ausgewählte Annotation
  */
@@ -183,13 +185,11 @@ function handleAnnotationSelect(annotation: MixAnnotation): void {
   const parts = annotation.date.split('-')
   const year = Number.parseInt(parts[0] ?? '0', 10)
 
-  // Vorherige Auswahl löschen
   setHighlighted(null)
   toggleAnnotation(annotation.id, year)
 }
 
-// Daten laden
-
+// Daten laden und Diagramm danach initialisieren.
 onMounted(async function () {
   await loadData()
 
@@ -208,8 +208,7 @@ onMounted(async function () {
   initializeChart()
 })
 
-// Änderungen an das Diagramm weitergeben
-
+// Jeder Watcher leitet genau eine Änderung an die Chart-Instanz weiter.
 watch(monthRows, function (updatedMonthRows) {
   chart?.setData(updatedMonthRows)
 })
@@ -235,8 +234,7 @@ watch(colorMode, function (updatedMode) {
   chart?.setColors(updatedMode)
 })
 
-// Diagramm entfernen
-
+// Aufräumen: Diagramm zerstören und Refs leeren.
 onBeforeUnmount(function () {
   chart?.destroy()
   chart = null
@@ -253,7 +251,10 @@ onBeforeUnmount(function () {
         title=""
       >
         <template #controls>
-          <div class="mode-toggle" aria-label="Darstellungsmodus">
+          <div
+            class="mode-toggle"
+            aria-label="Darstellungsmodus"
+          >
             <button
               type="button"
               class="mode-button"
@@ -293,8 +294,17 @@ onBeforeUnmount(function () {
           @select="handleSourceSelect"
         />
 
-        <p v-if="pending" class="chart-note">Daten werden geladen …</p>
-        <p v-else-if="error" class="chart-note chart-note-error">
+        <p
+          v-if="pending"
+          class="chart-note"
+        >
+          Daten werden geladen …
+        </p>
+
+        <p
+          v-else-if="error"
+          class="chart-note chart-note-error"
+        >
           Daten konnten nicht geladen werden: {{ error }}
         </p>
       </ChartTemplate>
@@ -312,6 +322,9 @@ onBeforeUnmount(function () {
 </template>
 
 <style scoped>
+/*
+ * Zweigeteiltes Layout
+ */
 .stacked-area-content {
   display: grid;
   grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr);
@@ -374,6 +387,4 @@ onBeforeUnmount(function () {
   outline: 2px solid var(--accent-color);
   outline-offset: -2px;
 }
-
-
 </style>

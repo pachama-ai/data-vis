@@ -642,14 +642,14 @@ export class StackedAreaChart extends BaseChart {
       .attr('d', function (series) {
         const seriesKey = series.key as MixSourceKey
 
-        // d3.line pro Serie, weil defined() den Rohwert der jeweiligen
-        // Quelle braucht – nicht den Stapelwert.
+        // d3.line pro Serie, weil defined() den Rohwert des jeweiligen
+        // Energieträgers braucht, nicht den Stapelwert.
         const outlineLine = d3
           .line<d3.SeriesPoint<MixMonthRow>>()
           .defined(function (stackedPoint) {
             const sourceValue = stackedPoint.data.values[seriesKey]
 
-            // Nur zeichnen, wenn die Quelle in dem Monat auch produziert hat.
+            // Nur zeichnen, wenn der Energieträger in dem Monat produziert hat.
             return sourceValue > 0
           })
           .x(function (stackedPoint) {
