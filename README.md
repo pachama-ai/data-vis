@@ -37,4 +37,4 @@ bun run dev -o
 
 ## Verfasserin
 
-Selina Schneider · 84171 Visualisierung · Hochschule Harz
+Selina Schneider
